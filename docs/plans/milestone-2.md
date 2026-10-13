@@ -1,6 +1,6 @@
 # Milestone 2: Member check-in flow
 
-**Status:** PRs 1–4 done (merged as #3–#6). Next: PR 5.
+**Status:** PRs 1–4 done (merged as #3–#6). PR 5 in review (#8). Next: PR 6.
 
 ## Context
 The TidyHQ layer is done: `TidyClient`, `MockTidyClient`, seed data, `resolveEventGroup`, and the points field helpers. Nothing lets a member check in yet. This milestone adds the full self check-in path. A member scans a QR code, signs in with (mock) TidyHQ, taps once, and sees a confirmation. We verify their membership, add them to the event's attendance group, and recalculate their points. Each step is built test-first, in small PRs.
@@ -62,6 +62,7 @@ Admins set check-in open/close times when they create the event in TidyHQ. We do
   - `POST /auth/signout`: clears the session.
 - Fake TidyHQ page: `src/app/mock-tidyhq/oauth/authorize/page.tsx` lists the seed members. Each one is a link back to `redirect_uri?code=…&state=…`. It returns 404 when `TIDYHQ_MODE=live`.
 - Tests first for the OAuth logic: the mock's authorize URL has `client_id`, `redirect_uri`, `response_type=code`, `state`; a code exchange followed by `getMe` gives the right contact; a bad code throws a 401 `TidyError`.
+- *As built:* `exchangeCode` takes `{ code, redirectUri }` (real OAuth exchanges must resend the redirect URI). The fake page only redirects to this site's `/auth/callback`. Failed sign-ins go to an `/auth/error` page.
 
 ### PR 6: Check-in page and confirmation
 - `src/app/checkin/[eventId]/page.tsx` (Server Component):
