@@ -85,6 +85,38 @@ describe("checkIn", () => {
     expect(await storedPoints(client, "c_marcus")).toBe(1);
   });
 
+  it("reports an existing check-in after the window closes", async () => {
+    const client = seededClient();
+    const result = await checkIn(client, {
+      eventId: "ev_pub_night",
+      contactId: "c_marcus",
+      now: NOW,
+    });
+    expect(result).toEqual({
+      status: "already_checked_in",
+      name: "Marcus Bell",
+      eventName: "Pub Night",
+      total: 1,
+    });
+  });
+
+  it("reports an existing check-in even if membership has since expired", async () => {
+    const client = seededClient((seed) => {
+      seed.groupMembers.grp_social_night.push("c_lee");
+    });
+    const result = await checkIn(client, {
+      eventId: "ev_tonight",
+      contactId: "c_lee",
+      now: NOW,
+    });
+    expect(result).toEqual({
+      status: "already_checked_in",
+      name: "Lee Hart",
+      eventName: "Social Night",
+      total: 1,
+    });
+  });
+
   it("gives the same total when a check-in is retried", async () => {
     const client = seededClient();
     const input = { eventId: "ev_tonight", contactId: "c_dante", now: NOW };
