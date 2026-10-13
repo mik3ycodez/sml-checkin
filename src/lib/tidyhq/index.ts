@@ -4,6 +4,12 @@ import { MockTidyClient } from "./mock/MockTidyClient";
 export type { TidyClient, ListEventsOptions } from "./client";
 export { TidyError } from "./errors";
 export { resolveEventGroup } from "./eventGroups";
+export {
+  getCheckinWindow,
+  isCheckinOpen,
+  type CheckinStatus,
+  type CheckinWindow,
+} from "./checkinWindow";
 export { buildPointsPatch, readPoints, POINTS_FIELD_ID } from "./customFields";
 export type * from "./types";
 

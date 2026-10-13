@@ -89,6 +89,15 @@ export interface Event {
   updated_at: string;
 }
 
+/**
+ * Admin-set check-in open/close times for an event (ISO timestamps). Which
+ * TidyHQ field holds these is unknown until live access.
+ */
+export interface EventCheckinWindow {
+  opens_at: string;
+  closes_at: string;
+}
+
 export interface Group {
   id: string;
   label: string;

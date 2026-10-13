@@ -26,6 +26,10 @@ system of record; this app is a thin layer on top of it.
 - Payments, renewals, profile editing (TidyHQ handles these)
 - Anti-gaming measures (audits instead)
 - Its own database (add later only if reporting needs it)
+- Warnings for invalid check-in windows (later, on admin event pages). A
+  window that's half-filled, unparseable, or closes before it opens is
+  silently ignored, and check-in falls back to the event's start and end.
+  Admins should see a warning so they can fix it in TidyHQ.
 
 ## Key decisions
 

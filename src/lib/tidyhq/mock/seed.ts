@@ -1,7 +1,9 @@
+import { addDays, seattleDate } from "../../dates";
 import { POINTS_FIELD_ID } from "../customFields";
 import type {
   Contact,
   Event,
+  EventCheckinWindow,
   Group,
   Membership,
   MembershipLevel,
@@ -16,20 +18,23 @@ export interface MockSeed {
   groups: Group[];
   /** groupId -> contact ids in that group */
   groupMembers: Record<string, string[]>;
+  /** eventId -> admin-set check-in window; events not listed have none. */
+  checkinWindows: Record<string, EventCheckinWindow>;
 }
 
 /** Contact id used as the author of notes written with the admin token. */
 export const MOCK_ADMIN_CONTACT_ID = "c_admin";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 
 function daysFrom(now: Date, days: number): Date {
   return new Date(now.getTime() + days * DAY_MS);
 }
 
-/** `YYYY-MM-DD` */
-function dateOnly(date: Date): string {
-  return date.toISOString().slice(0, 10);
+/** `iso` moved by `ms` milliseconds. */
+function shiftIso(iso: string, ms: number): string {
+  return new Date(new Date(iso).getTime() + ms).toISOString();
 }
 
 /** An evening start: 02:00 UTC is 7pm in Seattle (PDT). */
@@ -44,6 +49,7 @@ function eveningOf(now: Date, days: number): Date {
  * and tests are deterministic when given a fixed date.
  */
 export function createSeed(now: Date = new Date()): MockSeed {
+  const today = seattleDate(now);
   const created = daysFrom(now, -400).toISOString();
 
   const contact = (
@@ -59,7 +65,7 @@ export function createSeed(now: Date = new Date()): MockSeed {
     nick_name: "",
     email_address: `${first.toLowerCase()}@example.com`,
     status: "active",
-    member_since: dateOnly(daysFrom(now, -365)),
+    member_since: addDays(today, -365),
     created_at: created,
     updated_at: created,
     custom_fields: {
@@ -87,8 +93,8 @@ export function createSeed(now: Date = new Date()): MockSeed {
       status: expired ? "Expired" : "Activated",
       membership_level_id: levelId,
       contact_id: contactId,
-      start_date: dateOnly(daysFrom(now, startDays)),
-      end_date: dateOnly(daysFrom(now, endDays)),
+      start_date: addDays(today, startDays),
+      end_date: addDays(today, endDays),
       created_at: created,
       updated_at: created,
     };
@@ -97,16 +103,15 @@ export function createSeed(now: Date = new Date()): MockSeed {
   const event = (
     id: string,
     name: string,
-    days: number,
+    start: Date,
     hours: number,
     location: string,
   ): Event => {
-    const start = eveningOf(now, days);
     return {
       id,
       name,
       start_at: start.toISOString(),
-      end_at: new Date(start.getTime() + hours * 60 * 60 * 1000).toISOString(),
+      end_at: shiftIso(start.toISOString(), hours * HOUR_MS),
       body: `<p>${name} with Seattle Men in Leather.</p>`,
       location,
       public: true,
@@ -128,6 +133,7 @@ export function createSeed(now: Date = new Date()): MockSeed {
   const groupMembers: Record<string, string[]> = {
     // Marcus and Jordan attended last month's pub night.
     grp_pub_night: ["c_marcus", "c_jordan"],
+    grp_social_night: [],
     grp_bootblack_social: [],
     grp_bar_night: [],
     grp_leather_brunch: [],
@@ -135,10 +141,65 @@ export function createSeed(now: Date = new Date()): MockSeed {
 
   const groups = [
     group("grp_pub_night", "Attendees: Pub Night"),
+    group("grp_social_night", "Attendees: Social Night"),
     group("grp_bootblack_social", "Attendees: Bootblack Social"),
     group("grp_bar_night", "Attendees: Monthly Bar Night"),
     group("grp_leather_brunch", "Attendees: Leather Brunch"),
   ].map((g) => ({ ...g, size: groupMembers[g.id].length }));
+
+  const events = [
+    event(
+      "ev_pub_night",
+      "Pub Night",
+      eveningOf(now, -30),
+      3,
+      "The Eagle, Seattle",
+    ),
+    // Started an hour ago when the seed was built. See its window below.
+    event(
+      "ev_tonight",
+      "Social Night",
+      new Date(now.getTime() - HOUR_MS),
+      4,
+      "The Eagle, Seattle",
+    ),
+    event(
+      "ev_bootblack_social",
+      "Bootblack Social",
+      eveningOf(now, 5),
+      3,
+      "Capitol Hill",
+    ),
+    event(
+      "ev_bar_night",
+      "Monthly Bar Night",
+      eveningOf(now, 12),
+      4,
+      "The Cuff Complex",
+    ),
+    event(
+      "ev_leather_brunch",
+      "Leather Brunch",
+      eveningOf(now, 26),
+      2,
+      "Capitol Hill",
+    ),
+  ];
+
+  // Doors open 30 minutes before start; check-in closes an hour before the
+  // event ends. Monthly Bar Night has no window, to exercise the fallback.
+  const checkinWindows: Record<string, EventCheckinWindow> = {};
+  for (const e of events) {
+    if (e.id === "ev_bar_night") continue;
+    checkinWindows[e.id] = {
+      opens_at: shiftIso(e.start_at!, -HOUR_MS / 2),
+      closes_at: shiftIso(e.end_at!, -HOUR_MS),
+    };
+  }
+  // The dev server builds the seed once and keeps it (getTidyClient caches
+  // the client), so keep Social Night open for a day after that for manual
+  // testing, not just until its end time.
+  checkinWindows.ev_tonight.closes_at = shiftIso(now.toISOString(), DAY_MS);
 
   return {
     contacts: [
@@ -161,13 +222,9 @@ export function createSeed(now: Date = new Date()): MockSeed {
       { id: "lvl_full", name: "Full Member", description: null },
       { id: "lvl_associate", name: "Associate Member", description: null },
     ],
-    events: [
-      event("ev_pub_night", "Pub Night", -30, 3, "The Eagle, Seattle"),
-      event("ev_bootblack_social", "Bootblack Social", 5, 3, "Capitol Hill"),
-      event("ev_bar_night", "Monthly Bar Night", 12, 4, "The Cuff Complex"),
-      event("ev_leather_brunch", "Leather Brunch", 26, 2, "Capitol Hill"),
-    ],
+    events,
     groups,
     groupMembers,
+    checkinWindows,
   };
 }
