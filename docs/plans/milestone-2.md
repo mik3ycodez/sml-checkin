@@ -1,6 +1,6 @@
 # Milestone 2: Member check-in flow
 
-**Status:** PRs 1–4 done (merged as #3–#6). PR 5 in review (#8). Next: PR 6.
+**Status:** PRs 1–5 done (merged as #3–#6 and #8). PR 6 in review. Next: PR 7.
 
 ## Context
 The TidyHQ layer is done: `TidyClient`, `MockTidyClient`, seed data, `resolveEventGroup`, and the points field helpers. Nothing lets a member check in yet. This milestone adds the full self check-in path. A member scans a QR code, signs in with (mock) TidyHQ, taps once, and sees a confirmation. We verify their membership, add them to the event's attendance group, and recalculate their points. Each step is built test-first, in small PRs.
@@ -54,7 +54,7 @@ Admins set check-in open/close times when they create the event in TidyHQ. We do
 - Add `SESSION_SECRET` to `.env.example`. It must be set; the app throws a clear error if it's missing.
 - Tests first: round trip, tampered signature, expired, wrong secret, bad input. For `returnTo`: `//evil.com`, `https://…`, `/checkin/x` allowed.
 
-### PR 5: Mock "Sign in with TidyHQ"
+### PR 5: Mock "Sign in with TidyHQ" ✅ Done (#8)
 - `src/lib/tidyhq/oauth.ts`: the `TidyOAuth` interface and `getTidyOAuth()`. `src/lib/tidyhq/mock/MockTidyOAuth.ts`: its code is `mock-code-<contactId>`, which it exchanges for `issueMockToken(contactId)`.
 - Routes (Route Handlers, since they set cookies):
   - `GET /auth/signin?returnTo=…`: makes a random `state`, saves `{state, returnTo}` in a short-lived httpOnly cookie, and redirects to `authorizeUrl`.
@@ -73,6 +73,7 @@ Admins set check-in open/close times when they create the event in TidyHQ. We do
 - `result/page.tsx` re-reads the current state from TidyHQ (whether they're in the group, plus the points field). This way a refresh shows the right thing and nothing can be faked through the URL. It shows the confirmation: name, **+1 point**, and the new total.
 - The forms are plain HTML `<form action>`, so check-in works even when JavaScript fails on older phones.
 - **Sliding session expiry** (deferred from the PR 4 review): after a successful check-in, the Server Action calls `setSession(contactId)` again, which resets the 90-day expiry. Members who keep coming never get signed out. It's done in the action because Server Components can't set cookies. Test first: the action re-issues the cookie on `checked_in` and `already_checked_in`.
+- *As built:* the result page reads state through `getCheckinStatus` (`src/lib/checkin/checkinStatus.ts`), which shares `findEvent` with `checkIn` and changes nothing. It shows `POINTS_PER_CHECKIN.attendee`, since the role isn't saved; that's true however many times the member tapped, because each member earns it once per event. Every action outcome except `unknown_event` redirects to the result page; members who weren't checked in (expired, not open, unreadable total) see a plain "You're not checked in" until PR 7 explains why. "Not you? sign out" posts `returnTo` to `/auth/signout` (checked with `safeReturnTo`), so it leads straight back to sign-in. The pages sit behind `<Suspense>` because `cacheComponents` is on; a redirect from there is sent as a meta refresh, which works without JavaScript.
 
 ### PR 7: Friendly outcome screens
 - One small component per non-happy outcome, shown from the page or the action result:
