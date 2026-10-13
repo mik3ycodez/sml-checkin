@@ -72,6 +72,8 @@ so the app is built against a **mock TidyHQ**.
 ## Stack
 
 - Next.js (App Router), React, TypeScript (strict)
+- Next.js version guidance (managed by `next dev`; don't edit inside its
+  markers): @AGENTS.md
 - Node 24
 - Tests: Vitest
 - Mobile-first: the member side is used on phones at event doors
