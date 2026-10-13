@@ -51,6 +51,7 @@ describe("POST /auth/signout", () => {
       { returnTo: "//evil.example/" },
     );
     expect(response.headers.get("location")).toBe("http://localhost:3000/");
+    expect(cookieStore.delete).toHaveBeenCalledWith(SESSION_COOKIE);
   });
 
   it("refuses a cross-site request without signing out", async () => {
