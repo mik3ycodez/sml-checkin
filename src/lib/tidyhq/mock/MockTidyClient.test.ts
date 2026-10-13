@@ -89,6 +89,7 @@ describe("MockTidyClient", () => {
       const events = await client.listEvents();
       expect(events.map((e) => e.id)).toEqual([
         "ev_pub_night",
+        "ev_tonight",
         "ev_bootblack_social",
         "ev_bar_night",
         "ev_leather_brunch",
@@ -97,13 +98,13 @@ describe("MockTidyClient", () => {
 
     it("filters to upcoming events with `after`", async () => {
       const upcoming = await client.listEvents({ after: NOW });
-      expect(upcoming).toHaveLength(3);
+      expect(upcoming).toHaveLength(4);
       expect(upcoming.every((e) => new Date(e.end_at!) > NOW)).toBe(true);
     });
 
     it("filters with `before`", async () => {
       const past = await client.listEvents({ before: NOW });
-      expect(past.map((e) => e.id)).toEqual(["ev_pub_night"]);
+      expect(past.map((e) => e.id)).toEqual(["ev_pub_night", "ev_tonight"]);
     });
 
     it("gets an event by id", async () => {
@@ -115,11 +116,58 @@ describe("MockTidyClient", () => {
       await expectTidyError(client.getEvent("ev_nope"), 404);
     });
 
+    it("has a Social Night happening right now", async () => {
+      const event = await client.getEvent("ev_tonight");
+      expect(event.name).toBe("Social Night");
+      expect(new Date(event.start_at!) <= NOW).toBe(true);
+      expect(new Date(event.end_at!) > NOW).toBe(true);
+    });
+
     it("maps every seed event to an existing group", async () => {
       for (const event of await client.listEvents()) {
         const groupId = resolveEventGroup(event);
         await expect(client.listGroupContacts(groupId)).resolves.toBeDefined();
       }
+    });
+  });
+
+  describe("check-in windows", () => {
+    it("returns the admin-set window for an event", async () => {
+      const window = await client.getEventCheckinWindow("ev_leather_brunch");
+      const event = await client.getEvent("ev_leather_brunch");
+      expect(window).not.toBeNull();
+      expect(new Date(window!.opens_at) < new Date(event.start_at!)).toBe(true);
+      expect(new Date(window!.closes_at) > new Date(window!.opens_at)).toBe(
+        true,
+      );
+    });
+
+    it("has an open window for tonight's event", async () => {
+      const window = await client.getEventCheckinWindow("ev_tonight");
+      expect(new Date(window!.opens_at) <= NOW).toBe(true);
+      expect(new Date(window!.closes_at) > NOW).toBe(true);
+    });
+
+    it("returns null for an event with no window set", async () => {
+      expect(await client.getEventCheckinWindow("ev_bar_night")).toBeNull();
+    });
+
+    it("404s on an unknown event", async () => {
+      await expectTidyError(client.getEventCheckinWindow("ev_nope"), 404);
+    });
+  });
+
+  describe("seed dates", () => {
+    // 05:00 UTC on the 13th is 10pm on the 12th in Seattle (PDT).
+    const EVENING = new Date("2026-10-13T05:00:00Z");
+
+    it("uses the Seattle calendar date, not the UTC date", () => {
+      const seed = createSeed(EVENING);
+      const sam = seed.memberships.find((m) => m.id === "m_sam")!;
+      // Seattle "today" is 2026-10-12, so 14 days out is 2026-10-26.
+      expect(sam.end_date).toBe("2026-10-26");
+      const marcus = seed.contacts.find((c) => c.id === "c_marcus")!;
+      expect(marcus.member_since).toBe("2025-10-12");
     });
   });
 

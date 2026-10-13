@@ -2,6 +2,7 @@ import type {
   Contact,
   ContactPatch,
   Event,
+  EventCheckinWindow,
   Membership,
   MembershipLevel,
   Note,
@@ -45,6 +46,14 @@ export interface TidyClient {
 
   /** `GET /v2/events/{id}` */
   getEvent(eventId: string): Promise<Event>;
+
+  /**
+   * The event's admin-set check-in window, or null if none is set. Throws 404
+   * for an unknown event. Source in TidyHQ is unknown until live access (a
+   * custom field or the event body, perhaps); only `getCheckinWindow` should
+   * call this.
+   */
+  getEventCheckinWindow(eventId: string): Promise<EventCheckinWindow | null>;
 
   /** `GET /v1/groups/{groupID}/contacts` */
   listGroupContacts(groupId: string): Promise<Contact[]>;

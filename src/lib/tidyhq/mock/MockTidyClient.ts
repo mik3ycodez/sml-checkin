@@ -4,6 +4,7 @@ import type {
   Contact,
   ContactPatch,
   Event,
+  EventCheckinWindow,
   Membership,
   MembershipLevel,
   Note,
@@ -104,6 +105,13 @@ export class MockTidyClient implements TidyClient {
     const event = this.state.events.find((e) => e.id === eventId);
     if (!event) throw new TidyError(404, `Event ${eventId} not found`);
     return structuredClone(event);
+  }
+
+  async getEventCheckinWindow(
+    eventId: string,
+  ): Promise<EventCheckinWindow | null> {
+    await this.getEvent(eventId);
+    return structuredClone(this.state.checkinWindows[eventId] ?? null);
   }
 
   async listGroupContacts(groupId: string): Promise<Contact[]> {

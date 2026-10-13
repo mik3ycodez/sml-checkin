@@ -9,6 +9,7 @@ import type { Event } from "./types";
 // explicit mapping; switching to `event.group_id` is a change to this file only.
 const EVENT_GROUPS: Record<string, string> = {
   ev_pub_night: "grp_pub_night",
+  ev_tonight: "grp_social_night",
   ev_bootblack_social: "grp_bootblack_social",
   ev_bar_night: "grp_bar_night",
   ev_leather_brunch: "grp_leather_brunch",
