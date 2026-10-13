@@ -9,7 +9,7 @@ import type { TidyClient } from "../tidyhq/client";
 import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
 import { isTidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
-import type { Event } from "../tidyhq/types";
+import type { Contact, Event } from "../tidyhq/types";
 
 export interface CheckInInput {
   eventId: string;
@@ -40,7 +40,9 @@ export type CheckInResult =
   | { status: "points_unreadable"; name: string; eventName: string | null }
   | { status: "not_open"; eventName: string | null; opensAt: Date }
   | { status: "closed"; eventName: string | null }
-  | { status: "unknown_event" };
+  | { status: "unknown_event" }
+  /** The session names a contact TidyHQ no longer has (merged or deleted). */
+  | { status: "unknown_contact" };
 
 /** The event and its attendance group, or null if either is missing. */
 export async function findEvent(
@@ -58,10 +60,43 @@ export async function findEvent(
   return groupId ? { event, groupId } : null;
 }
 
+/** The contact, or null if TidyHQ doesn't have it. */
+export async function findContact(
+  client: TidyClient,
+  contactId: string,
+): Promise<Contact | null> {
+  try {
+    return await client.getContact(contactId);
+  } catch (error) {
+    if (isTidyError(error, 404)) return null;
+    throw error;
+  }
+}
+
+/**
+ * The member's contact (with their stored points) and whether they're in the
+ * event's attendance group, or null if the contact is gone. The one place
+ * that decides "already checked in".
+ *
+ * The contact is read before the group, never alongside it. Otherwise an
+ * overlapping check-in could land between the two reads: this request would
+ * see "not checked in" but the other's new total, and award twice.
+ */
+export async function readAttendance(
+  client: TidyClient,
+  groupId: string,
+  contactId: string,
+): Promise<{ contact: Contact; checkedIn: boolean } | null> {
+  const contact = await findContact(client, contactId);
+  if (!contact) return null;
+  const attendees = await client.listGroupContacts(groupId);
+  return { contact, checkedIn: attendees.some((c) => c.id === contactId) };
+}
+
 /**
  * Self or staff check-in for one member at one event. Returns what happened
  * rather than throwing, so pages only need to render the result. Unexpected
- * TidyHQ failures (e.g. an unknown contact) still throw.
+ * TidyHQ failures (e.g. TidyHQ being down) still throw.
  *
  * Order: event → existing check-in → check-in window → membership. An
  * existing check-in comes first so a member who reloads the page after the
@@ -83,18 +118,16 @@ export async function checkIn(
   const { event, groupId } = found;
   const eventName = event.name;
 
-  // The contact (and its points) must be read before the group. Otherwise an
-  // overlapping check-in could land between the two reads: this request
-  // would see "not checked in" but the other's new total, and award twice.
   // The window is only needed if not already checked in, but fetching it
   // alongside saves a round trip on the common path.
-  const [contact, window] = await Promise.all([
-    client.getContact(contactId),
+  const [attendance, window] = await Promise.all([
+    readAttendance(client, groupId, contactId),
     getCheckinWindow(client, event),
   ]);
-  const attendees = await client.listGroupContacts(groupId);
+  if (!attendance) return { status: "unknown_contact" };
+  const { contact } = attendance;
   const name = contact.display_name;
-  if (attendees.some((c) => c.id === contactId)) {
+  if (attendance.checkedIn) {
     const total = readPoints(contact);
     return { status: "already_checked_in", name, eventName, total };
   }

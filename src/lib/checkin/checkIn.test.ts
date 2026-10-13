@@ -3,7 +3,7 @@ import { readPoints } from "../tidyhq/customFields";
 import { TidyError } from "../tidyhq/errors";
 import { MockTidyClient } from "../tidyhq/mock/MockTidyClient";
 import { createSeed } from "../tidyhq/mock/seed";
-import { checkIn } from "./checkIn";
+import { checkIn, findContact } from "./checkIn";
 
 const NOW = new Date("2026-10-12T18:00:00Z");
 
@@ -340,14 +340,33 @@ describe("checkIn", () => {
     expect(result).toMatchObject({ status: "closed" });
   });
 
-  it("lets unexpected TidyHQ errors through", async () => {
+  it("reports an unknown contact (a stale session) without writing anything", async () => {
     const client = seededClient();
-    const error = await checkIn(client, {
+    const result = await checkIn(client, {
       eventId: "ev_tonight",
       contactId: "c_nobody",
       now: NOW,
-    }).catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(TidyError);
-    expect((error as TidyError).status).toBe(404);
+    });
+    expect(result).toEqual({ status: "unknown_contact" });
+    expect(await groupIds(client, "grp_social_night")).not.toContain("c_nobody");
+  });
+});
+
+describe("findContact", () => {
+  it("returns the contact", async () => {
+    const contact = await findContact(seededClient(), "c_dante");
+    expect(contact?.display_name).toBe("Dante Ruiz");
+  });
+
+  it("returns null for a contact TidyHQ doesn't have", async () => {
+    expect(await findContact(seededClient(), "c_nobody")).toBeNull();
+  });
+
+  it("lets other TidyHQ errors through", async () => {
+    const client = seededClient();
+    client.getContact = async () => {
+      throw new TidyError(503, "TidyHQ unavailable");
+    };
+    await expect(findContact(client, "c_dante")).rejects.toBeInstanceOf(TidyError);
   });
 });

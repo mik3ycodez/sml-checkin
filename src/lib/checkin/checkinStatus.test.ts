@@ -69,6 +69,15 @@ describe("getCheckinStatus", () => {
     expect(members.map((c) => c.id)).not.toContain("c_dante");
   });
 
+  it("reports an unknown contact (a stale session)", async () => {
+    const client = seededClient();
+    const status = await getCheckinStatus(client, {
+      eventId: "ev_tonight",
+      contactId: "c_nobody",
+    });
+    expect(status).toEqual({ status: "unknown_contact" });
+  });
+
   it("reports an unknown event", async () => {
     const client = seededClient();
     const status = await getCheckinStatus(client, {

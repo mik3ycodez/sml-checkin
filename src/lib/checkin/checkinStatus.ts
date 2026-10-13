@@ -1,6 +1,6 @@
 import type { TidyClient } from "../tidyhq/client";
 import { readPoints } from "../tidyhq/customFields";
-import { findEvent } from "./checkIn";
+import { findEvent, readAttendance } from "./checkIn";
 
 export type CheckinStatus =
   | {
@@ -11,7 +11,9 @@ export type CheckinStatus =
       total: number | null;
     }
   | { status: "not_checked_in"; name: string; eventName: string | null }
-  | { status: "unknown_event" };
+  | { status: "unknown_event" }
+  /** The session names a contact TidyHQ no longer has. */
+  | { status: "unknown_contact" };
 
 /**
  * Whether a member is checked in to an event, and their stored points total,
@@ -24,16 +26,12 @@ export async function getCheckinStatus(
 ): Promise<CheckinStatus> {
   const found = await findEvent(client, eventId);
   if (!found) return { status: "unknown_event" };
-  const { event, groupId } = found;
+  const attendance = await readAttendance(client, found.groupId, contactId);
+  if (!attendance) return { status: "unknown_contact" };
 
-  const [contact, attendees] = await Promise.all([
-    client.getContact(contactId),
-    client.listGroupContacts(groupId),
-  ]);
+  const { contact, checkedIn } = attendance;
   const name = contact.display_name;
-  const eventName = event.name;
-  if (!attendees.some((c) => c.id === contactId)) {
-    return { status: "not_checked_in", name, eventName };
-  }
+  const eventName = found.event.name;
+  if (!checkedIn) return { status: "not_checked_in", name, eventName };
   return { status: "checked_in", name, eventName, total: readPoints(contact) };
 }
