@@ -32,9 +32,12 @@ export type CheckInResult =
       status: "already_checked_in";
       name: string;
       eventName: string | null;
-      total: number;
+      /** Null if the stored total is unreadable. */
+      total: number | null;
     }
   | { status: "membership_inactive"; name: string }
+  /** The stored total isn't a plain whole number; a volunteer must fix it. */
+  | { status: "points_unreadable"; name: string; eventName: string | null }
   | { status: "not_open"; eventName: string | null; opensAt: Date }
   | { status: "closed"; eventName: string | null }
   | { status: "unknown_event" };
@@ -68,7 +71,8 @@ async function findEvent(
  * balances and admin adjustments), so points are added to it, never
  * recalculated. A member already in the event's group gets nothing. The group
  * add happens before the points write, so a failure in between may miss a
- * point but a retry can never award it twice.
+ * point but a retry can never award it twice. An unreadable stored total is
+ * never overwritten; the member isn't checked in until it's fixed.
  */
 export async function checkIn(
   client: TidyClient,
@@ -79,13 +83,16 @@ export async function checkIn(
   const { event, groupId } = found;
   const eventName = event.name;
 
+  // The contact (and its points) must be read before the group. Otherwise an
+  // overlapping check-in could land between the two reads: this request
+  // would see "not checked in" but the other's new total, and award twice.
   // The window is only needed if not already checked in, but fetching it
   // alongside saves a round trip on the common path.
-  const [contact, attendees, window] = await Promise.all([
+  const [contact, window] = await Promise.all([
     client.getContact(contactId),
-    client.listGroupContacts(groupId),
     getCheckinWindow(client, event),
   ]);
+  const attendees = await client.listGroupContacts(groupId);
   const name = contact.display_name;
   if (attendees.some((c) => c.id === contactId)) {
     const total = readPoints(contact);
@@ -103,9 +110,12 @@ export async function checkIn(
     return { status: "membership_inactive", name };
   }
 
+  const stored = readPoints(contact);
+  if (stored === null) return { status: "points_unreadable", name, eventName };
+
   await client.addContactToGroup(groupId, contactId);
   const pointsAwarded = POINTS_PER_CHECKIN[role];
-  const total = readPoints(contact) + pointsAwarded;
+  const total = stored + pointsAwarded;
   await client.updateContact(contactId, buildPointsPatch(total));
   return { status: "checked_in", name, eventName, pointsAwarded, total };
 }

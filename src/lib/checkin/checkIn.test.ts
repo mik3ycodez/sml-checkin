@@ -158,6 +158,73 @@ describe("checkIn", () => {
     expect(await storedPoints(client, "c_marcus")).toBe(41);
   });
 
+  it("adds to a stored total written with spaces and commas", async () => {
+    const client = seededClient((seed) => {
+      const marcus = seed.contacts.find((c) => c.id === "c_marcus")!;
+      marcus.custom_fields.cf_sml_points.value = " 1,234 ";
+    });
+    const result = await checkIn(client, {
+      eventId: "ev_tonight",
+      contactId: "c_marcus",
+      now: NOW,
+    });
+    expect(result).toMatchObject({ status: "checked_in", total: 1235 });
+    expect(await storedPoints(client, "c_marcus")).toBe(1235);
+  });
+
+  it("refuses to check in over an unreadable points total", async () => {
+    const client = seededClient((seed) => {
+      const marcus = seed.contacts.find((c) => c.id === "c_marcus")!;
+      marcus.custom_fields.cf_sml_points.value = "12.5";
+    });
+    const result = await checkIn(client, {
+      eventId: "ev_tonight",
+      contactId: "c_marcus",
+      now: NOW,
+    });
+    expect(result).toEqual({
+      status: "points_unreadable",
+      name: "Marcus Bell",
+      eventName: "Social Night",
+    });
+    expect(await groupIds(client, "grp_social_night")).not.toContain("c_marcus");
+    const marcus = await client.getContact("c_marcus");
+    expect(marcus.custom_fields.cf_sml_points.value).toBe("12.5");
+  });
+
+  it("reports an existing check-in with an unreadable total as null", async () => {
+    const client = seededClient((seed) => {
+      const marcus = seed.contacts.find((c) => c.id === "c_marcus")!;
+      marcus.custom_fields.cf_sml_points.value = "12.5";
+    });
+    const result = await checkIn(client, {
+      eventId: "ev_pub_night",
+      contactId: "c_marcus",
+      now: NOW,
+    });
+    expect(result).toMatchObject({ status: "already_checked_in", total: null });
+  });
+
+  it("never double-awards when an overlapping check-in lands between reads", async () => {
+    // Request B's group read sees "not checked in", then request A runs to
+    // completion before B's contact read finishes. B must not then add a
+    // second point on top of A's.
+    const client = seededClient();
+    const input = { eventId: "ev_tonight", contactId: "c_dante", now: NOW };
+    const getContact = client.getContact.bind(client);
+    let overlapped = false;
+    client.getContact = async (id) => {
+      if (!overlapped) {
+        overlapped = true;
+        await checkIn(client, input); // request A
+      }
+      return getContact(id);
+    };
+    const b = await checkIn(client, input);
+    expect(b).toMatchObject({ status: "already_checked_in", total: 1 });
+    expect(await storedPoints(client, "c_dante")).toBe(1);
+  });
+
   it("changes nothing when already checked in", async () => {
     const client = seededClient();
     await client.addContactToGroup("grp_social_night", "c_dante");

@@ -52,8 +52,13 @@ system of record; this app is a thin layer on top of it.
   nothing. One check-in per member per event.
 - A failure between the group add and the points write may miss a point, but
   must never double-award.
-- Points never reset: the total counts every event a member has ever
-  attended, not just the current membership year.
+- Points never reset: the stored total is never cleared, for example at the
+  end of a membership year.
+- SML policy: points, including balances migrated from WildApricot, are
+  entered as plain whole numbers. The app tolerates surrounding spaces and
+  commas (`1,234`), but treats decimals, negatives, or other text as an
+  unreadable total: check-in is refused (`points_unreadable`) and the field is
+  never overwritten. A blank field counts as 0.
 - Check-ins record who, which event, when, role (`attendee` or `volunteer`), and
   method (`self` or `staff`).
 

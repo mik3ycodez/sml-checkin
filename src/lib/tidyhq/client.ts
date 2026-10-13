@@ -55,7 +55,11 @@ export interface TidyClient {
    */
   getEventCheckinWindow(eventId: string): Promise<EventCheckinWindow | null>;
 
-  /** `GET /v1/groups/{groupID}/contacts` */
+  /**
+   * `GET /v1/groups/{groupID}/contacts`. Must return every contact in the
+   * group, following all pages: check-in uses this to tell whether a member
+   * is already checked in, so a missing page would award points again.
+   */
   listGroupContacts(groupId: string): Promise<Contact[]>;
 
   /** `PUT /v1/groups/{groupID}/contacts/{contactID}`. Idempotent. */
