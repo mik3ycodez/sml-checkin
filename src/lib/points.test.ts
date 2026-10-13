@@ -6,6 +6,10 @@ describe("POINTS_PER_CHECKIN", () => {
     expect(POINTS_PER_CHECKIN.attendee).toBe(1);
     expect(POINTS_PER_CHECKIN.volunteer).toBe(1);
   });
+
+  it("can't be changed at runtime", () => {
+    expect(Object.isFrozen(POINTS_PER_CHECKIN)).toBe(true);
+  });
 });
 
 describe("calculatePointsTotal", () => {
@@ -16,17 +20,28 @@ describe("calculatePointsTotal", () => {
   it("sums points for every check-in by role", () => {
     expect(
       calculatePointsTotal([
-        { role: "attendee" },
-        { role: "volunteer" },
-        { role: "attendee" },
+        { eventId: "ev_a", role: "attendee" },
+        { eventId: "ev_b", role: "volunteer" },
+        { eventId: "ev_c", role: "attendee" },
       ]),
     ).toBe(3);
   });
 
   it("never resets: counts every event ever attended, however old", () => {
-    const tenYearsOfMonthlyEvents = Array.from({ length: 120 }, () => ({
+    const tenYearsOfMonthlyEvents = Array.from({ length: 120 }, (_, i) => ({
+      eventId: `ev_${i}`,
       role: "attendee" as const,
     }));
     expect(calculatePointsTotal(tenYearsOfMonthlyEvents)).toBe(120);
+  });
+
+  it("counts each event once, even if it appears more than once", () => {
+    expect(
+      calculatePointsTotal([
+        { eventId: "ev_a", role: "attendee" },
+        { eventId: "ev_a", role: "attendee" },
+        { eventId: "ev_b", role: "attendee" },
+      ]),
+    ).toBe(2);
   });
 });

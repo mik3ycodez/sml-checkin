@@ -4,17 +4,22 @@
 export type CheckInRole = "attendee" | "volunteer";
 export type CheckInMethod = "self" | "staff";
 
-export const POINTS_PER_CHECKIN: Record<CheckInRole, number> = {
-  attendee: 1,
-  volunteer: 1,
-};
+export const POINTS_PER_CHECKIN: Readonly<Record<CheckInRole, number>> =
+  Object.freeze({
+    attendee: 1,
+    volunteer: 1,
+  });
 
 /**
  * Points total from a member's full attendance history. Points never reset,
- * so pass every event they have ever attended, not just recent ones.
+ * so pass every event they have ever attended, not just recent ones. Each
+ * event counts once, so duplicate entries can never double-count.
  */
 export function calculatePointsTotal(
-  attendance: ReadonlyArray<{ role: CheckInRole }>,
+  attendance: ReadonlyArray<{ eventId: string; role: CheckInRole }>,
 ): number {
-  return attendance.reduce((total, a) => total + POINTS_PER_CHECKIN[a.role], 0);
+  const roleByEvent = new Map(attendance.map((a) => [a.eventId, a.role]));
+  let total = 0;
+  for (const role of roleByEvent.values()) total += POINTS_PER_CHECKIN[role];
+  return total;
 }
