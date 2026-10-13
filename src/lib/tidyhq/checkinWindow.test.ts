@@ -69,6 +69,48 @@ describe("getCheckinWindow", () => {
   });
 });
 
+describe("getCheckinWindow with an invalid admin window", () => {
+  it.each([
+    ["a blank open time", { opens_at: "", closes_at: "2026-10-13T04:00:00Z" }],
+    [
+      "an unparseable close time",
+      { opens_at: "2026-10-12T17:00:00Z", closes_at: "7pm" },
+    ],
+    [
+      "a close time before the open time",
+      { opens_at: "2026-10-12T21:00:00Z", closes_at: "2026-10-12T17:00:00Z" },
+    ],
+    [
+      "a close time equal to the open time",
+      { opens_at: "2026-10-12T17:00:00Z", closes_at: "2026-10-12T17:00:00Z" },
+    ],
+  ])("falls back to the event's start and end for %s", async (_label, bad) => {
+    const client = clientWith((seed) => {
+      seed.checkinWindows.ev_pub_night = bad;
+    });
+    const event = await client.getEvent("ev_pub_night");
+    expect(await getCheckinWindow(client, event)).toEqual({
+      opensAt: new Date(event.start_at!),
+      closesAt: new Date(event.end_at!),
+      source: "fallback",
+    });
+  });
+
+  it("is closed when the event's own start and end are inverted too", async () => {
+    const client = clientWith((seed) => {
+      const event = seed.events.find((e) => e.id === "ev_bar_night")!;
+      [event.start_at, event.end_at] = [event.end_at, event.start_at];
+    });
+    const event = await client.getEvent("ev_bar_night");
+    const window = await getCheckinWindow(client, event);
+    expect(window).toEqual({
+      opensAt: null,
+      closesAt: null,
+      source: "fallback",
+    });
+  });
+});
+
 describe("isCheckinOpen", () => {
   const window: CheckinWindow = {
     opensAt: new Date("2026-10-12T17:00:00Z"),
@@ -85,6 +127,17 @@ describe("isCheckinOpen", () => {
     ["after it closes", "2026-10-12T23:00:00Z", "closed"],
   ])("is %s → %s", (_label, at, expected) => {
     expect(isCheckinOpen(window, new Date(at))).toBe(expected);
+  });
+
+  it("is closed, not 'not yet', when the window closes before it opens", () => {
+    const inverted = {
+      ...window,
+      opensAt: window.closesAt,
+      closesAt: window.opensAt,
+    };
+    expect(isCheckinOpen(inverted, new Date("2026-10-12T16:00:00Z"))).toBe(
+      "closed",
+    );
   });
 
   it("is closed when either end of the window is missing", () => {

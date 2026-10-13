@@ -102,15 +102,13 @@ export class MockTidyClient implements TidyClient {
   }
 
   async getEvent(eventId: string): Promise<Event> {
-    const event = this.state.events.find((e) => e.id === eventId);
-    if (!event) throw new TidyError(404, `Event ${eventId} not found`);
-    return structuredClone(event);
+    return structuredClone(this.findEvent(eventId));
   }
 
   async getEventCheckinWindow(
     eventId: string,
   ): Promise<EventCheckinWindow | null> {
-    await this.getEvent(eventId);
+    this.findEvent(eventId);
     return structuredClone(this.state.checkinWindows[eventId] ?? null);
   }
 
@@ -135,6 +133,12 @@ export class MockTidyClient implements TidyClient {
     const contact = this.state.contacts.find((c) => c.id === contactId);
     if (!contact) throw new TidyError(404, `Contact ${contactId} not found`);
     return contact;
+  }
+
+  private findEvent(eventId: string): Event {
+    const event = this.state.events.find((e) => e.id === eventId);
+    if (!event) throw new TidyError(404, `Event ${eventId} not found`);
+    return event;
   }
 
   private findGroupMembers(groupId: string): string[] {

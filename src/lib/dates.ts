@@ -10,7 +10,18 @@ const seattleDateParts = new Intl.DateTimeFormat("en-US", {
 
 /** `YYYY-MM-DD` for `date` in Seattle, built from parts so locale data can't change the format. */
 export function seattleDate(date: Date): string {
+  const parts = seattleDateParts.formatToParts(date);
   const part = (type: Intl.DateTimeFormatPartTypes) =>
-    seattleDateParts.formatToParts(date).find((p) => p.type === type)!.value;
+    parts.find((p) => p.type === type)!.value;
   return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+/**
+ * `YYYY-MM-DD` moved by whole calendar days. Done in UTC, which has no DST,
+ * so the result never slips a day the way adding 24-hour blocks can.
+ */
+export function addDays(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
 }

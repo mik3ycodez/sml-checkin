@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildPointsPatch, POINTS_FIELD_ID, readPoints } from "../customFields";
+import { getCheckinWindow, isCheckinOpen } from "../checkinWindow";
 import { TidyError } from "../errors";
 import { resolveEventGroup } from "../eventGroups";
 import { issueMockToken, MockTidyClient } from "./MockTidyClient";
@@ -148,6 +149,13 @@ describe("MockTidyClient", () => {
       expect(new Date(window!.closes_at) > NOW).toBe(true);
     });
 
+    it("keeps tonight's event open for a day, since dev reuses one seed", async () => {
+      const event = await client.getEvent("ev_tonight");
+      const window = await getCheckinWindow(client, event);
+      const later = new Date(NOW.getTime() + 23 * 60 * 60 * 1000);
+      expect(isCheckinOpen(window, later)).toBe("open");
+    });
+
     it("returns null for an event with no window set", async () => {
       expect(await client.getEventCheckinWindow("ev_bar_night")).toBeNull();
     });
@@ -168,6 +176,14 @@ describe("MockTidyClient", () => {
       expect(sam.end_date).toBe("2026-10-26");
       const marcus = seed.contacts.find((c) => c.id === "c_marcus")!;
       expect(marcus.member_since).toBe("2025-10-12");
+    });
+
+    it("counts calendar days, so a DST change doesn't shift dates", () => {
+      // 07:30 UTC on Feb 20 is 11:30pm Feb 19 in Seattle (PST). Dante's
+      // membership ends 165 days later, across the March spring-forward.
+      const seed = createSeed(new Date("2026-02-20T07:30:00Z"));
+      const dante = seed.memberships.find((m) => m.id === "m_dante")!;
+      expect(dante.end_date).toBe("2026-08-03");
     });
   });
 

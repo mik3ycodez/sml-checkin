@@ -1,4 +1,4 @@
-import { seattleDate } from "../../dates";
+import { addDays, seattleDate } from "../../dates";
 import { POINTS_FIELD_ID } from "../customFields";
 import type {
   Contact,
@@ -49,6 +49,7 @@ function eveningOf(now: Date, days: number): Date {
  * and tests are deterministic when given a fixed date.
  */
 export function createSeed(now: Date = new Date()): MockSeed {
+  const today = seattleDate(now);
   const created = daysFrom(now, -400).toISOString();
 
   const contact = (
@@ -64,7 +65,7 @@ export function createSeed(now: Date = new Date()): MockSeed {
     nick_name: "",
     email_address: `${first.toLowerCase()}@example.com`,
     status: "active",
-    member_since: seattleDate(daysFrom(now, -365)),
+    member_since: addDays(today, -365),
     created_at: created,
     updated_at: created,
     custom_fields: {
@@ -92,8 +93,8 @@ export function createSeed(now: Date = new Date()): MockSeed {
       status: expired ? "Expired" : "Activated",
       membership_level_id: levelId,
       contact_id: contactId,
-      start_date: seattleDate(daysFrom(now, startDays)),
-      end_date: seattleDate(daysFrom(now, endDays)),
+      start_date: addDays(today, startDays),
+      end_date: addDays(today, endDays),
       created_at: created,
       updated_at: created,
     };
@@ -154,8 +155,7 @@ export function createSeed(now: Date = new Date()): MockSeed {
       3,
       "The Eagle, Seattle",
     ),
-    // Started an hour ago whenever the seed is built, so manual testing always
-    // has an event that's open for check-in.
+    // Started an hour ago when the seed was built. See its window below.
     event(
       "ev_tonight",
       "Social Night",
@@ -196,6 +196,10 @@ export function createSeed(now: Date = new Date()): MockSeed {
       closes_at: shiftIso(e.end_at!, -HOUR_MS),
     };
   }
+  // The dev server builds the seed once and keeps it (getTidyClient caches
+  // the client), so keep Social Night open for a day after that for manual
+  // testing, not just until its end time.
+  checkinWindows.ev_tonight.closes_at = shiftIso(now.toISOString(), DAY_MS);
 
   return {
     contacts: [

@@ -1,8 +1,6 @@
 import { seattleDate } from "./dates";
 import type { Membership, MembershipState } from "./tidyhq";
 
-export { SML_TIME_ZONE } from "./dates";
-
 // TidyHQ treats `activated` and `partial` as active.
 const ACTIVE_STATES: ReadonlySet<MembershipState> = new Set([
   "activated",
