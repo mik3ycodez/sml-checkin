@@ -77,8 +77,10 @@ so the app is built against a **mock TidyHQ**.
 - Node 24
 - Tests: Vitest
 - Mobile-first: the member side is used on phones at event doors
-- Styling: Tailwind CSS, not yet installed. Adding it is the first task of the
-  next milestone, before any screens are built.
+- Styling: Tailwind CSS v4 (PostCSS plugin, no `tailwind.config.js`). Shared
+  page container lives in `src/app/layout.tsx`; light/dark colors are CSS
+  variables in `src/app/globals.css`, exposed as `bg-background` and
+  `text-foreground`.
 
 ## Conventions
 
@@ -88,6 +90,10 @@ so the app is built against a **mock TidyHQ**.
   they fail, then implement until they pass. Don't change a test to make it
   pass unless the test itself is wrong, and explain why if you do.
 - Keep the member-facing pages minimal and fast.
+- Member-facing check-in and status pages must stay usable on older phones.
+  Tailwind v4 targets Safari/iOS 16.4+, so keep their core function (signing
+  in, checking in, reading status) working even if newer CSS features don't
+  apply. Treat those features as polish, not requirements.
 - Small, focused commits with clear messages.
 
 ## Security
