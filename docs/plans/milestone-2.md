@@ -1,6 +1,6 @@
 # Milestone 2: Member check-in flow
 
-**Status:** PRs 1–5 done (merged as #3–#6 and #8). PR 6 in review. Next: PR 7.
+**Status:** PRs 1–6 done (merged as #3–#6, #8 and #9). PR 7 in review.
 
 ## Context
 The TidyHQ layer is done: `TidyClient`, `MockTidyClient`, seed data, `resolveEventGroup`, and the points field helpers. Nothing lets a member check in yet. This milestone adds the full self check-in path. A member scans a QR code, signs in with (mock) TidyHQ, taps once, and sees a confirmation. We verify their membership, add them to the event's attendance group, and recalculate their points. Each step is built test-first, in small PRs.
@@ -64,7 +64,7 @@ Admins set check-in open/close times when they create the event in TidyHQ. We do
 - Tests first for the OAuth logic: the mock's authorize URL has `client_id`, `redirect_uri`, `response_type=code`, `state`; a code exchange followed by `getMe` gives the right contact; a bad code throws a 401 `TidyError`.
 - *As built:* `exchangeCode` takes `{ code, redirectUri }` (real OAuth exchanges must resend the redirect URI). The fake page only redirects to this site's `/auth/callback`. Failed sign-ins go to an `/auth/error` page. After review: mock codes are random, single-use, and tied to their redirect URI; `TIDYHQ_MODE` is required in production (checked at startup in `src/instrumentation.ts`); sign-out refuses cross-site requests. After the second review: `APP_ORIGIN` is required in production and names the site everywhere; each sign-in attempt gets its own state cookie; the fake page posts to `/mock-tidyhq/oauth/approve`, which issues one code per click; `isTidyError()` replaces `instanceof TidyError`.
 
-### PR 6: Check-in page and confirmation
+### PR 6: Check-in page and confirmation ✅ Done (#9)
 - `src/app/checkin/[eventId]/page.tsx` (Server Component):
   1. Unknown event → friendly "We couldn't find that event" screen. This shows before sign-in.
   2. No session → `redirect("/auth/signin?returnTo=/checkin/<id>")`.
@@ -84,6 +84,7 @@ Admins set check-in open/close times when they create the event in TidyHQ. We do
 - Expired and already-checked-in are also caught on page load, so the member sees them without tapping the button. A member who's already checked in sees the "already checked in" screen (with their total) **instead of** the Check in button, not alongside it. Found in PR 6 manual testing.
 - **Points total unreadable** (`points_unreadable`, added in PR 3): "Please see a volunteer" message. The stored total isn't a plain whole number, so the member isn't checked in until someone fixes it in TidyHQ. `already_checked_in` can also carry `total: null` for the same reason; show the check-in without a total.
 - **Server-side error logging** (deferred from the PR 3 review, comment #5): log check-in failures on the server (event id, contact id, step, TidyHQ status; never tokens), especially a points write that fails after the group add, since that point is otherwise lost without a trace. Show the member a friendly error rather than a crash.
+- *As built:* the rules live in one read-only function, `assessCheckIn` (in `checkIn.ts`). `checkIn` acts on it, and `getCheckinStatus` (now taking `now`) shows it before the tap, replacing `not_checked_in` with `ready` or the refusal reason, so the page and the tap can't disagree. Refusals all carry `name` and `eventName`, so every screen shows "Signed in as X". Both pages load through `memberStatus` and render `StatusScreen` (`screens.tsx`); the check-in page shows the button only when `ready`, and the result page sends `ready` back to it. The renew link comes from `tidyhqSiteUrl()` (`src/lib/tidyhq/site.ts`, `TIDYHQ_DOMAIN_PREFIX`, default `sml`, refusing anything that isn't a plain subdomain). Open times use `seattleTimeLabel` in `dates.ts`. Unexpected failures in `checkIn` throw `CheckInFailure { step: "lookup" | "group_add" | "points_write", tidyStatus }`; the action logs `{eventId, contactId, step, tidyStatus}` (`logCheckinFailure`, no messages or tokens) and redirects to `/checkin/[eventId]/problem`, which doesn't call TidyHQ. A page that fails to load shows `error.tsx`, whose "Try again" is a plain reload link.
 
 **Dependencies:** PRs 1→2→3 and PRs 4→5 are two separate tracks. PR 6 needs all of them, and PR 7 comes after PR 6. The suggested order is 1, 2, 3, 4, 5, 6, 7.
 
