@@ -15,10 +15,28 @@ const EVENT_GROUPS: Record<string, string> = {
   ev_leather_brunch: "grp_leather_brunch",
 };
 
+/** The event's attendance group, or null if it has none. */
+export function findEventGroup(event: Pick<Event, "id">): string | null {
+  return EVENT_GROUPS[event.id] ?? null;
+}
+
+/** Like `findEventGroup`, but throws 404 if the event has no group. */
 export function resolveEventGroup(event: Pick<Event, "id">): string {
-  const groupId = EVENT_GROUPS[event.id];
+  const groupId = findEventGroup(event);
   if (!groupId) {
     throw new TidyError(404, `No attendance group for event ${event.id}`);
   }
   return groupId;
+}
+
+/**
+ * Every event's attendance group. Points are counted from this list rather
+ * than from `listEvents()`, so an event missing from the event listing
+ * (paginated, archived) can't drop a member's total.
+ */
+export function listAttendanceGroups(): { eventId: string; groupId: string }[] {
+  return Object.entries(EVENT_GROUPS).map(([eventId, groupId]) => ({
+    eventId,
+    groupId,
+  }));
 }

@@ -8,7 +8,7 @@ import { getCheckinWindow, isCheckinOpen } from "../tidyhq/checkinWindow";
 import type { TidyClient } from "../tidyhq/client";
 import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
 import { TidyError } from "../tidyhq/errors";
-import { resolveEventGroup } from "../tidyhq/eventGroups";
+import { findEventGroup } from "../tidyhq/eventGroups";
 import type { Contact, Event } from "../tidyhq/types";
 import { recalculatePoints } from "./recalculatePoints";
 
@@ -45,24 +45,28 @@ async function findEvent(
   client: TidyClient,
   eventId: string,
 ): Promise<{ event: Event; groupId: string } | null> {
+  let event: Event;
   try {
-    const event = await client.getEvent(eventId);
-    return { event, groupId: resolveEventGroup(event) };
+    event = await client.getEvent(eventId);
   } catch (error) {
     if (error instanceof TidyError && error.status === 404) return null;
     throw error;
   }
+  const groupId = findEventGroup(event);
+  return groupId ? { event, groupId } : null;
 }
 
 /**
- * Recalculates the member's total from attendance and writes it if it differs
- * from the stored value, so a retry after a half-finished check-in repairs it.
+ * Recalculates the member's total from attendance and writes it if it's
+ * higher than the stored value, so a retry after a half-finished check-in
+ * repairs it. Never lowers the stored total (points never reset); returns
+ * whichever is higher.
  */
 async function syncPoints(client: TidyClient, contact: Contact) {
+  const stored = readPoints(contact);
   const total = await recalculatePoints(client, contact.id);
-  if (total !== readPoints(contact)) {
-    await client.updateContact(contact.id, buildPointsPatch(total));
-  }
+  if (total <= stored) return stored;
+  await client.updateContact(contact.id, buildPointsPatch(total));
   return total;
 }
 
@@ -84,9 +88,12 @@ export async function checkIn(
   const { event, groupId } = found;
   const eventName = event.name;
 
-  const [contact, attendees] = await Promise.all([
+  // The window is only needed if not already checked in, but fetching it
+  // alongside saves a round trip on the common path.
+  const [contact, attendees, window] = await Promise.all([
     client.getContact(contactId),
     client.listGroupContacts(groupId),
+    getCheckinWindow(client, event),
   ]);
   const name = contact.display_name;
   if (attendees.some((c) => c.id === contactId)) {
@@ -94,7 +101,6 @@ export async function checkIn(
     return { status: "already_checked_in", name, eventName, total };
   }
 
-  const window = await getCheckinWindow(client, event);
   const open = isCheckinOpen(window, now);
   if (open === "not_yet") {
     return { status: "not_open", eventName, opensAt: window.opensAt! };

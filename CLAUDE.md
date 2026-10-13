@@ -47,6 +47,14 @@ system of record; this app is a thin layer on top of it.
   never double-count. One check-in per member per event.
 - Points never reset: the total counts every event a member has ever
   attended, not just the current membership year.
+- The app never lowers a stored points total automatically. If a recount
+  comes out lower than the stored value (a deleted group, say), the stored
+  value is kept.
+- Admin points adjustments (planned) must be stored as their own records and
+  added into the recalculation, not written straight to the points field.
+  Otherwise the recount ignores them: a raised total stops growing until
+  attendance catches up, and a lowered one is raised back on the next
+  check-in.
 - Check-ins record who, which event, when, role (`attendee` or `volunteer`), and
   method (`self` or `staff`).
 

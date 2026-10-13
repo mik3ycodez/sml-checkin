@@ -39,6 +39,22 @@ describe("recalculatePoints", () => {
     expect(await recalculatePoints(client, "c_marcus")).toBe(1);
   });
 
+  it("counts an attended event even if it's missing from the event list", async () => {
+    // e.g. live TidyHQ paginates or hides archived events.
+    const client = seededClient((seed) => {
+      seed.events = seed.events.filter((e) => e.id !== "ev_pub_night");
+    });
+    expect(await recalculatePoints(client, "c_marcus")).toBe(1);
+  });
+
+  it("skips an attendance group that no longer exists in TidyHQ", async () => {
+    const client = seededClient((seed) => {
+      delete seed.groupMembers.grp_pub_night;
+    });
+    await client.addContactToGroup("grp_social_night", "c_marcus");
+    expect(await recalculatePoints(client, "c_marcus")).toBe(1);
+  });
+
   it("does not write the total back", async () => {
     const client = seededClient();
     await client.addContactToGroup("grp_social_night", "c_dante");

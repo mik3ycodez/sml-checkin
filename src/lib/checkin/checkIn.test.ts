@@ -131,7 +131,7 @@ describe("checkIn", () => {
   it("corrects a stale points field on check-in", async () => {
     const client = seededClient((seed) => {
       const marcus = seed.contacts.find((c) => c.id === "c_marcus")!;
-      marcus.custom_fields.cf_sml_points.value = "5";
+      marcus.custom_fields.cf_sml_points.value = "0";
     });
     const result = await checkIn(client, {
       eventId: "ev_tonight",
@@ -140,6 +140,34 @@ describe("checkIn", () => {
     });
     expect(result).toMatchObject({ status: "checked_in", total: 2 });
     expect(await storedPoints(client, "c_marcus")).toBe(2);
+  });
+
+  it("never lowers a stored total", async () => {
+    // Points never reset. A lower recount (a missing group, say) keeps the
+    // stored value rather than taking points away.
+    const client = seededClient((seed) => {
+      const marcus = seed.contacts.find((c) => c.id === "c_marcus")!;
+      marcus.custom_fields.cf_sml_points.value = "5";
+    });
+    const result = await checkIn(client, {
+      eventId: "ev_tonight",
+      contactId: "c_marcus",
+      now: NOW,
+    });
+    expect(result).toMatchObject({ status: "checked_in", total: 5 });
+    expect(await storedPoints(client, "c_marcus")).toBe(5);
+  });
+
+  it("still checks in when an old attendance group is gone", async () => {
+    const client = seededClient((seed) => {
+      delete seed.groupMembers.grp_pub_night;
+    });
+    const result = await checkIn(client, {
+      eventId: "ev_tonight",
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(result).toMatchObject({ status: "checked_in", total: 1 });
   });
 
   it("corrects a stale points field when already checked in", async () => {
