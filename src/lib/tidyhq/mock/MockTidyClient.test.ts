@@ -40,6 +40,13 @@ describe("MockTidyClient", () => {
     );
   });
 
+  describe("listContacts (mock only)", () => {
+    it("lists every seed contact, for the fake sign-in page", async () => {
+      const ids = (await client.listContacts()).map((c) => c.id);
+      expect(ids).toEqual(["c_marcus", "c_dante", "c_jordan", "c_sam", "c_lee"]);
+    });
+  });
+
   describe("getContact", () => {
     it("returns a contact by id", async () => {
       const contact = await client.getContact("c_dante");

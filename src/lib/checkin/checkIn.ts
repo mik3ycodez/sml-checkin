@@ -7,7 +7,7 @@ import {
 import { getCheckinWindow, isCheckinOpen } from "../tidyhq/checkinWindow";
 import type { TidyClient } from "../tidyhq/client";
 import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
-import { TidyError } from "../tidyhq/errors";
+import { isTidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
 import type { Event } from "../tidyhq/types";
 
@@ -51,7 +51,7 @@ async function findEvent(
   try {
     event = await client.getEvent(eventId);
   } catch (error) {
-    if (error instanceof TidyError && error.status === 404) return null;
+    if (isTidyError(error, 404)) return null;
     throw error;
   }
   const groupId = findEventGroup(event);
