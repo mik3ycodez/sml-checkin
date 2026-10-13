@@ -43,7 +43,7 @@ export type CheckInResult =
   | { status: "unknown_event" };
 
 /** The event and its attendance group, or null if either is missing. */
-async function findEvent(
+export async function findEvent(
   client: TidyClient,
   eventId: string,
 ): Promise<{ event: Event; groupId: string } | null> {
