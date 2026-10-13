@@ -1,6 +1,5 @@
 import type { TidyClient } from "../tidyhq/client";
-import { readPoints } from "../tidyhq/customFields";
-import { findEvent, readAttendance } from "./checkIn";
+import { assessCheckIn, type CheckInRefusal } from "./checkIn";
 
 export type CheckinStatus =
   | {
@@ -10,28 +9,33 @@ export type CheckinStatus =
       /** Null if the stored total is unreadable. */
       total: number | null;
     }
-  | { status: "not_checked_in"; name: string; eventName: string | null }
-  | { status: "unknown_event" }
-  /** The session names a contact TidyHQ no longer has. */
-  | { status: "unknown_contact" };
+  /** Not checked in yet, and the button would check them in. */
+  | { status: "ready"; name: string; eventName: string | null }
+  /** Not checked in, and why the button wouldn't work. */
+  | CheckInRefusal;
 
 /**
- * Whether a member is checked in to an event, and their stored points total,
- * read fresh from TidyHQ. Changes nothing. The result page uses this rather
- * than trusting the URL, so a refresh shows the truth and nothing can be faked.
+ * Whether a member is checked in to an event (with their stored points total),
+ * and if not, whether they could check in now or why not, read fresh from
+ * TidyHQ. Changes nothing. Uses the same rules as `checkIn`, so the pages can
+ * explain a refusal before the tap, and the result page shows the truth on a
+ * refresh rather than trusting the URL.
  */
 export async function getCheckinStatus(
   client: TidyClient,
-  { eventId, contactId }: { eventId: string; contactId: string },
+  input: { eventId: string; contactId: string; now: Date },
 ): Promise<CheckinStatus> {
-  const found = await findEvent(client, eventId);
-  if (!found) return { status: "unknown_event" };
-  const attendance = await readAttendance(client, found.groupId, contactId);
-  if (!attendance) return { status: "unknown_contact" };
-
-  const { contact, checkedIn } = attendance;
-  const name = contact.display_name;
-  const eventName = found.event.name;
-  if (!checkedIn) return { status: "not_checked_in", name, eventName };
-  return { status: "checked_in", name, eventName, total: readPoints(contact) };
+  const assessment = await assessCheckIn(client, input);
+  switch (assessment.status) {
+    case "already_checked_in": {
+      const { name, eventName, total } = assessment;
+      return { status: "checked_in", name, eventName, total };
+    }
+    case "ready": {
+      const { name, eventName } = assessment;
+      return { status: "ready", name, eventName };
+    }
+    default:
+      return assessment;
+  }
 }
