@@ -113,7 +113,7 @@ describe("checkIn", () => {
       status: "already_checked_in",
       name: "Lee Hart",
       eventName: "Social Night",
-      total: 1,
+      total: 0,
     });
   });
 
@@ -128,7 +128,9 @@ describe("checkIn", () => {
     expect(members.filter((id) => id === "c_dante")).toHaveLength(1);
   });
 
-  it("corrects a stale points field on check-in", async () => {
+  it("adds to the stored total, not a recount of attendance", async () => {
+    // Marcus attended Pub Night, but his stored total (e.g. migrated from
+    // WildApricot) is the source of truth.
     const client = seededClient((seed) => {
       const marcus = seed.contacts.find((c) => c.id === "c_marcus")!;
       marcus.custom_fields.cf_sml_points.value = "0";
@@ -138,41 +140,25 @@ describe("checkIn", () => {
       contactId: "c_marcus",
       now: NOW,
     });
-    expect(result).toMatchObject({ status: "checked_in", total: 2 });
-    expect(await storedPoints(client, "c_marcus")).toBe(2);
+    expect(result).toMatchObject({ status: "checked_in", total: 1 });
+    expect(await storedPoints(client, "c_marcus")).toBe(1);
   });
 
-  it("never lowers a stored total", async () => {
-    // Points never reset. A lower recount (a missing group, say) keeps the
-    // stored value rather than taking points away.
+  it("adds to a migrated balance larger than attendance", async () => {
     const client = seededClient((seed) => {
       const marcus = seed.contacts.find((c) => c.id === "c_marcus")!;
-      marcus.custom_fields.cf_sml_points.value = "5";
+      marcus.custom_fields.cf_sml_points.value = "40";
     });
     const result = await checkIn(client, {
       eventId: "ev_tonight",
       contactId: "c_marcus",
       now: NOW,
     });
-    expect(result).toMatchObject({ status: "checked_in", total: 5 });
-    expect(await storedPoints(client, "c_marcus")).toBe(5);
+    expect(result).toMatchObject({ status: "checked_in", total: 41 });
+    expect(await storedPoints(client, "c_marcus")).toBe(41);
   });
 
-  it("still checks in when an old attendance group is gone", async () => {
-    const client = seededClient((seed) => {
-      delete seed.groupMembers.grp_pub_night;
-    });
-    const result = await checkIn(client, {
-      eventId: "ev_tonight",
-      contactId: "c_dante",
-      now: NOW,
-    });
-    expect(result).toMatchObject({ status: "checked_in", total: 1 });
-  });
-
-  it("corrects a stale points field when already checked in", async () => {
-    // e.g. an earlier attempt added the member to the group, then failed
-    // before writing points. The retry must finish the job.
+  it("changes nothing when already checked in", async () => {
     const client = seededClient();
     await client.addContactToGroup("grp_social_night", "c_dante");
     const result = await checkIn(client, {
@@ -180,8 +166,38 @@ describe("checkIn", () => {
       contactId: "c_dante",
       now: NOW,
     });
-    expect(result).toMatchObject({ status: "already_checked_in", total: 1 });
-    expect(await storedPoints(client, "c_dante")).toBe(1);
+    expect(result).toMatchObject({ status: "already_checked_in", total: 0 });
+    expect(await storedPoints(client, "c_dante")).toBe(0);
+  });
+
+  it("may miss a point, but never double-awards, if the points write fails", async () => {
+    const client = seededClient();
+    const update = client.updateContact.bind(client);
+    let failNext = true;
+    client.updateContact = async (id, patch) => {
+      if (failNext) {
+        failNext = false;
+        throw new TidyError(503, "TidyHQ unavailable");
+      }
+      return update(id, patch);
+    };
+    const input = { eventId: "ev_tonight", contactId: "c_dante", now: NOW };
+    await expect(checkIn(client, input)).rejects.toBeInstanceOf(TidyError);
+    expect(await groupIds(client, "grp_social_night")).toContain("c_dante");
+
+    const retry = await checkIn(client, input);
+    expect(retry).toMatchObject({ status: "already_checked_in", total: 0 });
+    expect(await storedPoints(client, "c_dante")).toBe(0);
+  });
+
+  it("adds to the group before awarding the point", async () => {
+    const client = seededClient();
+    client.addContactToGroup = async () => {
+      throw new TidyError(503, "TidyHQ unavailable");
+    };
+    const input = { eventId: "ev_tonight", contactId: "c_dante", now: NOW };
+    await expect(checkIn(client, input)).rejects.toBeInstanceOf(TidyError);
+    expect(await storedPoints(client, "c_dante")).toBe(0);
   });
 
   it("refuses a member whose membership has expired", async () => {

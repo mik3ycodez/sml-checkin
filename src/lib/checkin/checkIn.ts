@@ -9,8 +9,7 @@ import type { TidyClient } from "../tidyhq/client";
 import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
 import { TidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
-import type { Contact, Event } from "../tidyhq/types";
-import { recalculatePoints } from "./recalculatePoints";
+import type { Event } from "../tidyhq/types";
 
 export interface CheckInInput {
   eventId: string;
@@ -57,20 +56,6 @@ async function findEvent(
 }
 
 /**
- * Recalculates the member's total from attendance and writes it if it's
- * higher than the stored value, so a retry after a half-finished check-in
- * repairs it. Never lowers the stored total (points never reset); returns
- * whichever is higher.
- */
-async function syncPoints(client: TidyClient, contact: Contact) {
-  const stored = readPoints(contact);
-  const total = await recalculatePoints(client, contact.id);
-  if (total <= stored) return stored;
-  await client.updateContact(contact.id, buildPointsPatch(total));
-  return total;
-}
-
-/**
  * Self or staff check-in for one member at one event. Returns what happened
  * rather than throwing, so pages only need to render the result. Unexpected
  * TidyHQ failures (e.g. an unknown contact) still throw.
@@ -78,6 +63,12 @@ async function syncPoints(client: TidyClient, contact: Contact) {
  * Order: event → existing check-in → check-in window → membership. An
  * existing check-in comes first so a member who reloads the page after the
  * window closes, or after their membership lapses, still sees it.
+ *
+ * The stored points field is the source of truth (it includes migrated
+ * balances and admin adjustments), so points are added to it, never
+ * recalculated. A member already in the event's group gets nothing. The group
+ * add happens before the points write, so a failure in between may miss a
+ * point but a retry can never award it twice.
  */
 export async function checkIn(
   client: TidyClient,
@@ -97,7 +88,7 @@ export async function checkIn(
   ]);
   const name = contact.display_name;
   if (attendees.some((c) => c.id === contactId)) {
-    const total = await syncPoints(client, contact);
+    const total = readPoints(contact);
     return { status: "already_checked_in", name, eventName, total };
   }
 
@@ -113,12 +104,8 @@ export async function checkIn(
   }
 
   await client.addContactToGroup(groupId, contactId);
-  const total = await syncPoints(client, contact);
-  return {
-    status: "checked_in",
-    name,
-    eventName,
-    pointsAwarded: POINTS_PER_CHECKIN[role],
-    total,
-  };
+  const pointsAwarded = POINTS_PER_CHECKIN[role];
+  const total = readPoints(contact) + pointsAwarded;
+  await client.updateContact(contactId, buildPointsPatch(total));
+  return { status: "checked_in", name, eventName, pointsAwarded, total };
 }

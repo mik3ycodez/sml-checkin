@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TidyError } from "./errors";
-import {
-  findEventGroup,
-  listAttendanceGroups,
-  resolveEventGroup,
-} from "./eventGroups";
+import { findEventGroup, resolveEventGroup } from "./eventGroups";
 
 describe("findEventGroup", () => {
   it("returns the attendance group for a mapped event", () => {
@@ -26,18 +22,5 @@ describe("resolveEventGroup", () => {
     }
     expect(error).toBeInstanceOf(TidyError);
     expect((error as TidyError).status).toBe(404);
-  });
-});
-
-describe("listAttendanceGroups", () => {
-  it("lists every event's attendance group", () => {
-    const groups = listAttendanceGroups();
-    expect(groups).toContainEqual({
-      eventId: "ev_pub_night",
-      groupId: "grp_pub_night",
-    });
-    for (const { eventId, groupId } of groups) {
-      expect(findEventGroup({ id: eventId })).toBe(groupId);
-    }
   });
 });
