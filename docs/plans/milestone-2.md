@@ -1,6 +1,6 @@
 # Milestone 2: Member check-in flow
 
-**Status:** PRs 1–4 done (merged as #3–#6). PR 5 in review (#8). Next: PR 6.
+**Status:** PRs 1–5 done (merged as #3–#6 and #8). PR 6 in review. Next: PR 7.
 
 ## Context
 The TidyHQ layer is done: `TidyClient`, `MockTidyClient`, seed data, `resolveEventGroup`, and the points field helpers. Nothing lets a member check in yet. This milestone adds the full self check-in path. A member scans a QR code, signs in with (mock) TidyHQ, taps once, and sees a confirmation. We verify their membership, add them to the event's attendance group, and recalculate their points. Each step is built test-first, in small PRs.
@@ -54,7 +54,7 @@ Admins set check-in open/close times when they create the event in TidyHQ. We do
 - Add `SESSION_SECRET` to `.env.example`. It must be set; the app throws a clear error if it's missing.
 - Tests first: round trip, tampered signature, expired, wrong secret, bad input. For `returnTo`: `//evil.com`, `https://…`, `/checkin/x` allowed.
 
-### PR 5: Mock "Sign in with TidyHQ"
+### PR 5: Mock "Sign in with TidyHQ" ✅ Done (#8)
 - `src/lib/tidyhq/oauth.ts`: the `TidyOAuth` interface and `getTidyOAuth()`. `src/lib/tidyhq/mock/MockTidyOAuth.ts`: its code is `mock-code-<contactId>`, which it exchanges for `issueMockToken(contactId)`.
 - Routes (Route Handlers, since they set cookies):
   - `GET /auth/signin?returnTo=…`: makes a random `state`, saves `{state, returnTo}` in a short-lived httpOnly cookie, and redirects to `authorizeUrl`.
@@ -73,6 +73,7 @@ Admins set check-in open/close times when they create the event in TidyHQ. We do
 - `result/page.tsx` re-reads the current state from TidyHQ (whether they're in the group, plus the points field). This way a refresh shows the right thing and nothing can be faked through the URL. It shows the confirmation: name, **+1 point**, and the new total.
 - The forms are plain HTML `<form action>`, so check-in works even when JavaScript fails on older phones.
 - **Sliding session expiry** (deferred from the PR 4 review): after a successful check-in, the Server Action calls `setSession(contactId)` again, which resets the 90-day expiry. Members who keep coming never get signed out. It's done in the action because Server Components can't set cookies. Test first: the action re-issues the cookie on `checked_in` and `already_checked_in`.
+- *As built:* the result page reads state through `getCheckinStatus` (`src/lib/checkin/checkinStatus.ts`), which shares `findEvent` with `checkIn` and changes nothing. "+N points" shows only when this tap awarded them: group membership can't tell (the points write may have failed, or staff added the member), so the action leaves a 60-second httpOnly note for the result page (`src/lib/checkin/awardNotice.ts`), tied to the member and event so a shared phone never shows someone else's point. The total is always re-read. A session whose contact TidyHQ no longer has (`checkIn` and `getCheckinStatus` now return `unknown_contact`) sends the member to sign in again. `readAttendance` is the one place that decides "already checked in", for both. Both pages show "Signed in as X. Not you? Sign out" (`SignedInAs`), so a shared phone can switch members from the result page too. Every action outcome except `unknown_event` redirects to the result page; members who weren't checked in (expired, not open, unreadable total) see a plain "You're not checked in" until PR 7 explains why. "Not you? sign out" posts `returnTo` to `/auth/signout` (checked with `safeReturnTo`), so it leads straight back to sign-in. The pages sit behind `<Suspense>` because `cacheComponents` is on; a redirect from there is sent as a meta refresh, which works without JavaScript.
 
 ### PR 7: Friendly outcome screens
 - One small component per non-happy outcome, shown from the page or the action result:
@@ -80,7 +81,7 @@ Admins set check-in open/close times when they create the event in TidyHQ. We do
   - **Already checked in**: "You're already checked in, no extra point", plus the current total.
   - **Unknown event**: replaces the plain text from PR 6.
   - **Check-in not open yet / closed**: shows the open time in Seattle time.
-- Expired and already-checked-in are also caught on page load, so the member sees them without tapping the button.
+- Expired and already-checked-in are also caught on page load, so the member sees them without tapping the button. A member who's already checked in sees the "already checked in" screen (with their total) **instead of** the Check in button, not alongside it. Found in PR 6 manual testing.
 - **Points total unreadable** (`points_unreadable`, added in PR 3): "Please see a volunteer" message. The stored total isn't a plain whole number, so the member isn't checked in until someone fixes it in TidyHQ. `already_checked_in` can also carry `total: null` for the same reason; show the check-in without a total.
 - **Server-side error logging** (deferred from the PR 3 review, comment #5): log check-in failures on the server (event id, contact id, step, TidyHQ status; never tokens), especially a points write that fails after the group add, since that point is otherwise lost without a trace. Show the member a friendly error rather than a crash.
 
