@@ -8,6 +8,17 @@ const cookieStore = vi.hoisted(() => ({
 }));
 vi.mock("next/headers", () => ({ cookies: async () => cookieStore }));
 
+// React's cache() only memoizes inside a server request, so record the
+// functions it wraps instead.
+const cached = vi.hoisted(() => new Set<unknown>());
+vi.mock("react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react")>()),
+  cache: <T>(fn: T): T => {
+    cached.add(fn);
+    return fn;
+  },
+}));
+
 import {
   clearSession,
   getSession,
@@ -182,6 +193,10 @@ describe("cookie wrappers", () => {
     });
     expect(await getSession()).toMatchObject({ contactId: "c_dante" });
     expect(cookieStore.get).toHaveBeenCalledWith(SESSION_COOKIE);
+  });
+
+  it("getSession is wrapped in React cache(), so it runs once per request", () => {
+    expect(cached).toContain(getSession);
   });
 
   it("getSession returns null with no cookie", async () => {

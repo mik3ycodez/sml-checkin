@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 // The member session holds only the TidyHQ contact id and an expiry, signed
 // with HMAC-SHA256. The member's OAuth token is never stored.
@@ -85,11 +86,15 @@ export function getSessionSecret(): string {
   return secret;
 }
 
-/** The signed-in member's session, or null. Works in Server Components. */
-export async function getSession(): Promise<Session | null> {
+/**
+ * The signed-in member's session, or null. Works in Server Components.
+ * Wrapped in React's cache() so the cookie is verified once per request, however
+ * many components ask.
+ */
+export const getSession = cache(async (): Promise<Session | null> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   return verifySession(token, getSessionSecret(), new Date());
-}
+});
 
 /** Signs the member in. Only in Server Actions or Route Handlers. */
 export async function setSession(contactId: string): Promise<void> {
