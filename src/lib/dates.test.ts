@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, seattleDate } from "./dates";
+import { addDays, seattleDate, seattleTimeLabel } from "./dates";
 
 describe("seattleDate", () => {
   it("returns the Seattle calendar date as YYYY-MM-DD", () => {
@@ -32,5 +32,30 @@ describe("addDays", () => {
   it("isn't shifted by a DST change", () => {
     // Spans the 2026-03-08 spring-forward in Seattle.
     expect(addDays("2026-02-19", 165)).toBe("2026-08-03");
+  });
+});
+
+describe("seattleTimeLabel", () => {
+  it("shows the day and time in Seattle", () => {
+    // 02:00 UTC on the 18th is 7pm on the 17th in Seattle (PDT).
+    expect(seattleTimeLabel(new Date("2026-10-18T02:00:00Z"))).toBe(
+      "Saturday, October 17 at 7:00 PM",
+    );
+  });
+
+  it("follows standard time in winter", () => {
+    // 03:30 UTC is 7:30pm the day before in Seattle (PST, UTC-8).
+    expect(seattleTimeLabel(new Date("2026-12-01T03:30:00Z"))).toBe(
+      "Monday, November 30 at 7:30 PM",
+    );
+  });
+
+  it("shows noon and midnight as 12", () => {
+    expect(seattleTimeLabel(new Date("2026-10-12T19:00:00Z"))).toBe(
+      "Monday, October 12 at 12:00 PM",
+    );
+    expect(seattleTimeLabel(new Date("2026-10-13T07:05:00Z"))).toBe(
+      "Tuesday, October 13 at 12:05 AM",
+    );
   });
 });
