@@ -16,8 +16,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="bg-background font-sans text-foreground antialiased">
-        {children}
+      <body className="bg-background text-foreground antialiased">
+        <main className="mx-auto flex min-h-dvh max-w-lg flex-col px-4 py-6 sm:px-6">
+          {children}
+        </main>
       </body>
     </html>
   );
