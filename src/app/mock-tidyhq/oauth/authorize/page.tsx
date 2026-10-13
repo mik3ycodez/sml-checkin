@@ -3,14 +3,15 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { appOrigin } from "@/lib/auth/requestOrigin";
-import { getTidyServices } from "@/lib/tidyhq";
+import { getTidyMode, getTidyServices } from "@/lib/tidyhq";
 import { parseMockAuthorizeRequest } from "@/lib/tidyhq/mock/MockTidyOAuth";
-import { createSeed } from "@/lib/tidyhq/mock/seed";
 
-// Fake TidyHQ sign-in page, for mock mode only. Pick a seed member and get
-// sent back to the app's callback, like real TidyHQ would after a sign-in.
-// The mode is checked per request, not at build time: in production it must
-// be set explicitly (see parseTidyMode), and a live server returns 404 here.
+// Fake TidyHQ sign-in page, for mock mode only. Pick a seed member and the
+// approve route sends you back to the app's callback, like real TidyHQ would
+// after a sign-in. The mode is checked per request, not at build time. Outside
+// mock mode it shows Next's not-found screen; the status is 200, not 404,
+// because the page has already started streaming by then (it's marked
+// noindex). A live server never links here anyway.
 
 export default function MockAuthorizePage({
   searchParams,
@@ -31,40 +32,45 @@ export default function MockAuthorizePage({
 async function MemberList({
   searchParams,
 }: Pick<PageProps<"/mock-tidyhq/oauth/authorize">, "searchParams">) {
-  // Runs per request, never prerendered: it checks the mode, and issues
-  // fresh codes with timestamps.
   await connection();
-  const query = await searchParams;
-  const origin = appOrigin(await headers());
+  // Checked before building the services, which throw in live mode.
+  if (getTidyMode() !== "mock") notFound();
   const tidy = getTidyServices();
   if (tidy.mode !== "mock") notFound();
-  const { oauth } = tidy;
 
-  const request = parseMockAuthorizeRequest(query, origin, oauth.clientId);
+  const query = await searchParams;
+  const request = parseMockAuthorizeRequest(
+    query,
+    appOrigin(await headers()),
+    tidy.oauth.clientId,
+  );
   if (!request) {
     return <p className="text-lg">This sign-in link is invalid.</p>;
   }
 
+  // A plain form, so it works without JavaScript. Each button posts the
+  // OAuth request plus the picked member; a code is issued only on click.
   return (
-    <ul className="flex flex-col gap-2">
-      {createSeed().contacts.map((contact) => {
-        const back = new URL(request.redirectUri);
-        back.searchParams.set(
-          "code",
-          oauth.issueCode(contact.id, request.redirectUri),
-        );
-        back.searchParams.set("state", request.state);
-        return (
-          <li key={contact.id}>
-            <a
-              href={back.toString()}
-              className="block rounded-lg border border-foreground/20 px-4 py-3 text-lg"
-            >
-              {contact.display_name}
-            </a>
-          </li>
-        );
-      })}
-    </ul>
+    <form
+      method="post"
+      action="/mock-tidyhq/oauth/approve"
+      className="flex flex-col gap-2"
+    >
+      <input type="hidden" name="client_id" value={tidy.oauth.clientId} />
+      <input type="hidden" name="redirect_uri" value={request.redirectUri} />
+      <input type="hidden" name="response_type" value="code" />
+      <input type="hidden" name="state" value={request.state} />
+      {(await tidy.client.listContacts()).map((contact) => (
+        <button
+          key={contact.id}
+          type="submit"
+          name="contact_id"
+          value={contact.id}
+          className="rounded-lg border border-foreground/20 px-4 py-3 text-left text-lg"
+        >
+          {contact.display_name}
+        </button>
+      ))}
+    </form>
   );
 }
