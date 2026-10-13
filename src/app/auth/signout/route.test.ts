@@ -11,11 +11,12 @@ vi.mock("next/headers", () => ({ cookies: async () => cookieStore }));
 import { SESSION_COOKIE } from "@/lib/auth/session";
 import { POST } from "./route";
 
-function signOut(headers: Record<string, string>) {
+function signOut(headers: Record<string, string>, form?: Record<string, string>) {
   return POST(
     new NextRequest("http://localhost:3000/auth/signout", {
       method: "POST",
       headers: { host: "localhost:3000", ...headers },
+      body: form ? new URLSearchParams(form) : undefined,
     }),
   );
 }
@@ -30,6 +31,26 @@ describe("POST /auth/signout", () => {
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("http://localhost:3000/");
     expect(cookieStore.delete).toHaveBeenCalledWith(SESSION_COOKIE);
+  });
+
+  it("returns to a page on this site, e.g. to sign in as someone else", async () => {
+    const response = await signOut(
+      { "sec-fetch-site": "same-origin" },
+      { returnTo: "/checkin/ev_tonight" },
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:3000/checkin/ev_tonight",
+    );
+    expect(cookieStore.delete).toHaveBeenCalledWith(SESSION_COOKIE);
+  });
+
+  it("goes home instead of to another site", async () => {
+    const response = await signOut(
+      { "sec-fetch-site": "same-origin" },
+      { returnTo: "//evil.example/" },
+    );
+    expect(response.headers.get("location")).toBe("http://localhost:3000/");
   });
 
   it("refuses a cross-site request without signing out", async () => {
