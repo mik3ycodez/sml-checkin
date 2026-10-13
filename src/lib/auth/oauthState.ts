@@ -41,16 +41,21 @@ export function parseOAuthState(value: string | undefined): OAuthState | null {
 
 export type CallbackCheck =
   | { ok: true; code: string; returnTo: string }
-  | { ok: false };
+  | { ok: false; returnTo: string };
 
-/** Whether the callback's `state` matches the saved one and carries a code. */
+/**
+ * Whether the callback's `state` matches the saved one and carries a code.
+ * Either way, `returnTo` is the saved page (or `/`), so a failed sign-in can
+ * offer to try again from the same place.
+ */
 export function checkCallback(
   params: { code: string | null; state: string | null },
   savedCookie: string | undefined,
 ): CallbackCheck {
   const saved = parseOAuthState(savedCookie);
+  const returnTo = saved?.returnTo ?? "/";
   if (!saved || !params.code || params.state !== saved.state) {
-    return { ok: false };
+    return { ok: false, returnTo };
   }
-  return { ok: true, code: params.code, returnTo: saved.returnTo };
+  return { ok: true, code: params.code, returnTo };
 }

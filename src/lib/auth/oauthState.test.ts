@@ -60,13 +60,17 @@ describe("checkCallback", () => {
     ["no state", { code: "c", state: null }],
     ["no code", { code: null, state: "abc123" }],
     ["an empty code", { code: "", state: "abc123" }],
-  ])("rejects %s", (_label, params) => {
-    expect(checkCallback(params, saved)).toEqual({ ok: false });
+  ])("rejects %s, keeping the saved return path", (_label, params) => {
+    expect(checkCallback(params, saved)).toEqual({
+      ok: false,
+      returnTo: "/checkin/x",
+    });
   });
 
-  it("rejects a callback with no saved state cookie", () => {
+  it("rejects a callback with no saved state cookie, returning to /", () => {
     expect(checkCallback({ code: "c", state: "abc123" }, undefined)).toEqual({
       ok: false,
+      returnTo: "/",
     });
   });
 });
