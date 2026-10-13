@@ -75,11 +75,16 @@ so the app is built against a **mock TidyHQ**.
 - Node 24
 - Tests: Vitest
 - Mobile-first: the member side is used on phones at event doors
+- Styling: Tailwind CSS, not yet installed. Adding it is the first task of the
+  next milestone, before any screens are built.
 
 ## Conventions
 
 - Plan before editing for anything beyond a small change; confirm the plan with me.
 - Write tests for check-in rules, points calculation, and the TidyHQ client.
+- Use test-driven development: write failing tests first, run them to confirm
+  they fail, then implement until they pass. Don't change a test to make it
+  pass unless the test itself is wrong, and explain why if you do.
 - Keep the member-facing pages minimal and fast.
 - Small, focused commits with clear messages.
 
