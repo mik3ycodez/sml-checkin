@@ -1,10 +1,7 @@
-import { parseTidyMode, type TidyMode } from ".";
-import { MockTidyOAuth } from "./mock/MockTidyOAuth";
-
 /**
  * Member sign-in with TidyHQ (OAuth authorization code flow). Kept apart from
  * `TidyClient` because the code exchange happens on TidyHQ's accounts server,
- * not its API.
+ * not its API. Get the app-wide instance with `getTidyOAuth()` from `.`.
  */
 export interface TidyOAuth {
   /** Where to send the member to sign in. TidyHQ redirects back to `redirectUri`. */
@@ -16,16 +13,4 @@ export interface TidyOAuth {
    * `authorizeUrl`, as OAuth requires.
    */
   exchangeCode(params: { code: string; redirectUri: string }): Promise<string>;
-}
-
-export function createTidyOAuth(mode: TidyMode): TidyOAuth {
-  if (mode === "live") {
-    throw new Error("TIDYHQ_MODE=live is not implemented yet (live OAuth)");
-  }
-  return new MockTidyOAuth(process.env.TIDYHQ_CLIENT_ID || "mock-client-id");
-}
-
-/** The app-wide TidyHQ OAuth, chosen by `TIDYHQ_MODE` (default `mock`). */
-export function getTidyOAuth(): TidyOAuth {
-  return createTidyOAuth(parseTidyMode(process.env.TIDYHQ_MODE));
 }
