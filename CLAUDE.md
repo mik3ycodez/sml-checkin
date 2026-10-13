@@ -103,6 +103,8 @@ so the app is built against a **mock TidyHQ**.
 ## Conventions
 
 - Plan before editing for anything beyond a small change; confirm the plan with me.
+- Plans live in `docs/plans/` (one file per milestone). Mark PRs done there as
+  they merge.
 - Write tests for check-in rules, points calculation, and the TidyHQ client.
 - Use test-driven development: write failing tests first, run them to confirm
   they fail, then implement until they pass. Don't change a test to make it
