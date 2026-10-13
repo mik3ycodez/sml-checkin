@@ -5,7 +5,7 @@ system of record; this app is a thin layer on top of it.
 
 - Members scan an event QR code, sign in with TidyHQ, and check in with one tap.
 - Check-in verifies active membership, records attendance in the event's TidyHQ
-  contact group, and updates the member's points total (1 point per event).
+  contact group, and updates the member's points total.
 - Members get a status page; the SML Board gets event QR codes, live attendee
   lists, manual check-in, and points adjustments.
 
@@ -20,7 +20,7 @@ chosen by `TIDYHQ_MODE` (`mock`, the default, or `live`, not yet implemented).
 
 ## Getting started
 
-Requires Node 24 (see `.nvmrc`).
+Requires Node 24 or newer (see `.nvmrc`).
 
 ```bash
 npm install                  # install dependencies
