@@ -1,14 +1,25 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { getSession } from "@/lib/auth/session";
+import { AWARD_NOTICE_COOKIE, readAwardNotice } from "@/lib/checkin/awardNotice";
+import { findEvent } from "@/lib/checkin/checkIn";
 import { getCheckinStatus } from "@/lib/checkin/checkinStatus";
-import { POINTS_PER_CHECKIN } from "@/lib/points";
 import { getTidyClient } from "@/lib/tidyhq";
-import { checkinPath, Loading, signInPath, UnknownEvent } from "../screens";
+import {
+  checkinPath,
+  eventTitle,
+  Loading,
+  SignedInAs,
+  signInPath,
+  UnknownEvent,
+} from "../screens";
 
-// Where the check-in button lands. Everything shown is re-read from TidyHQ,
-// not taken from the URL, so a refresh shows the truth and can't be faked.
+// Where the check-in button lands. Whether the member is checked in, and
+// their total, are re-read from TidyHQ rather than taken from the URL, so a
+// refresh shows the truth. Only "+N points" comes from the action, via a
+// short-lived cookie, because TidyHQ can't say whether this tap awarded it.
 
 export default function CheckInResultPage({
   params,
@@ -25,14 +36,19 @@ async function Result({
 }: Pick<PageProps<"/checkin/[eventId]/result">, "params">) {
   await connection();
   const { eventId } = await params;
+  const client = getTidyClient();
   const session = await getSession();
-  if (!session) redirect(signInPath(eventId));
+  if (!session) {
+    // Same order as the check-in page: a bad link never goes through sign-in.
+    if (!(await findEvent(client, eventId))) return <UnknownEvent />;
+    redirect(signInPath(eventId));
+  }
 
-  const status = await getCheckinStatus(getTidyClient(), {
-    eventId,
-    contactId: session.contactId,
-  });
+  const { contactId } = session;
+  const status = await getCheckinStatus(client, { eventId, contactId });
   if (status.status === "unknown_event") return <UnknownEvent />;
+  if (status.status === "unknown_contact") redirect(signInPath(eventId));
+  const signedInAs = <SignedInAs name={status.name} eventId={eventId} />;
 
   if (status.status === "not_checked_in") {
     // PR 7 explains why (membership expired, not open yet, and so on).
@@ -50,27 +66,34 @@ async function Result({
         >
           Back to check-in
         </a>
+        {signedInAs}
       </div>
     );
   }
 
-  // The role isn't saved yet, so this shows the attendee award. Each member
-  // earns it once per event, so it's true however many times they tapped.
-  const points = POINTS_PER_CHECKIN.attendee;
+  const awarded = readAwardNotice(
+    (await cookies()).get(AWARD_NOTICE_COOKIE)?.value,
+    { eventId, contactId },
+  );
   return (
     <div className="flex flex-1 flex-col justify-center gap-4">
-      <p className="text-lg text-foreground/70">{status.eventName}</p>
+      <p className="text-lg text-foreground/70">
+        {eventTitle(status.eventName)}
+      </p>
       <h1 className="text-3xl font-bold tracking-tight">
         You&apos;re checked in, {status.name}!
       </h1>
-      <p className="text-4xl font-bold">
-        +{points} {points === 1 ? "point" : "points"}
-      </p>
+      {awarded !== null && (
+        <p className="text-4xl font-bold">
+          +{awarded} {awarded === 1 ? "point" : "points"}
+        </p>
+      )}
       {status.total !== null && (
         <p className="text-xl">
           Your total: <span className="font-semibold">{status.total}</span>
         </p>
       )}
+      {signedInAs}
     </div>
   );
 }

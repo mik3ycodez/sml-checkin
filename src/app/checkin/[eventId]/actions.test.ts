@@ -23,6 +23,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { SESSION_COOKIE, signSession } from "@/lib/auth/session";
+import { AWARD_NOTICE_COOKIE, readAwardNotice } from "@/lib/checkin/awardNotice";
 import { getTidyClient } from "@/lib/tidyhq";
 import { checkInAction } from "./actions";
 
@@ -39,6 +40,14 @@ async function submit(eventId: unknown): Promise<string> {
   return error.url;
 }
 
+/** Points the action told the result page it just awarded, or null. */
+function awardNotice(eventId: string, contactId: string): number | null {
+  const call = cookieStore.set.mock.calls.find(
+    ([name]) => name === AWARD_NOTICE_COOKIE,
+  );
+  return call ? readAwardNotice(call[1], { eventId, contactId }) : null;
+}
+
 function sessionReissued() {
   return cookieStore.set.mock.calls.some(([name]) => name === SESSION_COOKIE);
 }
@@ -49,6 +58,7 @@ describe("checkInAction", () => {
     vi.stubEnv("SESSION_SECRET", SECRET);
     jar.clear();
     cookieStore.set.mockClear();
+    cookieStore.delete.mockClear();
   });
 
   afterEach(() => {
@@ -79,6 +89,41 @@ describe("checkInAction", () => {
     cookieStore.set.mockClear();
     expect(await submit("ev_tonight")).toBe("/checkin/ev_tonight/result");
     expect(sessionReissued()).toBe(true);
+  });
+
+  it("tells the result page how many points it just awarded", async () => {
+    signInAs("c_dante");
+    await submit("ev_tonight");
+    expect(awardNotice("ev_tonight", "c_dante")).toBe(1);
+    expect(cookieStore.set).toHaveBeenCalledWith(
+      AWARD_NOTICE_COOKIE,
+      expect.any(String),
+      expect.objectContaining({
+        httpOnly: true,
+        path: "/checkin/ev_tonight/result",
+      }),
+    );
+  });
+
+  it("doesn't claim a point when already checked in", async () => {
+    signInAs("c_dante");
+    await submit("ev_tonight");
+    cookieStore.set.mockClear();
+    await submit("ev_tonight");
+    expect(awardNotice("ev_tonight", "c_dante")).toBeNull();
+    // Clears the first tap's note, so the result page doesn't show it again.
+    expect(cookieStore.delete).toHaveBeenCalledWith({
+      name: AWARD_NOTICE_COOKIE,
+      path: "/checkin/ev_tonight/result",
+    });
+  });
+
+  it("sends a member whose contact is gone from TidyHQ to sign in again", async () => {
+    signInAs("c_nobody");
+    expect(await submit("ev_tonight")).toBe(
+      "/auth/signin?returnTo=%2Fcheckin%2Fev_tonight",
+    );
+    expect(sessionReissued()).toBe(false);
   });
 
   it("doesn't extend the session when the check-in is refused", async () => {
