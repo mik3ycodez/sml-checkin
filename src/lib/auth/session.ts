@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { cache } from "react";
+import { secureCookieOptions } from "./cookieOptions";
 
 // The member session holds only the TidyHQ contact id and an expiry, signed
 // with HMAC-SHA256. The member's OAuth token is never stored.
@@ -100,9 +101,7 @@ export const getSession = cache(async (): Promise<Session | null> => {
 export async function setSession(contactId: string): Promise<void> {
   const token = signSession(contactId, getSessionSecret(), new Date());
   (await cookies()).set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    ...secureCookieOptions(),
     path: "/",
     maxAge: SESSION_MAX_AGE_SECONDS,
   });
