@@ -9,9 +9,10 @@ import {
   AWARD_NOTICE_MAX_AGE_SECONDS,
   encodeAwardNotice,
 } from "@/lib/checkin/awardNotice";
-import { checkIn } from "@/lib/checkin/checkIn";
+import { CheckInFailure, checkIn, type CheckInResult } from "@/lib/checkin/checkIn";
+import { logCheckinFailure } from "@/lib/checkin/logFailure";
 import { getTidyClient } from "@/lib/tidyhq";
-import { checkinPath, resultPath, signInPath } from "./screens";
+import { checkinPath, problemPath, resultPath, signInPath } from "./screens";
 
 /**
  * The check-in button. Bound to the event id on the check-in page; the
@@ -19,7 +20,8 @@ import { checkinPath, resultPath, signInPath } from "./screens";
  * the id is checked and the session verified again.
  *
  * Always redirects. The result page re-reads TidyHQ, so a refresh there
- * never posts again.
+ * never posts again. If TidyHQ fails partway, the failure is logged and the
+ * member sees a friendly problem page rather than a crash.
  */
 export async function checkInAction(eventId: unknown): Promise<never> {
   if (typeof eventId !== "string" || eventId === "") redirect("/");
@@ -29,11 +31,18 @@ export async function checkInAction(eventId: unknown): Promise<never> {
   if (!session) redirect(signInPath(eventId));
 
   const { contactId } = session;
-  const result = await checkIn(getTidyClient(), {
-    eventId,
-    contactId,
-    now: new Date(),
-  });
+  let result: CheckInResult;
+  try {
+    result = await checkIn(getTidyClient(), {
+      eventId,
+      contactId,
+      now: new Date(),
+    });
+  } catch (error) {
+    if (!(error instanceof CheckInFailure)) throw error;
+    logCheckinFailure({ eventId, contactId, failure: error });
+    redirect(problemPath(eventId));
+  }
   // The session is valid but TidyHQ no longer has the contact; signing in
   // again replaces it.
   if (result.status === "unknown_contact") redirect(signInPath(eventId));

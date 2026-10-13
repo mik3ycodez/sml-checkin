@@ -24,7 +24,7 @@ vi.mock("next/navigation", () => ({
 
 import { SESSION_COOKIE, signSession } from "@/lib/auth/session";
 import { AWARD_NOTICE_COOKIE, readAwardNotice } from "@/lib/checkin/awardNotice";
-import { getTidyClient } from "@/lib/tidyhq";
+import { getTidyClient, TidyError } from "@/lib/tidyhq";
 import { checkInAction } from "./actions";
 
 const SECRET = "test-secret-that-is-at-least-32-characters-long";
@@ -62,6 +62,7 @@ describe("checkInAction", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllEnvs();
     delete (globalThis as { __tidy?: unknown }).__tidy;
   });
@@ -160,5 +161,42 @@ describe("checkInAction", () => {
     signInAs("c_dante");
     expect(await submit("")).toBe("/");
     expect(await submit({ id: "ev_tonight" })).toBe("/");
+  });
+
+  describe("when TidyHQ fails", () => {
+    function failPointsWrite() {
+      getTidyClient().updateContact = async () => {
+        throw new TidyError(503, "TidyHQ unavailable");
+      };
+    }
+
+    it("shows a friendly problem page instead of crashing", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      signInAs("c_dante");
+      failPointsWrite();
+      expect(await submit("ev_tonight")).toBe("/checkin/ev_tonight/problem");
+      expect(awardNotice("ev_tonight", "c_dante")).toBeNull();
+    });
+
+    it("logs the event, member, failed step and TidyHQ status", async () => {
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      signInAs("c_dante");
+      failPointsWrite();
+      await submit("ev_tonight");
+      expect(log).toHaveBeenCalledWith("check-in failed", {
+        eventId: "ev_tonight",
+        contactId: "c_dante",
+        step: "points_write",
+        tidyStatus: 503,
+      });
+    });
+
+    it("never logs the session cookie", async () => {
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      signInAs("c_dante");
+      failPointsWrite();
+      await submit("ev_tonight");
+      expect(JSON.stringify(log.mock.calls)).not.toContain(jar.get(SESSION_COOKIE));
+    });
   });
 });
