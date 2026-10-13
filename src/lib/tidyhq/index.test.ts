@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  createTidyClient,
   createTidyServices,
   getTidyClient,
   getTidyOAuth,
@@ -53,16 +52,6 @@ describe("createTidyServices", () => {
 
   it("throws in live mode until the live implementations exist", () => {
     expect(() => createTidyServices("live")).toThrow(/not implemented/);
-  });
-});
-
-describe("createTidyClient", () => {
-  it("creates a MockTidyClient in mock mode", () => {
-    expect(createTidyClient("mock")).toBeInstanceOf(MockTidyClient);
-  });
-
-  it("throws in live mode until HttpTidyClient exists", () => {
-    expect(() => createTidyClient("live")).toThrow(/not implemented/);
   });
 });
 

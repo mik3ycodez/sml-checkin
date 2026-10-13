@@ -5,7 +5,7 @@ import type { TidyOAuth } from "./oauth";
 
 export type { TidyClient, ListEventsOptions } from "./client";
 export type { TidyOAuth } from "./oauth";
-export { TidyError } from "./errors";
+export { isTidyError, TidyError } from "./errors";
 export { resolveEventGroup } from "./eventGroups";
 export {
   getCheckinWindow,
@@ -68,26 +68,25 @@ export function createTidyServices(mode: TidyMode): TidyServices {
   };
 }
 
-export function createTidyClient(mode: TidyMode): TidyClient {
-  return createTidyServices(mode).client;
-}
-
 // Cached on globalThis so Next.js dev hot reloads don't reset the mock's
 // state, and so codes the fake sign-in page issues are there at the callback.
 const cache = globalThis as typeof globalThis & { __tidy?: TidyServices };
 
-/** The app-wide services, created once for this server's `TIDYHQ_MODE`. */
+/**
+ * The app-wide services, created once for this server's `TIDYHQ_MODE`
+ * (mock by default outside production; production must set it).
+ */
 export function getTidyServices(): TidyServices {
   cache.__tidy ??= createTidyServices(getTidyMode());
   return cache.__tidy;
 }
 
-/** The app-wide TidyHQ client, chosen by `TIDYHQ_MODE` (default `mock`). */
+/** The app-wide TidyHQ client, chosen by `TIDYHQ_MODE`. */
 export function getTidyClient(): TidyClient {
   return getTidyServices().client;
 }
 
-/** The app-wide TidyHQ sign-in, chosen by `TIDYHQ_MODE` (default `mock`). */
+/** The app-wide TidyHQ sign-in, chosen by `TIDYHQ_MODE`. */
 export function getTidyOAuth(): TidyOAuth {
   return getTidyServices().oauth;
 }
