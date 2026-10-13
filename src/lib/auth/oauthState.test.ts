@@ -2,16 +2,23 @@ import { describe, expect, it } from "vitest";
 import {
   checkCallback,
   newOAuthState,
-  parseOAuthState,
-  serializeOAuthState,
+  OAUTH_STATE_COOKIE_PREFIX,
+  oauthStateCookieName,
 } from "./oauthState";
+
+const STATE = "a".repeat(43);
 
 describe("newOAuthState", () => {
   it("makes a long random state each time", () => {
     const a = newOAuthState("/checkin/ev_tonight");
     const b = newOAuthState("/checkin/ev_tonight");
-    expect(a.state).toMatch(/^[A-Za-z0-9_-]{32,}$/);
+    expect(a.state).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(a.state).not.toBe(b.state);
+  });
+
+  it("names its cookie after the state, so sign-ins in two tabs don't collide", () => {
+    const saved = newOAuthState("/checkin/ev_tonight");
+    expect(saved.cookieName).toBe(`${OAUTH_STATE_COOKIE_PREFIX}${saved.state}`);
   });
 
   it("keeps a safe return path", () => {
@@ -28,48 +35,60 @@ describe("newOAuthState", () => {
   );
 });
 
-describe("parseOAuthState", () => {
-  it("round-trips through serializeOAuthState", () => {
-    const saved = newOAuthState("/checkin/ev_tonight");
-    expect(parseOAuthState(serializeOAuthState(saved))).toEqual(saved);
+describe("oauthStateCookieName", () => {
+  it("names the cookie for a well-formed state", () => {
+    expect(oauthStateCookieName(STATE)).toBe(`${OAUTH_STATE_COOKIE_PREFIX}${STATE}`);
   });
 
-  it.each([undefined, "", "not json", "{}", '{"state":""}', '{"state":5}', "[]"])(
-    "returns null for %j",
-    (value) => {
-      expect(parseOAuthState(value)).toBe(null);
+  it.each([null, "", "short", "a".repeat(44), `${"a".repeat(42)}=`, `${"a".repeat(42)};`])(
+    "refuses malformed state %j",
+    (state) => {
+      expect(oauthStateCookieName(state)).toBe(null);
     },
   );
-
-  it("re-checks the return path, in case the cookie was edited", () => {
-    const value = JSON.stringify({ state: "abc", returnTo: "//evil.com" });
-    expect(parseOAuthState(value)).toEqual({ state: "abc", returnTo: "/" });
-  });
 });
 
 describe("checkCallback", () => {
-  const saved = serializeOAuthState({ state: "abc123", returnTo: "/checkin/x" });
+  const cookies: Record<string, string> = {
+    [`${OAUTH_STATE_COOKIE_PREFIX}${STATE}`]: "/checkin/x",
+  };
+  const read = (name: string) => cookies[name];
 
-  it("accepts a matching state and returns the code and return path", () => {
-    expect(checkCallback({ code: "mock-code-c_dante", state: "abc123" }, saved))
-      .toEqual({ ok: true, code: "mock-code-c_dante", returnTo: "/checkin/x" });
+  it("accepts a state with a saved cookie and returns the code and return path", () => {
+    expect(checkCallback({ code: "c", state: STATE }, read)).toEqual({
+      ok: true,
+      code: "c",
+      returnTo: "/checkin/x",
+      cookieName: `${OAUTH_STATE_COOKIE_PREFIX}${STATE}`,
+    });
   });
 
-  it.each([
-    ["a different state", { code: "c", state: "other" }],
-    ["no state", { code: "c", state: null }],
-    ["no code", { code: null, state: "abc123" }],
-    ["an empty code", { code: "", state: "abc123" }],
-  ])("rejects %s, keeping the saved return path", (_label, params) => {
-    expect(checkCallback(params, saved)).toEqual({
+  it("keeps the return path when the code is missing", () => {
+    expect(checkCallback({ code: null, state: STATE }, read)).toEqual({
+      ok: false,
+      returnTo: "/checkin/x",
+    });
+    expect(checkCallback({ code: "", state: STATE }, read)).toEqual({
       ok: false,
       returnTo: "/checkin/x",
     });
   });
 
-  it("rejects a callback with no saved state cookie, returning to /", () => {
-    expect(checkCallback({ code: "c", state: "abc123" }, undefined)).toEqual({
+  it.each([
+    ["a state with no saved cookie", "b".repeat(43)],
+    ["no state", null],
+    ["a malformed state", "junk"],
+  ])("rejects %s, returning to /", (_label, state) => {
+    expect(checkCallback({ code: "c", state }, read)).toEqual({
       ok: false,
+      returnTo: "/",
+    });
+  });
+
+  it("re-checks the saved return path, in case the cookie was edited", () => {
+    const edited = () => "//evil.com";
+    expect(checkCallback({ code: "c", state: STATE }, edited)).toMatchObject({
+      ok: true,
       returnTo: "/",
     });
   });
