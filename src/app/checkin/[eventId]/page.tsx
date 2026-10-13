@@ -1,21 +1,13 @@
-import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { getSession } from "@/lib/auth/session";
-import { findContact, findEvent } from "@/lib/checkin/checkIn";
-import { getTidyClient } from "@/lib/tidyhq";
 import { checkInAction } from "./actions";
-import {
-  eventTitle,
-  Loading,
-  SignedInAs,
-  signInPath,
-  UnknownEvent,
-} from "./screens";
+import { memberStatus } from "./memberStatus";
+import { eventTitle, Loading, SignedInAs, StatusScreen } from "./screens";
 
 // The page a member's phone opens from the event QR code. Visiting it changes
 // nothing: checking in is a POST from the button, so link previews and
-// prefetching can't check anyone in.
+// prefetching can't check anyone in. A member who's already checked in, or
+// can't check in (expired, not open yet), sees why instead of the button.
 
 export default function CheckInPage({
   params,
@@ -32,23 +24,16 @@ async function CheckIn({
 }: Pick<PageProps<"/checkin/[eventId]">, "params">) {
   await connection();
   const { eventId } = await params;
-  const client = getTidyClient();
-
-  const session = await getSession();
-  const [found, contact] = await Promise.all([
-    findEvent(client, eventId),
-    session ? findContact(client, session.contactId) : null,
-  ]);
-  // Before sign-in, so a bad QR code doesn't send anyone through TidyHQ first.
-  if (!found) return <UnknownEvent />;
-  // No session, or one for a contact TidyHQ no longer has.
-  if (!contact) redirect(signInPath(eventId));
+  const { status } = await memberStatus(eventId);
+  if (status.status !== "ready") {
+    return <StatusScreen status={status} eventId={eventId} awarded={null} />;
+  }
 
   // Plain forms, so checking in works even if JavaScript fails on older phones.
   return (
     <div className="flex flex-1 flex-col justify-center gap-6">
       <h1 className="text-3xl font-bold tracking-tight">
-        {eventTitle(found.event.name)}
+        {eventTitle(status.eventName)}
       </h1>
       <form action={checkInAction.bind(null, eventId)}>
         <button
@@ -58,7 +43,7 @@ async function CheckIn({
           Check in
         </button>
       </form>
-      <SignedInAs name={contact.display_name} eventId={eventId} />
+      <SignedInAs name={status.name} eventId={eventId} />
     </div>
   );
 }
