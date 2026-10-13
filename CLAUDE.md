@@ -41,6 +41,8 @@ system of record; this app is a thin layer on top of it.
   the role from the start so adding volunteer rules doesn't require a redesign.
 - Points total is recalculated from attendance, not incremented, so retries can
   never double-count. One check-in per member per event.
+- Points never reset: the total counts every event a member has ever
+  attended, not just the current membership year.
 - Check-ins record who, which event, when, role (`attendee` or `volunteer`), and
   method (`self` or `staff`).
 
