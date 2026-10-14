@@ -8,8 +8,12 @@ import { parseMockAuthorizeRequest } from "@/lib/tidyhq/mock/MockTidyOAuth";
 // approve route sends you back to the app's callback, like real TidyHQ would
 // after a sign-in. Reading `searchParams` makes the page dynamic, so the mode
 // is checked per request, not at build time. Outside mock mode it's a real
-// 404. A live server never links here anyway. No <Suspense>: the page must
+// 404. A live server never links here anyway. No Suspense: the page must
 // render fully without JavaScript.
+
+// Rendered per request, never at build time, even if a later edit stops
+// reading request data here.
+export const dynamic = "force-dynamic";
 
 export default async function MockAuthorizePage({
   searchParams,

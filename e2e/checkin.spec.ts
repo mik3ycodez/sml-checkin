@@ -1,7 +1,7 @@
 import { expect, signInAs, test } from "./fixtures";
 
-// Tests tagged also run in the "webkit-no-js" project (JavaScript off),
-// because member pages must work on older phones where scripts fail.
+// Every spec runs in all three projects, including "webkit-no-js" (JavaScript
+// off), because member pages must work on phones where scripts fail.
 
 test("a member signs in, checks in, and earns a point", async ({ page }) => {
   await signInAs(page, "Dante Ruiz", "/checkin/ev_tonight");

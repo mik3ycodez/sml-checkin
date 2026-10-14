@@ -94,9 +94,11 @@ so the app is built against a **mock TidyHQ**.
   and it forces `<Suspense>` around request-time data. Streamed `<Suspense>`
   content is revealed by a script, so with JavaScript off or failing (event
   Wi-Fi), members would see "Loading…" forever. Don't wrap member pages in
-  `<Suspense>`; the Playwright `webkit-no-js` project (JavaScript off) runs
-  every spec to catch this. Revisit at the next major Next.js version, where
-  Cache Components becomes the default.
+  `<Suspense>` or add `loading.tsx` files under `src/app`:
+  `src/app/noSuspense.test.ts` fails if either appears, and the Playwright
+  `webkit-no-js` project (JavaScript off) runs every spec to catch the rest.
+  Revisit at the next major Next.js version, where Cache Components becomes
+  the default.
 - Tests: Vitest
 - Mobile-first: the member side is used on phones at event doors
 - Styling: Tailwind CSS v4 (PostCSS plugin, no `tailwind.config.js`). Shared

@@ -1,6 +1,6 @@
 import { safeReturnTo } from "@/lib/auth/returnTo";
 
-// Plain page, no <Suspense>: it must render fully without JavaScript.
+// Plain page, no Suspense: it must render fully without JavaScript.
 
 export default async function SignInErrorPage({
   searchParams,
