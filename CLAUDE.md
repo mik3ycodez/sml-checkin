@@ -117,6 +117,15 @@ so the app is built against a **mock TidyHQ**.
 - Small, focused commits with clear messages.
 - Do small tasks inline rather than spawning subagents, to conserve usage.
 
+## Versioning
+
+- We use semantic versioning. Each completed milestone bumps the minor version
+  (0.3.0 for milestone 3), bug fixes between milestones bump the patch, and
+  go-live with live TidyHQ is 1.0.0.
+- The final PR of each milestone updates the version in `package.json` before
+  merging. After it merges, I tag the release and create a GitHub Release with
+  generated notes.
+
 ## Security
 
 - Never commit secrets. Credentials live in `.env.local`, which is gitignored.
