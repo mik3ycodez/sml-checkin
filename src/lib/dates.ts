@@ -25,3 +25,25 @@ export function addDays(date: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+const seattleTimeParts = new Intl.DateTimeFormat("en-US", {
+  timeZone: SML_TIME_ZONE,
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
+/**
+ * A moment as members read it, in Seattle time: "Saturday, October 17 at
+ * 7:00 PM". Built from parts, like `seattleDate`, because how locale data
+ * joins them (" at ", ", ", narrow spaces) varies between Node versions.
+ */
+export function seattleTimeLabel(date: Date): string {
+  const parts = seattleTimeParts.formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)!.value;
+  return `${part("weekday")}, ${part("month")} ${part("day")} at ${part("hour")}:${part("minute")} ${part("dayPeriod")}`;
+}

@@ -3,7 +3,7 @@ import { readPoints } from "../tidyhq/customFields";
 import { TidyError } from "../tidyhq/errors";
 import { MockTidyClient } from "../tidyhq/mock/MockTidyClient";
 import { createSeed } from "../tidyhq/mock/seed";
-import { checkIn, findContact } from "./checkIn";
+import { assessCheckIn, CheckInFailure, checkIn, findContact } from "./checkIn";
 
 const NOW = new Date("2026-10-12T18:00:00Z");
 
@@ -249,7 +249,7 @@ describe("checkIn", () => {
       return update(id, patch);
     };
     const input = { eventId: "ev_tonight", contactId: "c_dante", now: NOW };
-    await expect(checkIn(client, input)).rejects.toBeInstanceOf(TidyError);
+    await expect(checkIn(client, input)).rejects.toBeInstanceOf(CheckInFailure);
     expect(await groupIds(client, "grp_social_night")).toContain("c_dante");
 
     const retry = await checkIn(client, input);
@@ -263,7 +263,7 @@ describe("checkIn", () => {
       throw new TidyError(503, "TidyHQ unavailable");
     };
     const input = { eventId: "ev_tonight", contactId: "c_dante", now: NOW };
-    await expect(checkIn(client, input)).rejects.toBeInstanceOf(TidyError);
+    await expect(checkIn(client, input)).rejects.toBeInstanceOf(CheckInFailure);
     expect(await storedPoints(client, "c_dante")).toBe(0);
   });
 
@@ -274,7 +274,11 @@ describe("checkIn", () => {
       contactId: "c_lee",
       now: NOW,
     });
-    expect(result).toEqual({ status: "membership_inactive", name: "Lee Hart" });
+    expect(result).toEqual({
+      status: "membership_inactive",
+      name: "Lee Hart",
+      eventName: "Social Night",
+    });
     expect(await groupIds(client, "grp_social_night")).not.toContain("c_lee");
     expect(await storedPoints(client, "c_lee")).toBe(0);
   });
@@ -312,6 +316,7 @@ describe("checkIn", () => {
     });
     expect(result).toEqual({
       status: "not_open",
+      name: "Dante Ruiz",
       eventName: "Bootblack Social",
       opensAt: new Date(window!.opens_at),
     });
@@ -325,7 +330,11 @@ describe("checkIn", () => {
       contactId: "c_dante",
       now: NOW,
     });
-    expect(result).toEqual({ status: "closed", eventName: "Pub Night" });
+    expect(result).toEqual({
+      status: "closed",
+      name: "Dante Ruiz",
+      eventName: "Pub Night",
+    });
     expect(await groupIds(client, "grp_pub_night")).not.toContain("c_dante");
   });
 
@@ -349,6 +358,155 @@ describe("checkIn", () => {
     });
     expect(result).toEqual({ status: "unknown_contact" });
     expect(await groupIds(client, "grp_social_night")).not.toContain("c_nobody");
+  });
+});
+
+describe("checkIn failures", () => {
+  const input = { eventId: "ev_tonight", contactId: "c_dante", now: NOW };
+  const unavailable = () => new TidyError(503, "TidyHQ unavailable");
+
+  async function failure(client: MockTidyClient): Promise<CheckInFailure> {
+    const error = await checkIn(client, input).catch((e: unknown) => e);
+    if (!(error instanceof CheckInFailure)) throw new Error("expected a CheckInFailure");
+    return error;
+  }
+
+  it("names a failed points write, so the missed point can be traced", async () => {
+    const client = seededClient();
+    client.updateContact = async () => {
+      throw unavailable();
+    };
+    const error = await failure(client);
+    expect(error.step).toBe("points_write");
+    expect(error.cause).toBeInstanceOf(TidyError);
+    expect(error.cause.status).toBe(503);
+  });
+
+  it("names a failed group add", async () => {
+    const client = seededClient();
+    client.addContactToGroup = async () => {
+      throw unavailable();
+    };
+    expect((await failure(client)).step).toBe("group_add");
+  });
+
+  it("names a failed lookup before anything is written", async () => {
+    const client = seededClient();
+    client.getMemberships = async () => {
+      throw unavailable();
+    };
+    const error = await failure(client);
+    expect(error.step).toBe("lookup");
+    expect(await groupIds(client, "grp_social_night")).not.toContain("c_dante");
+  });
+
+  it("lets errors that aren't from TidyHQ through, so bugs aren't hidden", async () => {
+    const client = seededClient();
+    const bug = new TypeError("Cannot read properties of undefined");
+    client.getEvent = async () => {
+      throw bug;
+    };
+    await expect(checkIn(client, input)).rejects.toBe(bug);
+  });
+
+  it("lets a non-TidyHQ error in the points write through too", async () => {
+    const client = seededClient();
+    const bug = new TypeError("bad patch");
+    client.updateContact = async () => {
+      throw bug;
+    };
+    await expect(checkIn(client, input)).rejects.toBe(bug);
+  });
+});
+
+describe("assessCheckIn", () => {
+  const RENEWED = {
+    state: "activated",
+    status: "Activated",
+    end_date: "2099-12-31",
+  } as const;
+
+  it("reports a member who can check in now", async () => {
+    const assessment = await assessCheckIn(seededClient(), {
+      eventId: "ev_tonight",
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(assessment).toMatchObject({
+      status: "ready",
+      name: "Dante Ruiz",
+      eventName: "Social Night",
+    });
+  });
+
+  it("reports a check-in and the stored total, read back from TidyHQ", async () => {
+    const client = seededClient();
+    const input = { eventId: "ev_tonight", contactId: "c_dante", now: NOW };
+    await checkIn(client, input);
+    expect(await assessCheckIn(client, input)).toEqual({
+      status: "already_checked_in",
+      name: "Dante Ruiz",
+      eventName: "Social Night",
+      total: 1,
+    });
+  });
+
+  it("reports an unreadable total as null", async () => {
+    const client = seededClient((seed) => {
+      const marcus = seed.contacts.find((c) => c.id === "c_marcus")!;
+      marcus.custom_fields.cf_sml_points.value = "12.5";
+    });
+    const assessment = await assessCheckIn(client, {
+      eventId: "ev_pub_night",
+      contactId: "c_marcus",
+      now: NOW,
+    });
+    expect(assessment).toMatchObject({ status: "already_checked_in", total: null });
+  });
+
+  it("changes nothing in TidyHQ", async () => {
+    const client = seededClient();
+    await assessCheckIn(client, { eventId: "ev_tonight", contactId: "c_dante", now: NOW });
+    expect(await groupIds(client, "grp_social_night")).not.toContain("c_dante");
+    expect(await storedPoints(client, "c_dante")).toBe(0);
+  });
+
+  it("explains each refusal the way the tap would", async () => {
+    // Every refusal the page shows before the tap is the one the tap gets.
+    const cases = [
+      { eventId: "ev_tonight", contactId: "c_lee", status: "membership_inactive" },
+      { eventId: "ev_bootblack_social", contactId: "c_dante", status: "not_open" },
+      { eventId: "ev_pub_night", contactId: "c_dante", status: "closed" },
+      { eventId: "ev_pub_night", contactId: "c_marcus", status: "already_checked_in" },
+      { eventId: "ev_nope", contactId: "c_dante", status: "unknown_event" },
+      { eventId: "ev_tonight", contactId: "c_nobody", status: "unknown_contact" },
+    ];
+    for (const { status, ...ids } of cases) {
+      const client = seededClient();
+      const input = { ...ids, now: NOW };
+      expect((await assessCheckIn(client, input)).status, status).toBe(status);
+      expect(await checkIn(client, input)).toEqual(await assessCheckIn(client, input));
+    }
+  });
+
+  it("asks TidyHQ again after an expired member renews", async () => {
+    // What the "I've renewed, check me in" link relies on: nothing remembers
+    // the earlier refusal.
+    const client = seededClient();
+    const input = { eventId: "ev_tonight", contactId: "c_lee", now: NOW };
+    expect(await assessCheckIn(client, input)).toMatchObject({
+      status: "membership_inactive",
+    });
+
+    const getMemberships = client.getMemberships.bind(client);
+    client.getMemberships = async (id) =>
+      (await getMemberships(id)).map((m) => ({ ...m, ...RENEWED }));
+
+    expect(await assessCheckIn(client, input)).toMatchObject({ status: "ready" });
+    expect(await checkIn(client, input)).toMatchObject({
+      status: "checked_in",
+      pointsAwarded: 1,
+    });
   });
 });
 

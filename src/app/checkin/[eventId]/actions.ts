@@ -4,14 +4,16 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { secureCookieOptions } from "@/lib/auth/cookieOptions";
 import { getSession, setSession } from "@/lib/auth/session";
+import { CheckInFailure, checkIn, type CheckInResult } from "@/lib/checkin/checkIn";
+import { logCheckinFailure } from "@/lib/checkin/logFailure";
 import {
-  AWARD_NOTICE_COOKIE,
-  AWARD_NOTICE_MAX_AGE_SECONDS,
-  encodeAwardNotice,
-} from "@/lib/checkin/awardNotice";
-import { checkIn } from "@/lib/checkin/checkIn";
+  encodeTapNotice,
+  TAP_NOTICE_COOKIE,
+  TAP_NOTICE_MAX_AGE_SECONDS,
+  type TapOutcome,
+} from "@/lib/checkin/tapNotice";
 import { getTidyClient } from "@/lib/tidyhq";
-import { checkinPath, resultPath, signInPath } from "./screens";
+import { checkinPath, problemPath, resultPath, signInPath } from "./screens";
 
 /**
  * The check-in button. Bound to the event id on the check-in page; the
@@ -19,7 +21,8 @@ import { checkinPath, resultPath, signInPath } from "./screens";
  * the id is checked and the session verified again.
  *
  * Always redirects. The result page re-reads TidyHQ, so a refresh there
- * never posts again.
+ * never posts again. If TidyHQ fails partway, the failure is logged and the
+ * member sees a friendly screen rather than a crash.
  */
 export async function checkInAction(eventId: unknown): Promise<never> {
   if (typeof eventId !== "string" || eventId === "") redirect("/");
@@ -29,32 +32,59 @@ export async function checkInAction(eventId: unknown): Promise<never> {
   if (!session) redirect(signInPath(eventId));
 
   const { contactId } = session;
-  const result = await checkIn(getTidyClient(), {
-    eventId,
-    contactId,
-    now: new Date(),
-  });
+  let result: CheckInResult | { status: "point_not_saved" };
+  try {
+    result = await checkIn(getTidyClient(), {
+      eventId,
+      contactId,
+      now: new Date(),
+    });
+  } catch (error) {
+    if (!(error instanceof CheckInFailure)) throw error;
+    logCheckinFailure({ eventId, contactId, failure: error });
+    // Nothing was written, so trying again is safe.
+    if (error.step !== "points_write") redirect(problemPath(eventId));
+    // In the group without the point. Trying again would only say "already
+    // checked in", so the result page asks them to tell a volunteer instead.
+    result = { status: "point_not_saved" };
+  }
   // The session is valid but TidyHQ no longer has the contact; signing in
   // again replaces it.
   if (result.status === "unknown_contact") redirect(signInPath(eventId));
-  // Sliding expiry: members who keep coming are never signed out. Done here
-  // because Server Components can't set cookies.
-  if (result.status === "checked_in" || result.status === "already_checked_in") {
-    await setSession(contactId);
-  }
-  // Tells the result page whether this tap awarded points. Any other outcome
-  // clears an earlier tap's note, so it never says "+1" twice.
+
+  // Tells the result page what this tap did. Any other outcome clears an
+  // earlier tap's note, so it never says "+1" twice.
   const path = resultPath(eventId);
-  if (result.status === "checked_in") {
+  const outcome = tapOutcome(result);
+  if (outcome) {
+    // Sliding expiry: members who keep coming are never signed out. Done
+    // here because Server Components can't set cookies.
+    await setSession(contactId);
     (await cookies()).set(
-      AWARD_NOTICE_COOKIE,
-      encodeAwardNotice({ eventId, contactId, points: result.pointsAwarded }),
-      { ...secureCookieOptions(), path, maxAge: AWARD_NOTICE_MAX_AGE_SECONDS },
+      TAP_NOTICE_COOKIE,
+      encodeTapNotice({ eventId, contactId, outcome }),
+      { ...secureCookieOptions(), path, maxAge: TAP_NOTICE_MAX_AGE_SECONDS },
     );
   } else {
-    (await cookies()).delete({ name: AWARD_NOTICE_COOKIE, path });
+    (await cookies()).delete({ name: TAP_NOTICE_COOKIE, path });
   }
   // The check-in page shows the unknown-event screen.
   if (result.status === "unknown_event") redirect(page);
   redirect(path);
+}
+
+/** What a tap did for a member now in the group, or null if they aren't. */
+function tapOutcome(
+  result: CheckInResult | { status: "point_not_saved" },
+): TapOutcome | null {
+  switch (result.status) {
+    case "checked_in":
+      return { kind: "awarded", points: result.pointsAwarded };
+    case "already_checked_in":
+      return { kind: "repeat" };
+    case "point_not_saved":
+      return { kind: "point_not_saved" };
+    default:
+      return null;
+  }
 }

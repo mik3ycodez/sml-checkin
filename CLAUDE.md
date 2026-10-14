@@ -115,6 +115,7 @@ so the app is built against a **mock TidyHQ**.
   in, checking in, reading status) working even if newer CSS features don't
   apply. Treat those features as polish, not requirements.
 - Small, focused commits with clear messages.
+- Do small tasks inline rather than spawning subagents, to conserve usage.
 
 ## Security
 
