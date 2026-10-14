@@ -7,7 +7,7 @@ import {
 import { getCheckinWindow, isCheckinOpen } from "../tidyhq/checkinWindow";
 import type { TidyClient } from "../tidyhq/client";
 import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
-import { isTidyError } from "../tidyhq/errors";
+import { isTidyError, type TidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
 import type { Contact, Event } from "../tidyhq/types";
 
@@ -52,30 +52,32 @@ export type CheckInResult =
 export type CheckInStep = "lookup" | "group_add" | "points_write";
 
 /**
- * An unexpected failure (e.g. TidyHQ is down) partway through a check-in.
- * `step` says how far it got: a `points_write` failure means the member was
- * added to the group but missed their point.
+ * TidyHQ failed (e.g. it's down) partway through a check-in. `step` says how
+ * far it got: a `points_write` failure means the member was added to the
+ * group but missed their point.
  */
 export class CheckInFailure extends Error {
-  /** The TidyHQ HTTP status, or null if the cause wasn't a TidyHQ error. */
-  readonly tidyStatus: number | null;
-
   constructor(
     readonly step: CheckInStep,
-    cause: unknown,
+    override readonly cause: TidyError,
   ) {
     super(`Check-in failed at ${step}`, { cause });
     this.name = "CheckInFailure";
-    this.tidyStatus = isTidyError(cause) ? cause.status : null;
   }
 }
 
-/** Runs one step, turning any failure into a CheckInFailure for that step. */
+/**
+ * Runs one step, turning a TidyHQ failure into a CheckInFailure for that
+ * step. Anything else is a bug, and is thrown unchanged so the error page and
+ * Next.js's own logging see it. (The live client must report network
+ * failures as TidyErrors for them to count as TidyHQ failures.)
+ */
 async function step<T>(name: CheckInStep, run: () => Promise<T>): Promise<T> {
   try {
     return await run();
   } catch (error) {
-    throw new CheckInFailure(name, error);
+    if (isTidyError(error)) throw new CheckInFailure(name, error);
+    throw error;
   }
 }
 
@@ -128,7 +130,11 @@ export async function readAttendance(
   return { contact, checkedIn: attendees.some((c) => c.id === contactId) };
 }
 
-/** Where a member stands at an event, before anything is written. */
+/**
+ * Where a member stands at an event, before anything is written. The pages
+ * show this directly: `already_checked_in` means "in the event's group",
+ * whether or not they just tapped.
+ */
 export type CheckInAssessment =
   | CheckInRefusal
   | {
@@ -148,8 +154,8 @@ export type CheckInAssessment =
 
 /**
  * The check-in rules, read-only: whether this member may check in now, and if
- * not, why. `checkIn` acts on it; `getCheckinStatus` shows it before the tap,
- * so the two can never disagree. Unexpected TidyHQ failures throw.
+ * not, why. `checkIn` acts on it, and the pages show it before the tap, so the
+ * two can never disagree. Unexpected TidyHQ failures throw.
  *
  * Order: event → existing check-in → check-in window → membership → points.
  * An existing check-in comes first so a member who reloads the page after the

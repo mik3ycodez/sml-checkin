@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
-import { findEvent } from "@/lib/checkin/checkIn";
-import { getCheckinStatus, type CheckinStatus } from "@/lib/checkin/checkinStatus";
+import {
+  assessCheckIn,
+  findEvent,
+  type CheckInAssessment,
+} from "@/lib/checkin/checkIn";
 import { getTidyClient } from "@/lib/tidyhq";
 import { signInPath } from "./screens";
 
@@ -14,7 +17,7 @@ export async function memberStatus(eventId: string): Promise<
   | { contactId: null; status: { status: "unknown_event" } }
   | {
       contactId: string;
-      status: Exclude<CheckinStatus, { status: "unknown_contact" }>;
+      status: Exclude<CheckInAssessment, { status: "unknown_contact" }>;
     }
 > {
   const client = getTidyClient();
@@ -27,7 +30,7 @@ export async function memberStatus(eventId: string): Promise<
   }
 
   const { contactId } = session;
-  const status = await getCheckinStatus(client, {
+  const status = await assessCheckIn(client, {
     eventId,
     contactId,
     now: new Date(),
