@@ -14,6 +14,7 @@ error, and an Edge-runtime build failure from the startup check. Automating
 those runs keeps catching that kind of bug.
 
 **Scope (to confirm when planned):**
+
 - Add `@playwright/test` as a dev dependency and an `npm run test:e2e`
   script. Specs live in `e2e/`, outside Vitest's `src/**/*.test.ts`, so
   `npm test` stays fast.
@@ -37,6 +38,7 @@ those runs keeps catching that kind of bug.
   the older-phones rule in CLAUDE.md.
 
 **Open questions:**
+
 - Mock state lives in the server process and isn't reset between tests. Do
   we use a different seed member per test, restart the server per spec file,
   or add a mock-only reset route?
@@ -55,6 +57,7 @@ door and a rate-limited plan, it doubles the `getMemberships` and
 review.
 
 **Ideas (to measure first with live access):**
+
 - Start `findContact` alongside `findEvent`, keeping the contact read before
   the group read (that order is what prevents double awards).
 - Fetch memberships alongside the group read, at the cost of one wasted call
@@ -63,4 +66,3 @@ review.
   membership lookups, kept in `getCheckinWindow` and one membership helper.
 - Check whether a "this contact's groups" endpoint can replace downloading
   the whole attendance group.
-

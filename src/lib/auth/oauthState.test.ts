@@ -37,15 +37,21 @@ describe("newOAuthState", () => {
 
 describe("oauthStateCookieName", () => {
   it("names the cookie for a well-formed state", () => {
-    expect(oauthStateCookieName(STATE)).toBe(`${OAUTH_STATE_COOKIE_PREFIX}${STATE}`);
+    expect(oauthStateCookieName(STATE)).toBe(
+      `${OAUTH_STATE_COOKIE_PREFIX}${STATE}`,
+    );
   });
 
-  it.each([null, "", "short", "a".repeat(44), `${"a".repeat(42)}=`, `${"a".repeat(42)};`])(
-    "refuses malformed state %j",
-    (state) => {
-      expect(oauthStateCookieName(state)).toBe(null);
-    },
-  );
+  it.each([
+    null,
+    "",
+    "short",
+    "a".repeat(44),
+    `${"a".repeat(42)}=`,
+    `${"a".repeat(42)};`,
+  ])("refuses malformed state %j", (state) => {
+    expect(oauthStateCookieName(state)).toBe(null);
+  });
 });
 
 describe("checkCallback", () => {

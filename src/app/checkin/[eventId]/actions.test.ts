@@ -23,7 +23,11 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { SESSION_COOKIE, signSession } from "@/lib/auth/session";
-import { readTapNotice, TAP_NOTICE_COOKIE, type TapOutcome } from "@/lib/checkin/tapNotice";
+import {
+  readTapNotice,
+  TAP_NOTICE_COOKIE,
+  type TapOutcome,
+} from "@/lib/checkin/tapNotice";
 import { getTidyClient, TidyError } from "@/lib/tidyhq";
 import { checkInAction } from "./actions";
 
@@ -95,7 +99,10 @@ describe("checkInAction", () => {
   it("tells the result page how many points it just awarded", async () => {
     signInAs("c_dante");
     await submit("ev_tonight");
-    expect(tapNotice("ev_tonight", "c_dante")).toEqual({ kind: "awarded", points: 1 });
+    expect(tapNotice("ev_tonight", "c_dante")).toEqual({
+      kind: "awarded",
+      points: 1,
+    });
     expect(cookieStore.set).toHaveBeenCalledWith(
       TAP_NOTICE_COOKIE,
       expect.any(String),
@@ -190,7 +197,10 @@ describe("checkInAction", () => {
     expect(await submit("ev_tonight")).toBe("/checkin/ev_tonight/result");
     const after = await getTidyClient().listGroupContacts("grp_social_night");
     expect(after.map((c) => c.id)).toContain("c_lee");
-    expect(tapNotice("ev_tonight", "c_lee")).toEqual({ kind: "awarded", points: 1 });
+    expect(tapNotice("ev_tonight", "c_lee")).toEqual({
+      kind: "awarded",
+      points: 1,
+    });
   });
 
   describe("when TidyHQ fails", () => {
@@ -225,7 +235,9 @@ describe("checkInAction", () => {
       signInAs("c_dante");
       failPointsWrite();
       expect(await submit("ev_tonight")).toBe("/checkin/ev_tonight/result");
-      expect(tapNotice("ev_tonight", "c_dante")).toEqual({ kind: "point_not_saved" });
+      expect(tapNotice("ev_tonight", "c_dante")).toEqual({
+        kind: "point_not_saved",
+      });
       expect(sessionReissued()).toBe(true);
     });
 

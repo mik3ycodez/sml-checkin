@@ -40,7 +40,8 @@ function startSignIn(returnTo = "/checkin/ev_tonight"): OAuthState {
 
 async function callback(query: Record<string, string>): Promise<string> {
   const url = new URL(REDIRECT_URI);
-  for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
+  for (const [key, value] of Object.entries(query))
+    url.searchParams.set(key, value);
   const request = new NextRequest(url, { headers: { host: "localhost:3000" } });
   const error = await GET(request).catch((e: unknown) => e);
   if (!(error instanceof Redirected)) throw error;
@@ -60,7 +61,10 @@ function issueCode(contactId: string, redirectUri = REDIRECT_URI): string {
 describe("GET /auth/callback", () => {
   beforeEach(() => {
     vi.stubEnv("TIDYHQ_MODE", "mock");
-    vi.stubEnv("SESSION_SECRET", "test-secret-that-is-at-least-32-characters-long");
+    vi.stubEnv(
+      "SESSION_SECRET",
+      "test-secret-that-is-at-least-32-characters-long",
+    );
     jar.clear();
     cookieStore.set.mockClear();
     cookieStore.delete.mockClear();
@@ -74,7 +78,10 @@ describe("GET /auth/callback", () => {
 
   it("signs the member in, returns them to the saved page, and uses up the attempt", async () => {
     const saved = startSignIn();
-    const to = await callback({ code: issueCode("c_dante"), state: saved.state });
+    const to = await callback({
+      code: issueCode("c_dante"),
+      state: saved.state,
+    });
     expect(to).toBe("/checkin/ev_tonight");
     expect(cookieStore.set).toHaveBeenCalledWith(
       SESSION_COOKIE,
@@ -90,17 +97,20 @@ describe("GET /auth/callback", () => {
   it("lets sign-ins started in two tabs both finish", async () => {
     const first = startSignIn("/checkin/ev_tonight");
     const second = startSignIn("/status");
-    expect(await callback({ code: issueCode("c_dante"), state: first.state })).toBe(
-      "/checkin/ev_tonight",
-    );
-    expect(await callback({ code: issueCode("c_dante"), state: second.state })).toBe(
-      "/status",
-    );
+    expect(
+      await callback({ code: issueCode("c_dante"), state: first.state }),
+    ).toBe("/checkin/ev_tonight");
+    expect(
+      await callback({ code: issueCode("c_dante"), state: second.state }),
+    ).toBe("/status");
   });
 
   it("leaves saved sign-ins alone when the state is unknown", async () => {
     startSignIn();
-    const to = await callback({ code: issueCode("c_dante"), state: "b".repeat(43) });
+    const to = await callback({
+      code: issueCode("c_dante"),
+      state: "b".repeat(43),
+    });
     expect(to).toBe("/auth/error?returnTo=%2F");
     expect(cookieStore.delete).not.toHaveBeenCalled();
     expect(cookieStore.set).not.toHaveBeenCalled();
@@ -138,7 +148,10 @@ describe("GET /auth/callback", () => {
 
   it("sends an unknown contact to the error page", async () => {
     const saved = startSignIn();
-    const to = await callback({ code: issueCode("c_nobody"), state: saved.state });
+    const to = await callback({
+      code: issueCode("c_nobody"),
+      state: saved.state,
+    });
     expect(to).toMatch(/^\/auth\/error/);
     expect(cookieStore.set).not.toHaveBeenCalled();
   });

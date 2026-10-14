@@ -13,7 +13,11 @@ export const OAUTH_STATE_MAX_AGE_SECONDS = 10 * 60;
 /** 32 random bytes, base64url: exactly 43 cookie-safe characters. */
 const STATE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
-export type OAuthState = { state: string; returnTo: string; cookieName: string };
+export type OAuthState = {
+  state: string;
+  returnTo: string;
+  cookieName: string;
+};
 
 export function newOAuthState(returnTo: string | null | undefined): OAuthState {
   const state = randomBytes(32).toString("base64url");

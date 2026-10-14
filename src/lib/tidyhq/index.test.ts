@@ -24,11 +24,14 @@ describe("parseTidyMode", () => {
   });
 
   describe("in production", () => {
-    it.each([undefined, "", "  "])("refuses to default to mock (%j)", (value) => {
-      expect(() => parseTidyMode(value, "production")).toThrow(
-        /TIDYHQ_MODE must be set/,
-      );
-    });
+    it.each([undefined, "", "  "])(
+      "refuses to default to mock (%j)",
+      (value) => {
+        expect(() => parseTidyMode(value, "production")).toThrow(
+          /TIDYHQ_MODE must be set/,
+        );
+      },
+    );
 
     it("accepts an explicit mode", () => {
       expect(parseTidyMode("mock", "production")).toBe("mock");

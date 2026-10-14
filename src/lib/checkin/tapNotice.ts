@@ -27,7 +27,11 @@ export function encodeTapNotice({
   contactId,
   outcome,
 }: For & { outcome: TapOutcome }): string {
-  const params = new URLSearchParams({ e: eventId, c: contactId, o: outcome.kind });
+  const params = new URLSearchParams({
+    e: eventId,
+    c: contactId,
+    o: outcome.kind,
+  });
   if (outcome.kind === "awarded") params.set("p", String(outcome.points));
   return params.toString();
 }

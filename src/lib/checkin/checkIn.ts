@@ -25,7 +25,12 @@ export type CheckInRefusal =
   | { status: "membership_inactive"; name: string; eventName: string | null }
   /** The stored total isn't a plain whole number; a volunteer must fix it. */
   | { status: "points_unreadable"; name: string; eventName: string | null }
-  | { status: "not_open"; name: string; eventName: string | null; opensAt: Date }
+  | {
+      status: "not_open";
+      name: string;
+      eventName: string | null;
+      opensAt: Date;
+    }
   | { status: "closed"; name: string; eventName: string | null }
   | { status: "unknown_event" }
   /** The session names a contact TidyHQ no longer has (merged or deleted). */
@@ -163,7 +168,11 @@ export type CheckInAssessment =
  */
 export async function assessCheckIn(
   client: TidyClient,
-  { eventId, contactId, now }: { eventId: string; contactId: string; now: Date },
+  {
+    eventId,
+    contactId,
+    now,
+  }: { eventId: string; contactId: string; now: Date },
 ): Promise<CheckInAssessment> {
   const found = await findEvent(client, eventId);
   if (!found) return { status: "unknown_event" };

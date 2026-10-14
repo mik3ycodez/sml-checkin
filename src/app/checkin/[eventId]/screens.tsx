@@ -176,7 +176,10 @@ function CheckedIn({
       // No total: it's missing the point. No "try again": it would only say
       // "already checked in". A volunteer can add the point in TidyHQ.
       return (
-        <Screen event={event} title="You're checked in, but your point didn't save">
+        <Screen
+          event={event}
+          title="You're checked in, but your point didn't save"
+        >
           <Note>Please let a volunteer know.</Note>
           {signedInAs}
         </Screen>
@@ -232,7 +235,7 @@ function Screen({
 }) {
   return (
     <div className="flex flex-1 flex-col justify-center gap-4">
-      {event && <p className="text-lg text-foreground/70">{event}</p>}
+      {event && <p className="text-foreground/70 text-lg">{event}</p>}
       <h1
         className={`${big ? "text-3xl" : "text-2xl"} font-bold tracking-tight`}
       >
@@ -244,7 +247,7 @@ function Screen({
 }
 
 function Note({ children }: { children: ReactNode }) {
-  return <p className="text-lg text-foreground/70">{children}</p>;
+  return <p className="text-foreground/70 text-lg">{children}</p>;
 }
 
 /** The stored total, or nothing if it's unreadable. */
@@ -258,5 +261,5 @@ function Total({ total }: { total: number | null }) {
 }
 
 export function Loading() {
-  return <p className="text-lg text-foreground/70">Loading…</p>;
+  return <p className="text-foreground/70 text-lg">Loading…</p>;
 }

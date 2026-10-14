@@ -7,7 +7,7 @@ export default function SignInErrorPage({
   return (
     <div className="flex flex-1 flex-col justify-center gap-4">
       <h1 className="text-2xl font-bold tracking-tight">Sign-in failed</h1>
-      <p className="text-lg text-foreground/70">
+      <p className="text-foreground/70 text-lg">
         Something went wrong signing you in with TidyHQ. Please try again.
       </p>
       <Suspense fallback={<TryAgain returnTo="/" />}>
@@ -32,7 +32,7 @@ function TryAgain({ returnTo }: { returnTo: string }) {
   return (
     <a
       href={`/auth/signin?returnTo=${encodeURIComponent(returnTo)}`}
-      className="rounded-lg bg-foreground px-4 py-3 text-center text-lg font-semibold text-background"
+      className="bg-foreground text-background rounded-lg px-4 py-3 text-center text-lg font-semibold"
     >
       Try again
     </a>

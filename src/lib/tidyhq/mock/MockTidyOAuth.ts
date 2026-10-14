@@ -43,7 +43,13 @@ export class MockTidyOAuth implements TidyOAuth {
     return code;
   }
 
-  async exchangeCode({ code, redirectUri }: { code: string; redirectUri: string }) {
+  async exchangeCode({
+    code,
+    redirectUri,
+  }: {
+    code: string;
+    redirectUri: string;
+  }) {
     const issued = this.codes.get(code);
     this.codes.delete(code);
     if (
