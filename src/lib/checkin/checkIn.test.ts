@@ -57,18 +57,6 @@ describe("checkIn", () => {
     expect(await storedPoints(client, "c_marcus")).toBe(2);
   });
 
-  it("awards volunteer points for a volunteer check-in", async () => {
-    const client = seededClient();
-    const result = await checkIn(client, {
-      eventId: "ev_tonight",
-      contactId: "c_dante",
-      role: "volunteer",
-      method: "staff",
-      now: NOW,
-    });
-    expect(result).toMatchObject({ status: "checked_in", pointsAwarded: 1 });
-  });
-
   it("reports an existing check-in without awarding another point", async () => {
     const client = seededClient();
     const result = await checkIn(client, {

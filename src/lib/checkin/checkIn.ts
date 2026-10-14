@@ -1,9 +1,5 @@
 import { hasActiveMembership } from "../membership";
-import {
-  POINTS_PER_CHECKIN,
-  type CheckInMethod,
-  type CheckInRole,
-} from "../points";
+import { POINTS_PER_CHECKIN, type CheckInMethod } from "../points";
 import { getCheckinWindow, isCheckinOpen } from "../tidyhq/checkinWindow";
 import type { TidyClient } from "../tidyhq/client";
 import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
@@ -14,7 +10,6 @@ import type { Contact, Event } from "../tidyhq/types";
 export interface CheckInInput {
   eventId: string;
   contactId: string;
-  role?: CheckInRole;
   /** Not saved yet; there's nowhere to record it until notes or a database. */
   method?: CheckInMethod;
   now: Date;
@@ -223,7 +218,7 @@ export async function assessCheckIn(
  */
 export async function checkIn(
   client: TidyClient,
-  { eventId, contactId, role = "attendee", now }: CheckInInput,
+  { eventId, contactId, now }: CheckInInput,
 ): Promise<CheckInResult> {
   const assessment = await step("lookup", () =>
     assessCheckIn(client, { eventId, contactId, now }),
@@ -232,7 +227,7 @@ export async function checkIn(
   const { name, eventName, groupId, stored } = assessment;
 
   await step("group_add", () => client.addContactToGroup(groupId, contactId));
-  const pointsAwarded = POINTS_PER_CHECKIN[role];
+  const pointsAwarded = POINTS_PER_CHECKIN;
   const total = stored + pointsAwarded;
   await step("points_write", () =>
     client.updateContact(contactId, buildPointsPatch(total)),

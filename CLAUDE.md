@@ -40,14 +40,11 @@ system of record; this app is a thin layer on top of it.
   server-side with an admin-level token, never from the browser.
 - Points: **1 point per event attended.** Keep point values in one config spot,
   since rules may expand later.
-- Check-ins carry a **role**: `attendee` (MVP default) or `volunteer`. Volunteer
-  check-ins may earn different points later; for now both earn 1 point. Model
-  the role from the start so adding volunteer rules doesn't require a redesign.
 - The stored TidyHQ points field is the source of truth. It includes
   balances migrated from WildApricot and (later) admin adjustments, so
   attendance is never used to recalculate or verify points.
 - On a new check-in (member not already in the event's group), add the
-  member to the group first, then add `POINTS_PER_CHECKIN` for their role to
+  member to the group first, then add `POINTS_PER_CHECKIN` to
   the stored total. If they're already in the group, award nothing and change
   nothing. One check-in per member per event.
 - A failure between the group add and the points write may miss a point, but
@@ -59,8 +56,7 @@ system of record; this app is a thin layer on top of it.
   commas (`1,234`), but treats decimals, negatives, or other text as an
   unreadable total: check-in is refused (`points_unreadable`) and the field is
   never overwritten. A blank field counts as 0.
-- Check-ins record who, which event, when, role (`attendee` or `volunteer`), and
-  method (`self` or `staff`).
+- Check-ins record who, which event, when, and method (`self` or `staff`).
 
 ## TidyHQ access: mock first
 

@@ -9,14 +9,14 @@ The TidyHQ layer is done: `TidyClient`, `MockTidyClient`, seed data, `resolveEve
 Decisions so far:
 
 - Admins set check-in open/close times on each event in TidyHQ. The app looks them up in a single function, `getCheckinWindow`. If an event has no window, it falls back to `start_at`–`end_at`. There's no caching yet.
-- Role and method are modeled in code but **not saved** for now. No TidyHQ note and no database. This leaves out part of what CLAUDE.md says ("check-ins record who, which event, when, role, method"), and I'll mention it in the PR description.
+- Role and method are modeled in code _(Superseded in milestone 3: no check-in roles.)_ but **not saved** for now. No TidyHQ note and no database. This leaves out part of what CLAUDE.md says ("check-ins record who, which event, when, role, method"), and I'll mention it in the PR description.
 
 ## Design choices (and why)
 
 - **Check-in is a POST, not a GET.** `/checkin/[eventId]` shows a "Check in" button that submits to a Server Action. If visiting the URL checked you in, link previews in chat apps and browser prefetching could check members in by accident.
 - **The session holds only the contact id.** The member's OAuth token is used once, in the callback, to call `getMe` and is then thrown away, as CLAUDE.md requires. The cookie is `{contactId, exp}` signed with HMAC-SHA256 using Node's built-in `crypto`, so no new dependency. Flags: `httpOnly`, `secure` in production, `sameSite=lax`, 90-day life ("remembered").
 - **OAuth sits in its own interface, not in `TidyClient`.** Exchanging the sign-in code for a token happens at TidyHQ's accounts server, not its API. `TidyOAuth` has `authorizeUrl({redirectUri, state})` and `exchangeCode(code)`. The mock version points at our fake sign-in page. A live version can come later and is chosen by `TIDYHQ_MODE`, like the client.
-- **Points are recalculated from group membership.** _(Superseded in PR 3: the stored TidyHQ points field is the source of truth, and a new check-in adds `POINTS_PER_CHECKIN` to it. See CLAUDE.md, "Key decisions".)_ `listEvents()` → `resolveEventGroup` for each event (unmapped ones skipped) → `listGroupContacts` → count the groups the member is in × points per role. Retries can't double-count. Point values live in one config.
+- **Points are recalculated from group membership.** _(Superseded in PR 3: the stored TidyHQ points field is the source of truth, and a new check-in adds `POINTS_PER_CHECKIN` to it. See CLAUDE.md, "Key decisions".)_ `listEvents()` → `resolveEventGroup` for each event (unmapped ones skipped) → `listGroupContacts` → count the groups the member is in × points per role _(Superseded in milestone 3: no check-in roles.)_. Retries can't double-count. Point values live in one config.
 - **The check-in rules are a single function that returns a result**, not exceptions. The pages only render whatever that result says.
 - **Return URLs only allow paths on this site** (they must start with `/` and not `//`), so the sign-in redirect can't send someone to another site.
 
@@ -24,7 +24,7 @@ Decisions so far:
 
 ### PR 1: Points and membership rules (pure logic) ✅ Done (#3)
 
-- `src/lib/points.ts`: `POINTS_PER_CHECKIN: Record<CheckInRole, number> = { attendee: 1, volunteer: 1 }`, plus types `CheckInRole = "attendee" | "volunteer"` and `CheckInMethod = "self" | "staff"`.
+- `src/lib/points.ts`: `POINTS_PER_CHECKIN: Record<CheckInRole, number> = { attendee: 1, volunteer: 1 }`, plus types `CheckInRole = "attendee" | "volunteer"` and `CheckInMethod = "self" | "staff"`. _(Superseded in milestone 3: no check-in roles.)_
 - `src/lib/membership.ts`: `hasActiveMembership(memberships, today)` is true if any membership is `activated`/`partial` and its `end_date` hasn't passed.
 - Tests first: `points.test.ts`, `membership.test.ts`. Cases: expired, partial, null end date, several memberships.
 
@@ -44,7 +44,7 @@ Admins set check-in open/close times when they create the event in TidyHQ. We do
 
 ### PR 3: Check-in service ✅ Done (#5)
 
-- `src/lib/checkin/checkIn.ts`: `checkIn(client, { eventId, contactId, role = "attendee", method = "self", now })` returns one of:
+- `src/lib/checkin/checkIn.ts`: `checkIn(client, { eventId, contactId, role = "attendee", method = "self", now })` returns one of: _(Superseded in milestone 3: no check-in roles.)_
   - `checked_in { name, eventName, pointsAwarded, total }`
   - `already_checked_in { name, eventName, total }`
   - `membership_inactive { name }`
@@ -52,7 +52,7 @@ Admins set check-in open/close times when they create the event in TidyHQ. We do
   - `unknown_event` (the event returns 404, or it has no attendance group)
 - Steps: `getEvent` → `getCheckinWindow` + `isCheckinOpen` → `getContact` + `getMemberships` → `listGroupContacts(group)` (if the member is already in the group, skip the add and the point) → `addContactToGroup` → `recalculatePoints` → `updateContact(buildPointsPatch(total))`.
 - `src/lib/checkin/recalculatePoints.ts` is its own function, so admin pages can reuse it later.
-- _As built:_ no `recalculatePoints`. The service reads the stored total first (an unreadable one returns `points_unreadable` before any write), then adds the member to the group, then writes the stored total plus `POINTS_PER_CHECKIN[role]`.
+- _As built:_ no `recalculatePoints`. The service reads the stored total first (an unreadable one returns `points_unreadable` before any write), then adds the member to the group, then writes the stored total plus `POINTS_PER_CHECKIN[role]`. _(Superseded in milestone 3: no check-in roles.)_
 - Tests first, run against `MockTidyClient(createSeed(NOW), () => NOW)`, following the existing `MockTidyClient.test.ts` setup. Cases: happy path (Dante gets 0 → 1), already checked in (Marcus at pub night, total unchanged), expired (Lee), unknown event, window not open / closed, retrying gives the same total, and a stale points field gets corrected.
 
 ### PR 4: Session cookie ✅ Done (#6)
