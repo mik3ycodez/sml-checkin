@@ -12,7 +12,9 @@ describe("tidyhqSiteUrl", () => {
   });
 
   it("ignores surrounding spaces and case", () => {
-    expect(tidyhqSiteUrl(" SML-Seattle ")).toBe("https://sml-seattle.tidyhq.com");
+    expect(tidyhqSiteUrl(" SML-Seattle ")).toBe(
+      "https://sml-seattle.tidyhq.com",
+    );
   });
 
   it.each(["evil.com/x", "sml.evil", "a b", "sml/", "-sml"])(

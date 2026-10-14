@@ -2,7 +2,12 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { TapOutcome } from "@/lib/checkin/tapNotice";
-import { CheckinProblem, SignedInAs, StatusScreen, type ShownStatus } from "./screens";
+import {
+  CheckinProblem,
+  SignedInAs,
+  StatusScreen,
+  type ShownStatus,
+} from "./screens";
 
 describe("SignedInAs", () => {
   const html = renderToStaticMarkup(
@@ -40,7 +45,11 @@ function render(status: ShownStatus, notice: TapOutcome | null = null) {
 const DANTE = { name: "Dante Ruiz", eventName: "Social Night" };
 
 describe("StatusScreen", () => {
-  const CHECKED_IN = { status: "already_checked_in", ...DANTE, total: 5 } as const;
+  const CHECKED_IN = {
+    status: "already_checked_in",
+    ...DANTE,
+    total: 5,
+  } as const;
 
   describe("checked in by this tap", () => {
     const { text } = render(CHECKED_IN, { kind: "awarded", points: 1 });
@@ -114,7 +123,9 @@ describe("StatusScreen", () => {
 
     it("explains, and links to renew on SML's TidyHQ site", () => {
       expect(text).toContain("Your membership isn't active");
-      expect(html).toMatch(/<a[^>]*href="https:\/\/sml\.tidyhq\.com"[^>]*>Renew/);
+      expect(html).toMatch(
+        /<a[^>]*href="https:\/\/sml\.tidyhq\.com"[^>]*>Renew/,
+      );
     });
 
     it("lets the member try again after renewing", () => {
@@ -150,7 +161,11 @@ describe("StatusScreen", () => {
   });
 
   it("names a stand-in when the event has no name", () => {
-    const { text } = render({ status: "closed", name: "Dante Ruiz", eventName: null });
+    const { text } = render({
+      status: "closed",
+      name: "Dante Ruiz",
+      eventName: null,
+    });
     expect(text).toContain("SML event Check-in has closed");
   });
 

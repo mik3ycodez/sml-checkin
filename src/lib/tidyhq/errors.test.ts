@@ -30,7 +30,10 @@ describe("isTidyError", () => {
 
   it.each([
     ["a plain Error", new Error("boom")],
-    ["an Error named TidyError without a status", Object.assign(new Error("x"), { name: "TidyError" })],
+    [
+      "an Error named TidyError without a status",
+      Object.assign(new Error("x"), { name: "TidyError" }),
+    ],
     ["a string", "TidyError"],
     ["null", null],
   ])("rejects %s", (_label, value) => {

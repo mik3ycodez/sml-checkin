@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { appOrigin, configuredAppOrigin, isSameSiteRequest } from "./requestOrigin";
+import {
+  appOrigin,
+  configuredAppOrigin,
+  isSameSiteRequest,
+} from "./requestOrigin";
 
 const DEV = { NODE_ENV: "development" };
-const PROD = { NODE_ENV: "production", APP_ORIGIN: "https://checkin.example.org" };
+const PROD = {
+  NODE_ENV: "production",
+  APP_ORIGIN: "https://checkin.example.org",
+};
 
 describe("configuredAppOrigin", () => {
   it("returns APP_ORIGIN as an origin", () => {
@@ -11,13 +18,18 @@ describe("configuredAppOrigin", () => {
 
   it("drops a trailing slash", () => {
     expect(
-      configuredAppOrigin({ ...PROD, APP_ORIGIN: "https://checkin.example.org/" }),
+      configuredAppOrigin({
+        ...PROD,
+        APP_ORIGIN: "https://checkin.example.org/",
+      }),
     ).toBe("https://checkin.example.org");
   });
 
   it("is null when unset outside production (guess from the request)", () => {
     expect(configuredAppOrigin(DEV)).toBe(null);
-    expect(configuredAppOrigin({ NODE_ENV: "test", APP_ORIGIN: " " })).toBe(null);
+    expect(configuredAppOrigin({ NODE_ENV: "test", APP_ORIGIN: " " })).toBe(
+      null,
+    );
   });
 
   it("is required in production", () => {
@@ -40,7 +52,10 @@ describe("configuredAppOrigin", () => {
 
 describe("appOrigin", () => {
   it("uses APP_ORIGIN when set, whatever the request headers say", () => {
-    const headers = new Headers({ host: "internal:3000", "x-forwarded-proto": "http" });
+    const headers = new Headers({
+      host: "internal:3000",
+      "x-forwarded-proto": "http",
+    });
     expect(appOrigin(headers, PROD)).toBe("https://checkin.example.org");
   });
 
@@ -103,9 +118,14 @@ describe("isSameSiteRequest", () => {
   });
 
   it("falls back to the Origin header on browsers without Sec-Fetch-Site", () => {
-    expect(isSameSiteRequest(new Headers({ origin: ORIGIN }), ORIGIN)).toBe(true);
+    expect(isSameSiteRequest(new Headers({ origin: ORIGIN }), ORIGIN)).toBe(
+      true,
+    );
     expect(
-      isSameSiteRequest(new Headers({ origin: "https://evil.example" }), ORIGIN),
+      isSameSiteRequest(
+        new Headers({ origin: "https://evil.example" }),
+        ORIGIN,
+      ),
     ).toBe(false);
   });
 

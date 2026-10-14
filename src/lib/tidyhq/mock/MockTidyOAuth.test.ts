@@ -41,7 +41,10 @@ describe("MockTidyOAuth", () => {
     it("returns a token that getMe resolves to the signed-in contact", async () => {
       const client = new MockTidyClient(createSeed());
       const code = oauth.issueCode("c_dante", REDIRECT_URI);
-      const token = await oauth.exchangeCode({ code, redirectUri: REDIRECT_URI });
+      const token = await oauth.exchangeCode({
+        code,
+        redirectUri: REDIRECT_URI,
+      });
       const me = await client.getMe(token);
       expect(me.id).toBe("c_dante");
     });
@@ -95,7 +98,10 @@ describe("MockTidyOAuth", () => {
     it("gives a token for an unknown contact that getMe then rejects", async () => {
       const client = new MockTidyClient(createSeed());
       const code = oauth.issueCode("c_nobody", REDIRECT_URI);
-      const token = await oauth.exchangeCode({ code, redirectUri: REDIRECT_URI });
+      const token = await oauth.exchangeCode({
+        code,
+        redirectUri: REDIRECT_URI,
+      });
       await expectTidyError(client.getMe(token), 401);
     });
   });
@@ -110,9 +116,10 @@ describe("parseMockAuthorizeRequest", () => {
   };
 
   it("accepts a request that sends the member back to our callback", () => {
-    expect(
-      parseMockAuthorizeRequest(valid, ORIGIN, "test-client-id"),
-    ).toEqual({ redirectUri: REDIRECT_URI, state: "abc123" });
+    expect(parseMockAuthorizeRequest(valid, ORIGIN, "test-client-id")).toEqual({
+      redirectUri: REDIRECT_URI,
+      state: "abc123",
+    });
   });
 
   it.each([
@@ -128,7 +135,11 @@ describe("parseMockAuthorizeRequest", () => {
     ["no client id", { client_id: undefined }],
   ])("rejects %s", (_label, override) => {
     expect(
-      parseMockAuthorizeRequest({ ...valid, ...override }, ORIGIN, "test-client-id"),
+      parseMockAuthorizeRequest(
+        { ...valid, ...override },
+        ORIGIN,
+        "test-client-id",
+      ),
     ).toBe(null);
   });
 });

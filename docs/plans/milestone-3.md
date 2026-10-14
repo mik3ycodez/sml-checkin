@@ -3,6 +3,7 @@
 **Status:** Planned. No PRs merged yet.
 
 ## Context
+
 Milestone 2 finished self check-in. Two problems remain:
 
 - Every PR is still checked by hand in a browser.
@@ -22,6 +23,7 @@ generator, pointing to `APP_ORIGIN/checkin/<eventId>` (for example
 TidyHQ event id.
 
 Decisions so far:
+
 - **There are no check-in roles.** Volunteers are members flagged in TidyHQ,
   not a kind of check-in. Every check-in is a normal member check-in and
   earns the same points. PR 2 removes `attendee` / `volunteer` from the
@@ -41,6 +43,7 @@ Decisions so far:
   TidyHQ. Its "colors issued" field is read, never written.
 
 ## Design choices (and why)
+
 - **Prettier goes first, and the reformat is one commit.** Later PRs then
   contain only real changes. That commit's hash goes in
   `.git-blame-ignore-revs`, so `git blame` (and GitHub's blame view) skips
@@ -62,6 +65,7 @@ Decisions so far:
 ## Pull requests (in order)
 
 ### PR 1: Prettier
+
 - Add `prettier` and `prettier-plugin-tailwindcss` (sorts Tailwind classes
   in a fixed order, so class lists don't churn in diffs) as dev dependencies.
   Add `.prettierrc.json` (defaults plus the plugin) and `.prettierignore`
@@ -77,6 +81,7 @@ Decisions so far:
   logic changes.
 
 ### PR 2: Remove check-in roles
+
 - `src/lib/points.ts`: drop `CheckInRole` and the per-role record.
   `POINTS_PER_CHECKIN` becomes a single number (`1`), still the one place
   point values live. Keep `CheckInMethod` (milestone 4 records it).
@@ -89,11 +94,12 @@ Decisions so far:
 - `CLAUDE.md`: remove the role bullet, and remove role from the "new
   check-in" and "check-ins record" bullets. A check-in records who, which
   event, when, and method.
-- `milestone-2.md`: add *(Superseded in milestone 3: no check-in roles.)*
+- `milestone-2.md`: add _(Superseded in milestone 3: no check-in roles.)_
   notes where it mentions roles, following the existing PR 3 note. Leave
   the history in place.
 
 ### PR 3: Playwright setup and the happy path
+
 - Add `@playwright/test` and an `npm run test:e2e` script. Specs live in
   `e2e/`, outside Vitest's `src/**/*.test.ts`, so `npm test` stays fast.
   Add `test-results/` and `playwright-report/` to `.gitignore`.
@@ -108,13 +114,14 @@ Decisions so far:
   `TIDYHQ_MODE=mock`. Unit tests cover the route's 404 in live mode and
   that a reset restores seed totals.
 - An `e2e/fixtures.ts` that resets before each test, plus a `signInAs(page,
-  name)` helper that goes through the fake TidyHQ page.
+name)` helper that goes through the fake TidyHQ page.
 - First spec: Dante signs in, checks in to `ev_tonight`, and sees +1 with a
   total of 1.
 - Commands to learn: `npx playwright install` (one-time browser download),
   `npm run test:e2e`, `npx playwright show-report`.
 
 ### PR 4: GitHub Actions CI
+
 - `.github/workflows/ci.yml`, on pull requests and pushes to `main`, using
   Node 24 from `.nvmrc` and `npm ci`.
   - Job `checks`: `format:check`, `lint`, `typecheck`, `test`.
@@ -125,6 +132,7 @@ Decisions so far:
   pass before merging.
 
 ### PR 5: The rest of the milestone 2 checklist
+
 - Reloading shows "already checked in", and the total is unchanged.
 - Lee sees the expired screen with a renew link to the TidyHQ site.
 - Unknown event (`/checkin/nope`) and not-open-yet (`ev_leather_brunch`)
@@ -139,11 +147,12 @@ Decisions so far:
   "Verification" section below drops the manual browser steps.
 
 ### PR 6: Member summary (pure logic, test-first)
+
 - `src/lib/member/memberSummary.ts`:
   `getMemberSummary(client, { contactId, now })`. It's read-only and
   returns one of:
   - `ok { name, level, membershipEndsOn, membership: "active" |
-    "renew_soon" | "expired", points: number | null }`
+"renew_soon" | "expired", points: number | null }`
   - `unknown_contact` (the session's contact is gone; sign in again, as on
     the check-in page)
 - Level: the active membership with the latest end date, then
@@ -158,15 +167,16 @@ Decisions so far:
   unknown contact.
 
 ### PR 7: Rewards: club colors (test-first)
+
 - `src/lib/points.ts`, next to `POINTS_PER_CHECKIN`: `REWARDS`, a list of
   `{ id: "club_colors", name: "club colors", pointsRequired: 18 }`. Only
   this reward for now.
 - `src/lib/rewards.ts`: `rewardStatus(reward, points, issued)` returns
   `{ kind: "progress", remaining } | { kind: "qualified" } | { kind:
-  "issued" }`. Issued wins even under 18 points (the Board may issue
+"issued" }`. Issued wins even under 18 points (the Board may issue
   early, or points may later be adjusted).
 - `customFields.ts`: `COLORS_ISSUED_FIELD_ID` and `readRewardIssued(contact,
-  rewardId): boolean | null`. It's the only place that knows the field's
+rewardId): boolean | null`. It's the only place that knows the field's
   format, which is unknown until live access. For the mock, the field is a
   string where `"yes"` means issued and blank or missing means not issued.
   Anything else is `null` (unreadable).
@@ -183,12 +193,13 @@ Decisions so far:
   unreadable issued field; unreadable points.
 
 ### PR 8: Recent events
+
 - `src/lib/member/recentEvents.ts`: `getRecentEvents(client, { contactId,
-  now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
+now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
   `listEvents({ after, before: now })`. For each one it calls
   `resolveEventGroup` and reads the group in parallel, keeps the events the
   member is in, newest first, and returns at most 5 (`{ id, name, startAt
-  }`).
+}`).
 - Shares `readAttendance`'s "is this contact in the group" check, so
   check-in and `/me` agree.
 - Unmapped events are skipped. A failed group read fails the whole
@@ -197,6 +208,7 @@ Decisions so far:
   unmapped event, and a group read failing.
 
 ### PR 9: `/me` page
+
 - `src/app/me/page.tsx` (Server Component, behind `<Suspense>` like the
   check-in pages). No session redirects to
   `/auth/signin?returnTo=/me`, and `unknown_contact` does the same.
@@ -225,6 +237,7 @@ Decisions so far:
 The suggested order is 1–9, one PR at a time.
 
 ## Deferred
+
 - **To [milestone 4](milestone-4.md): admin pages.** Admin sign-in, the
   event list with QR codes, live attendee list, staff check-in by name
   search, recording method (`self` / `staff`) and time, and
@@ -241,10 +254,12 @@ The suggested order is 1–9, one PR at a time.
     group.
 
   `/me`'s recent events (PR 8) belong in that measurement too.
+
 - **Later: more rewards** (merchandise, vendor discounts). Add them to
   `REWARDS`, each with its own issued field.
 
 ## Files reused
+
 - `assessCheckIn`, `readAttendance`, `findEvent`: `src/lib/checkin/checkIn.ts`
 - `hasActiveMembership`, Seattle date helpers: `src/lib/membership.ts`,
   `src/lib/dates.ts`
@@ -256,6 +271,7 @@ The suggested order is 1–9, one PR at a time.
 - `MockTidyClient`, `createSeed`: `src/lib/tidyhq/mock/`
 
 ## Verification
+
 - Each PR: `npm test`, `npm run typecheck`, `npm run lint`,
   `npm run format:check` (from PR 1), and `npm run test:e2e` (from PR 3).
   For TDD, run the new tests first and confirm they fail.

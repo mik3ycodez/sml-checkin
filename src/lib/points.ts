@@ -9,4 +9,3 @@ export const POINTS_PER_CHECKIN: Readonly<Record<CheckInRole, number>> =
     attendee: 1,
     volunteer: 1,
   });
-

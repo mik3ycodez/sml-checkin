@@ -4,7 +4,11 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { secureCookieOptions } from "@/lib/auth/cookieOptions";
 import { getSession, setSession } from "@/lib/auth/session";
-import { CheckInFailure, checkIn, type CheckInResult } from "@/lib/checkin/checkIn";
+import {
+  CheckInFailure,
+  checkIn,
+  type CheckInResult,
+} from "@/lib/checkin/checkIn";
 import { logCheckinFailure } from "@/lib/checkin/logFailure";
 import {
   encodeTapNotice,

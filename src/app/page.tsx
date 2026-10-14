@@ -4,7 +4,7 @@ export default function Home() {
       <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
         SML Check-in
       </h1>
-      <p className="text-lg text-foreground/70">
+      <p className="text-foreground/70 text-lg">
         Scan an event QR code to check in.
       </p>
     </div>

@@ -5,29 +5,49 @@ const FOR_DANTE = { eventId: "ev_tonight", contactId: "c_dante" };
 
 describe("tap notice", () => {
   it("round-trips the points awarded", () => {
-    const value = encodeTapNotice({ ...FOR_DANTE, outcome: { kind: "awarded", points: 1 } });
-    expect(readTapNotice(value, FOR_DANTE)).toEqual({ kind: "awarded", points: 1 });
+    const value = encodeTapNotice({
+      ...FOR_DANTE,
+      outcome: { kind: "awarded", points: 1 },
+    });
+    expect(readTapNotice(value, FOR_DANTE)).toEqual({
+      kind: "awarded",
+      points: 1,
+    });
   });
 
   it("round-trips a repeat tap", () => {
-    const value = encodeTapNotice({ ...FOR_DANTE, outcome: { kind: "repeat" } });
+    const value = encodeTapNotice({
+      ...FOR_DANTE,
+      outcome: { kind: "repeat" },
+    });
     expect(readTapNotice(value, FOR_DANTE)).toEqual({ kind: "repeat" });
   });
 
   it("round-trips a point that didn't save", () => {
-    const value = encodeTapNotice({ ...FOR_DANTE, outcome: { kind: "point_not_saved" } });
-    expect(readTapNotice(value, FOR_DANTE)).toEqual({ kind: "point_not_saved" });
+    const value = encodeTapNotice({
+      ...FOR_DANTE,
+      outcome: { kind: "point_not_saved" },
+    });
+    expect(readTapNotice(value, FOR_DANTE)).toEqual({
+      kind: "point_not_saved",
+    });
   });
 
   it("is ignored for another member on the same phone", () => {
-    const value = encodeTapNotice({ ...FOR_DANTE, outcome: { kind: "awarded", points: 1 } });
+    const value = encodeTapNotice({
+      ...FOR_DANTE,
+      outcome: { kind: "awarded", points: 1 },
+    });
     expect(
       readTapNotice(value, { eventId: "ev_tonight", contactId: "c_lee" }),
     ).toBeNull();
   });
 
   it("is ignored for another event", () => {
-    const value = encodeTapNotice({ ...FOR_DANTE, outcome: { kind: "repeat" } });
+    const value = encodeTapNotice({
+      ...FOR_DANTE,
+      outcome: { kind: "repeat" },
+    });
     expect(
       readTapNotice(value, { eventId: "ev_pub_night", contactId: "c_dante" }),
     ).toBeNull();
@@ -35,7 +55,10 @@ describe("tap notice", () => {
 
   it("keeps ids with separators intact", () => {
     const ids = { eventId: "a&b=c", contactId: "x&e=ev_tonight" };
-    const value = encodeTapNotice({ ...ids, outcome: { kind: "awarded", points: 2 } });
+    const value = encodeTapNotice({
+      ...ids,
+      outcome: { kind: "awarded", points: 2 },
+    });
     expect(readTapNotice(value, ids)).toEqual({ kind: "awarded", points: 2 });
     expect(
       readTapNotice(value, { eventId: "ev_tonight", contactId: "x" }),

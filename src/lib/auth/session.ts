@@ -46,10 +46,7 @@ export function verifySession(
 
   const expected = Buffer.from(sign(body, secret));
   const actual = Buffer.from(signature);
-  if (
-    actual.length !== expected.length ||
-    !timingSafeEqual(actual, expected)
-  ) {
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
     return null;
   }
 
@@ -67,8 +64,12 @@ export function verifySession(
 function isSession(value: unknown): value is Session {
   if (typeof value !== "object" || value === null) return false;
   const { contactId, exp } = value as Record<string, unknown>;
-  return typeof contactId === "string" && contactId !== "" &&
-    typeof exp === "number" && Number.isFinite(exp);
+  return (
+    typeof contactId === "string" &&
+    contactId !== "" &&
+    typeof exp === "number" &&
+    Number.isFinite(exp)
+  );
 }
 
 /** `SESSION_SECRET` from the environment. Throws if it is missing or weak. */

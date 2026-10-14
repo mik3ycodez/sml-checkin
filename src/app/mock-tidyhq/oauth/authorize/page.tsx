@@ -18,7 +18,7 @@ export default function MockAuthorizePage({
 }: PageProps<"/mock-tidyhq/oauth/authorize">) {
   return (
     <div className="flex flex-1 flex-col gap-4">
-      <p className="text-sm font-semibold uppercase tracking-wide text-foreground/60">
+      <p className="text-foreground/60 text-sm font-semibold tracking-wide uppercase">
         Mock TidyHQ
       </p>
       <h1 className="text-2xl font-bold tracking-tight">Sign in as…</h1>
@@ -66,7 +66,7 @@ async function MemberList({
           type="submit"
           name="contact_id"
           value={contact.id}
-          className="rounded-lg border border-foreground/20 px-4 py-3 text-left text-lg"
+          className="border-foreground/20 rounded-lg border px-4 py-3 text-left text-lg"
         >
           {contact.display_name}
         </button>

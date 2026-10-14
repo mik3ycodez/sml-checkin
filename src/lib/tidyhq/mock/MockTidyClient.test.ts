@@ -9,7 +9,9 @@ import { createSeed, MOCK_ADMIN_CONTACT_ID } from "./seed";
 const NOW = new Date("2026-10-12T18:00:00Z");
 
 function daysBetween(from: Date, isoDate: string): number {
-  return Math.round((new Date(isoDate).getTime() - from.getTime()) / 86_400_000);
+  return Math.round(
+    (new Date(isoDate).getTime() - from.getTime()) / 86_400_000,
+  );
 }
 
 async function expectTidyError(promise: Promise<unknown>, status: number) {
@@ -43,7 +45,13 @@ describe("MockTidyClient", () => {
   describe("listContacts (mock only)", () => {
     it("lists every seed contact, for the fake sign-in page", async () => {
       const ids = (await client.listContacts()).map((c) => c.id);
-      expect(ids).toEqual(["c_marcus", "c_dante", "c_jordan", "c_sam", "c_lee"]);
+      expect(ids).toEqual([
+        "c_marcus",
+        "c_dante",
+        "c_jordan",
+        "c_sam",
+        "c_lee",
+      ]);
     });
   });
 
@@ -197,7 +205,10 @@ describe("MockTidyClient", () => {
   describe("groups", () => {
     it("lists past attendees", async () => {
       const contacts = await client.listGroupContacts("grp_pub_night");
-      expect(contacts.map((c) => c.id).sort()).toEqual(["c_jordan", "c_marcus"]);
+      expect(contacts.map((c) => c.id).sort()).toEqual([
+        "c_jordan",
+        "c_marcus",
+      ]);
     });
 
     it("adds a contact to a group", async () => {
@@ -215,7 +226,10 @@ describe("MockTidyClient", () => {
 
     it("404s on an unknown group or contact", async () => {
       await expectTidyError(client.listGroupContacts("grp_nope"), 404);
-      await expectTidyError(client.addContactToGroup("grp_nope", "c_dante"), 404);
+      await expectTidyError(
+        client.addContactToGroup("grp_nope", "c_dante"),
+        404,
+      );
       await expectTidyError(
         client.addContactToGroup("grp_bar_night", "c_nobody"),
         404,
@@ -225,7 +239,10 @@ describe("MockTidyClient", () => {
 
   describe("points custom field", () => {
     it("persists a points update", async () => {
-      const updated = await client.updateContact("c_dante", buildPointsPatch(3));
+      const updated = await client.updateContact(
+        "c_dante",
+        buildPointsPatch(3),
+      );
       expect(readPoints(updated)).toBe(3);
       expect(readPoints(await client.getContact("c_dante"))).toBe(3);
     });
@@ -255,7 +272,10 @@ describe("MockTidyClient", () => {
 
   describe("notes", () => {
     it("adds a note authored by the admin", async () => {
-      const note = await client.addNote("c_jordan", "Staff check-in: Bar Night");
+      const note = await client.addNote(
+        "c_jordan",
+        "Staff check-in: Bar Night",
+      );
       expect(note.author_id).toBe(MOCK_ADMIN_CONTACT_ID);
       expect(note.created_at).toBe(NOW.toISOString());
       const contact = await client.getContact("c_jordan");

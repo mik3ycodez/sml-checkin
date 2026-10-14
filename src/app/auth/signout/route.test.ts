@@ -11,7 +11,10 @@ vi.mock("next/headers", () => ({ cookies: async () => cookieStore }));
 import { SESSION_COOKIE } from "@/lib/auth/session";
 import { POST } from "./route";
 
-function signOut(headers: Record<string, string>, form?: Record<string, string>) {
+function signOut(
+  headers: Record<string, string>,
+  form?: Record<string, string>,
+) {
   return POST(
     new NextRequest("http://localhost:3000/auth/signout", {
       method: "POST",

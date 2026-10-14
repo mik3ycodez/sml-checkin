@@ -38,7 +38,7 @@ async function CheckIn({
       <form action={checkInAction.bind(null, eventId)}>
         <button
           type="submit"
-          className="w-full rounded-lg bg-foreground px-4 py-5 text-2xl font-semibold text-background"
+          className="bg-foreground text-background w-full rounded-lg px-4 py-5 text-2xl font-semibold"
         >
           Check in
         </button>

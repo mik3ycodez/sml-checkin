@@ -187,7 +187,9 @@ describe("checkIn", () => {
       name: "Marcus Bell",
       eventName: "Social Night",
     });
-    expect(await groupIds(client, "grp_social_night")).not.toContain("c_marcus");
+    expect(await groupIds(client, "grp_social_night")).not.toContain(
+      "c_marcus",
+    );
     const marcus = await client.getContact("c_marcus");
     expect(marcus.custom_fields.cf_sml_points.value).toBe("12.5");
   });
@@ -357,7 +359,9 @@ describe("checkIn", () => {
       now: NOW,
     });
     expect(result).toEqual({ status: "unknown_contact" });
-    expect(await groupIds(client, "grp_social_night")).not.toContain("c_nobody");
+    expect(await groupIds(client, "grp_social_night")).not.toContain(
+      "c_nobody",
+    );
   });
 });
 
@@ -367,7 +371,8 @@ describe("checkIn failures", () => {
 
   async function failure(client: MockTidyClient): Promise<CheckInFailure> {
     const error = await checkIn(client, input).catch((e: unknown) => e);
-    if (!(error instanceof CheckInFailure)) throw new Error("expected a CheckInFailure");
+    if (!(error instanceof CheckInFailure))
+      throw new Error("expected a CheckInFailure");
     return error;
   }
 
@@ -461,12 +466,19 @@ describe("assessCheckIn", () => {
       contactId: "c_marcus",
       now: NOW,
     });
-    expect(assessment).toMatchObject({ status: "already_checked_in", total: null });
+    expect(assessment).toMatchObject({
+      status: "already_checked_in",
+      total: null,
+    });
   });
 
   it("changes nothing in TidyHQ", async () => {
     const client = seededClient();
-    await assessCheckIn(client, { eventId: "ev_tonight", contactId: "c_dante", now: NOW });
+    await assessCheckIn(client, {
+      eventId: "ev_tonight",
+      contactId: "c_dante",
+      now: NOW,
+    });
     expect(await groupIds(client, "grp_social_night")).not.toContain("c_dante");
     expect(await storedPoints(client, "c_dante")).toBe(0);
   });
@@ -474,18 +486,36 @@ describe("assessCheckIn", () => {
   it("explains each refusal the way the tap would", async () => {
     // Every refusal the page shows before the tap is the one the tap gets.
     const cases = [
-      { eventId: "ev_tonight", contactId: "c_lee", status: "membership_inactive" },
-      { eventId: "ev_bootblack_social", contactId: "c_dante", status: "not_open" },
+      {
+        eventId: "ev_tonight",
+        contactId: "c_lee",
+        status: "membership_inactive",
+      },
+      {
+        eventId: "ev_bootblack_social",
+        contactId: "c_dante",
+        status: "not_open",
+      },
       { eventId: "ev_pub_night", contactId: "c_dante", status: "closed" },
-      { eventId: "ev_pub_night", contactId: "c_marcus", status: "already_checked_in" },
+      {
+        eventId: "ev_pub_night",
+        contactId: "c_marcus",
+        status: "already_checked_in",
+      },
       { eventId: "ev_nope", contactId: "c_dante", status: "unknown_event" },
-      { eventId: "ev_tonight", contactId: "c_nobody", status: "unknown_contact" },
+      {
+        eventId: "ev_tonight",
+        contactId: "c_nobody",
+        status: "unknown_contact",
+      },
     ];
     for (const { status, ...ids } of cases) {
       const client = seededClient();
       const input = { ...ids, now: NOW };
       expect((await assessCheckIn(client, input)).status, status).toBe(status);
-      expect(await checkIn(client, input)).toEqual(await assessCheckIn(client, input));
+      expect(await checkIn(client, input)).toEqual(
+        await assessCheckIn(client, input),
+      );
     }
   });
 
@@ -502,7 +532,9 @@ describe("assessCheckIn", () => {
     client.getMemberships = async (id) =>
       (await getMemberships(id)).map((m) => ({ ...m, ...RENEWED }));
 
-    expect(await assessCheckIn(client, input)).toMatchObject({ status: "ready" });
+    expect(await assessCheckIn(client, input)).toMatchObject({
+      status: "ready",
+    });
     expect(await checkIn(client, input)).toMatchObject({
       status: "checked_in",
       pointsAwarded: 1,
@@ -525,6 +557,8 @@ describe("findContact", () => {
     client.getContact = async () => {
       throw new TidyError(503, "TidyHQ unavailable");
     };
-    await expect(findContact(client, "c_dante")).rejects.toBeInstanceOf(TidyError);
+    await expect(findContact(client, "c_dante")).rejects.toBeInstanceOf(
+      TidyError,
+    );
   });
 });

@@ -91,16 +91,20 @@ export class MockTidyClient implements TidyClient {
 
   async getMembershipLevel(levelId: string): Promise<MembershipLevel> {
     const level = this.state.membershipLevels.find((l) => l.id === levelId);
-    if (!level) throw new TidyError(404, `Membership level ${levelId} not found`);
+    if (!level)
+      throw new TidyError(404, `Membership level ${levelId} not found`);
     return structuredClone(level);
   }
 
   async listEvents(options: ListEventsOptions = {}): Promise<Event[]> {
     const { after, before } = options;
     const events = this.state.events
-      .filter((e) => !after || (e.end_at !== null && new Date(e.end_at) > after))
       .filter(
-        (e) => !before || (e.start_at !== null && new Date(e.start_at) < before),
+        (e) => !after || (e.end_at !== null && new Date(e.end_at) > after),
+      )
+      .filter(
+        (e) =>
+          !before || (e.start_at !== null && new Date(e.start_at) < before),
       )
       .sort((a, b) => (a.start_at ?? "").localeCompare(b.start_at ?? ""));
     return structuredClone(events);

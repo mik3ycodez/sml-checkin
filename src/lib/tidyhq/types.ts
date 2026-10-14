@@ -49,11 +49,7 @@ export interface Contact {
  * TidyHQ treats `activated` and `partial` as active.
  */
 export type MembershipState =
-  | "activated"
-  | "partial"
-  | "expired"
-  | "pending"
-  | "cancelled";
+  "activated" | "partial" | "expired" | "pending" | "cancelled";
 
 export interface Membership {
   id: string;
