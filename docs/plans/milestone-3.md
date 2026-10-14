@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PR 1 done (#12); PR 2 in review (#13).
+**Status:** In progress. PRs 1 and 2 done (#12, #13); PR 3 in review (#14).
 
 ## Context
 
@@ -30,8 +30,9 @@ Decisions so far:
   code and docs. Words like "see a volunteer at the door" in the UI stay:
   they refer to people, not a role.
 - **Mock state resets through a mock-only route.** `POST /mock-tidyhq/reset`
-  rebuilds the seed. It returns 404 unless `TIDYHQ_MODE=mock`, the same
-  guard as the fake sign-in page. Playwright tests run one at a time
+  rebuilds the seed. It returns 404 unless `TIDYHQ_MODE=mock` and `E2E=1`. Mock is the
+  default mode, so mock alone would leave it open on a demo site; only
+  `playwright.config.ts` sets `E2E=1`. Playwright tests run one at a time
   (`workers: 1`) so a reset never interrupts another test.
 - **CI runs in this milestone.** GitHub Actions runs lint, the format check,
   typecheck, Vitest, and Playwright on every PR.
@@ -80,7 +81,7 @@ Decisions so far:
 - Check: `npm test`, `npm run typecheck` and `npm run lint` all pass with no
   logic changes.
 
-### PR 2: Remove check-in roles 🔍 In review (#13)
+### PR 2: Remove check-in roles ✅ Done (#13)
 
 - `src/lib/points.ts`: drop `CheckInRole` and the per-role record.
   `POINTS_PER_CHECKIN` becomes a single number (`1`), still the one place
@@ -98,7 +99,7 @@ Decisions so far:
   notes where it mentions roles, following the existing PR 3 note. Leave
   the history in place.
 
-### PR 3: Playwright setup and the happy path
+### PR 3: Playwright setup and the happy path 🔍 In review (#14)
 
 - Add `@playwright/test` and an `npm run test:e2e` script. Specs live in
   `e2e/`, outside Vitest's `src/**/*.test.ts`, so `npm test` stays fast.
@@ -107,11 +108,16 @@ Decisions so far:
   fixed port, with `TIDYHQ_MODE=mock`,
   `APP_ORIGIN=http://localhost:<port>` and a test-only `SESSION_SECRET`.
   Projects: phone-sized WebKit (an iPhone device profile) and Chromium.
-  `workers: 1`.
+  `workers: 1`. _(Built: WebKit won't store `Secure` cookies over
+  `http://localhost`, so the cookie `secure` flag now follows APP_ORIGIN's
+  scheme, and production startup requires https unless the host is localhost
+  or 127.0.0.1.)_
 - Mock reset (test-first): add `reset()` to `MockTidyClient` (and
   `MockTidyOAuth`'s pending codes). It isn't on the `TidyClient` interface.
   Add `POST /mock-tidyhq/reset`, which returns 404 unless
-  `TIDYHQ_MODE=mock`. Unit tests cover the route's 404 in live mode and
+  `TIDYHQ_MODE=mock` _(and, added in review, unless `E2E=1`, which only
+  `playwright.config.ts` sets, since mock is the default mode)_. Unit tests
+  cover the route's 404 in live mode and
   that a reset restores seed totals.
 - An `e2e/fixtures.ts` that resets before each test, plus a `signInAs(page,
 name)` helper that goes through the fake TidyHQ page.

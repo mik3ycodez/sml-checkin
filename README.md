@@ -36,3 +36,14 @@ npm run test:watch   # re-run tests on file changes
 npm run typecheck    # TypeScript type check
 npm run lint         # ESLint
 ```
+
+### End-to-end tests
+
+```bash
+npx playwright install   # one-time: downloads the WebKit and Chromium browsers
+npm run test:e2e         # builds the app and runs the specs in e2e/
+npx playwright show-report   # open the HTML report (after a CI-mode run)
+```
+
+`playwright.config.ts` sets `E2E=1`, which turns on `POST /mock-tidyhq/reset`
+(mock mode only). Don't set it anywhere else.

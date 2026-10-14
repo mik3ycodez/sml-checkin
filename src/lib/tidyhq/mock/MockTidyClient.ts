@@ -23,14 +23,25 @@ export function issueMockToken(contactId: string): string {
  * and throws `TidyError` where the real API would return an error status.
  */
 export class MockTidyClient implements TidyClient {
-  private readonly state: MockSeed;
+  private readonly initial: MockSeed;
+  private state: MockSeed;
   private noteCounter = 0;
 
   constructor(
     seed: MockSeed = createSeed(),
     private readonly now: () => Date = () => new Date(),
   ) {
+    this.initial = structuredClone(seed);
     this.state = structuredClone(seed);
+  }
+
+  /**
+   * Puts everything back to the seed it was built with. Mock only (not part
+   * of TidyClient): for the end-to-end tests' reset route.
+   */
+  reset(): void {
+    this.state = structuredClone(this.initial);
+    this.noteCounter = 0;
   }
 
   async getMe(memberToken: string): Promise<Contact> {
