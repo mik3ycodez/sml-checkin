@@ -1,28 +1,15 @@
-import { connection } from "next/server";
-import { Suspense } from "react";
 import { checkInAction } from "./actions";
 import { memberStatus } from "./memberStatus";
-import { eventTitle, Loading, SignedInAs, StatusScreen } from "./screens";
+import { eventTitle, SignedInAs, StatusScreen } from "./screens";
 
 // The page a member's phone opens from the event QR code. Visiting it changes
 // nothing: checking in is a POST from the button, so link previews and
 // prefetching can't check anyone in. A member who's already checked in, or
 // can't check in (expired, not open yet), sees why instead of the button.
 
-export default function CheckInPage({
+export default async function CheckInPage({
   params,
 }: PageProps<"/checkin/[eventId]">) {
-  return (
-    <Suspense fallback={<Loading />}>
-      <CheckIn params={params} />
-    </Suspense>
-  );
-}
-
-async function CheckIn({
-  params,
-}: Pick<PageProps<"/checkin/[eventId]">, "params">) {
-  await connection();
   const { eventId } = await params;
   const { status } = await memberStatus(eventId);
   if (status.status !== "ready") {

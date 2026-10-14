@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 4 done (#12, #13, #14, #15); PR 5 in review (#16).
+**Status:** In progress. PRs 1 to 5 done (#12, #13, #14, #15, #16); PR 6 in review (#17).
 
 ## Context
 
@@ -137,7 +137,7 @@ name)` helper that goes through the fake TidyHQ page.
 - Optional, by hand in GitHub settings afterwards: require both jobs to
   pass before merging.
 
-### PR 5: The rest of the milestone 2 checklist 🔍 In review (#16)
+### PR 5: The rest of the milestone 2 checklist ✅ Done (#16)
 
 - Reloading shows "already checked in", and the total is unchanged.
 - Lee sees the expired screen with a renew link to the TidyHQ site.
@@ -157,7 +157,7 @@ name)` helper that goes through the fake TidyHQ page.
   with a script. The `@nojs` spec is skipped in that project until it's fixed
   in PR 6.)_
 
-### PR 6: Member pages work with JavaScript off
+### PR 6: Member pages work with JavaScript off 🔍 In review (#17)
 
 Why: PR 5's `webkit-no-js` project found that every page behind `<Suspense>`
 shows "Loading…" forever with JavaScript off, because Next reveals streamed
@@ -195,10 +195,11 @@ Steps (test-first):
   until it passes in all three projects.
 - Remove `cacheComponents` and `partialPrefetching` from `next.config.ts`.
   Remove `<Suspense>` and the `Loading` fallback from the check-in, result,
-  problem, error and mock authorize pages, keeping `connection()` where a page
-  would otherwise be prerendered.
-- Extend the `@nojs` tag to the other member specs (already checked in,
-  expired, unknown event, not open yet) and the sign-in edge cases.
+  problem, error and mock authorize pages. _(Built: the pages read cookies,
+  params or `searchParams`, so they're dynamic without `connection()`, which
+  went too. The mock authorize page outside mock mode is now a real 404.)_
+- Run every spec in `webkit-no-js`, not just tagged ones, so the `@nojs`
+  tag is gone. _(Built that way: simpler, and still about 30 seconds.)_
 - `CLAUDE.md`: add a decision (no Cache Components; why; avoid Suspense on
   member pages), so later pages (`/me`) follow it.
 - Check: `npm run build` succeeds, all checks pass, and the no-JS skip is

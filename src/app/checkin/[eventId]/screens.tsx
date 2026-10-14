@@ -259,7 +259,3 @@ function Total({ total }: { total: number | null }) {
     </p>
   );
 }
-
-export function Loading() {
-  return <p className="text-foreground/70 text-lg">Loading…</p>;
-}
