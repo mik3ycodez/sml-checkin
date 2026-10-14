@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PR 1 done (#12); PR 2 in review (#13).
+**Status:** In progress. PRs 1 and 2 done (#12, #13); PR 3 in review (#14).
 
 ## Context
 
@@ -80,7 +80,7 @@ Decisions so far:
 - Check: `npm test`, `npm run typecheck` and `npm run lint` all pass with no
   logic changes.
 
-### PR 2: Remove check-in roles 🔍 In review (#13)
+### PR 2: Remove check-in roles ✅ Done (#13)
 
 - `src/lib/points.ts`: drop `CheckInRole` and the per-role record.
   `POINTS_PER_CHECKIN` becomes a single number (`1`), still the one place
@@ -98,7 +98,7 @@ Decisions so far:
   notes where it mentions roles, following the existing PR 3 note. Leave
   the history in place.
 
-### PR 3: Playwright setup and the happy path
+### PR 3: Playwright setup and the happy path 🔍 In review (#14)
 
 - Add `@playwright/test` and an `npm run test:e2e` script. Specs live in
   `e2e/`, outside Vitest's `src/**/*.test.ts`, so `npm test` stays fast.
@@ -107,7 +107,9 @@ Decisions so far:
   fixed port, with `TIDYHQ_MODE=mock`,
   `APP_ORIGIN=http://localhost:<port>` and a test-only `SESSION_SECRET`.
   Projects: phone-sized WebKit (an iPhone device profile) and Chromium.
-  `workers: 1`.
+  `workers: 1`. _(Built: WebKit won't store `Secure` cookies over
+  `http://localhost`, so a test-only proxy, `e2e/http-proxy.mjs`, sits in front
+  of `next start` and strips the flag. App cookie settings are unchanged.)_
 - Mock reset (test-first): add `reset()` to `MockTidyClient` (and
   `MockTidyOAuth`'s pending codes). It isn't on the `TidyClient` interface.
   Add `POST /mock-tidyhq/reset`, which returns 404 unless
