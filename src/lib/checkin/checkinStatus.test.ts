@@ -110,6 +110,31 @@ describe("getCheckinStatus", () => {
     });
   });
 
+  it("asks TidyHQ again after an expired member renews", async () => {
+    // What the "I've renewed, check me in" link relies on: nothing remembers
+    // the earlier refusal.
+    const client = seededClient();
+    const input = { eventId: "ev_tonight", contactId: "c_lee", now: NOW };
+    expect(await getCheckinStatus(client, input)).toMatchObject({
+      status: "membership_inactive",
+    });
+
+    const getMemberships = client.getMemberships.bind(client);
+    client.getMemberships = async (id) =>
+      (await getMemberships(id)).map((m) => ({
+        ...m,
+        state: "activated",
+        status: "Activated",
+        end_date: "2099-12-31",
+      }));
+
+    expect(await getCheckinStatus(client, input)).toMatchObject({ status: "ready" });
+    expect(await checkIn(client, input)).toMatchObject({
+      status: "checked_in",
+      pointsAwarded: 1,
+    });
+  });
+
   it("explains that check-in hasn't opened, and when it will", async () => {
     const client = seededClient();
     const window = await client.getEventCheckinWindow("ev_bootblack_social");

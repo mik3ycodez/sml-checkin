@@ -163,6 +163,30 @@ describe("checkInAction", () => {
     expect(await submit({ id: "ev_tonight" })).toBe("/");
   });
 
+  it("asks TidyHQ again after an expired member renews", async () => {
+    signInAs("c_lee");
+    await submit("ev_tonight");
+    const before = await getTidyClient().listGroupContacts("grp_social_night");
+    expect(before.map((c) => c.id)).not.toContain("c_lee");
+
+    // Lee renews in TidyHQ; the mock now reports an active membership.
+    const client = getTidyClient();
+    const getMemberships = client.getMemberships.bind(client);
+    client.getMemberships = async (id) =>
+      (await getMemberships(id)).map((m) => ({
+        ...m,
+        state: "activated",
+        status: "Activated",
+        end_date: "2099-12-31",
+      }));
+
+    cookieStore.set.mockClear();
+    expect(await submit("ev_tonight")).toBe("/checkin/ev_tonight/result");
+    const after = await getTidyClient().listGroupContacts("grp_social_night");
+    expect(after.map((c) => c.id)).toContain("c_lee");
+    expect(awardNotice("ev_tonight", "c_lee")).toBe(1);
+  });
+
   describe("when TidyHQ fails", () => {
     function failPointsWrite() {
       getTidyClient().updateContact = async () => {
