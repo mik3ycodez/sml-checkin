@@ -39,7 +39,7 @@ the member TidyHQ OAuth flow?
 
 - Lists members who qualify for club colors (18+ points) but haven't been
   issued them. Uses the same `rewardStatus` and `readRewardIssued` as `/me`
-  (milestone 3 / PR 7), so the report and the member page agree.
+  (milestone 3 / PR 8), so the report and the member page agree.
 - Members whose points or issued field can't be read are listed separately
   as "needs checking", not left out.
 - This is a supplemental cross-check. The Board's own auditing in TidyHQ
