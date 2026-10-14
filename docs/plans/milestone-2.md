@@ -110,7 +110,7 @@ Admins set check-in open/close times when they create the event in TidyHQ. We do
 ## Verification
 
 - Each PR: `npm test`, `npm run typecheck`, `npm run lint`. For TDD, run the new tests first and confirm they fail, then implement.
-- End-to-end after PR 7, by hand (`npm run dev`, phone-sized window). Check that:
+- End-to-end after PR 7, by hand _(Automated in milestone 3 PR 5: see `e2e/`.)_ (`npm run dev`, phone-sized window). Check that:
   - `/checkin/ev_tonight` → fake sign-in → pick Dante → back on the check-in page → tap → confirmation shows +1, total 1.
   - Reloading `/checkin/ev_tonight` shows "already checked in" and the total stays 1.
   - Signing out and back in as Lee shows the expired screen with a renew link.
