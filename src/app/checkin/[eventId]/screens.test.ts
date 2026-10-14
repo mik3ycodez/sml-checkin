@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import type { TapOutcome } from "@/lib/checkin/tapNotice";
 import { CheckinProblem, SignedInAs, StatusScreen, type ShownStatus } from "./screens";
 
 describe("SignedInAs", () => {
@@ -29,9 +30,9 @@ function text(html: string): string {
     .trim();
 }
 
-function render(status: ShownStatus, awarded: number | null = null) {
+function render(status: ShownStatus, notice: TapOutcome | null = null) {
   const html = renderToStaticMarkup(
-    createElement(StatusScreen, { status, eventId: "ev_tonight", awarded }),
+    createElement(StatusScreen, { status, eventId: "ev_tonight", notice }),
   );
   return { html, text: text(html) };
 }
@@ -39,36 +40,68 @@ function render(status: ShownStatus, awarded: number | null = null) {
 const DANTE = { name: "Dante Ruiz", eventName: "Social Night" };
 
 describe("StatusScreen", () => {
+  const CHECKED_IN = { status: "already_checked_in", ...DANTE, total: 5 } as const;
+
   describe("checked in by this tap", () => {
-    const { text } = render({ status: "checked_in", ...DANTE, total: 5 }, 1);
+    const { text } = render(CHECKED_IN, { kind: "awarded", points: 1 });
 
     it("confirms with the points just awarded and the new total", () => {
       expect(text).toContain("You're checked in, Dante Ruiz!");
       expect(text).toContain("+1 point");
-      expect(text).toContain("Your total: 5");
+      expect(text).toContain("Total: 5");
     });
 
     it("pluralizes larger awards", () => {
-      expect(render({ status: "checked_in", ...DANTE, total: 6 }, 2).text).toContain(
+      expect(render(CHECKED_IN, { kind: "awarded", points: 2 }).text).toContain(
         "+2 points",
       );
     });
   });
 
-  describe("already checked in", () => {
-    const { text } = render({ status: "checked_in", ...DANTE, total: 5 });
+  describe("tapped again after checking in", () => {
+    const { text } = render(CHECKED_IN, { kind: "repeat" });
 
-    it("says so, with no extra point, and shows the total", () => {
+    it("says there's no extra point, and shows the total", () => {
       expect(text).toContain("You're already checked in");
-      expect(text).toContain("no extra point");
-      expect(text).toContain("Your total: 5");
+      expect(text).toContain("no extra point this time");
+      expect(text).toContain("Total: 5");
+      expect(text).not.toContain("+1");
+    });
+  });
+
+  describe("checked in, but the point didn't save", () => {
+    const { html, text } = render(CHECKED_IN, { kind: "point_not_saved" });
+
+    it("asks the member to tell a volunteer", () => {
+      expect(text).toContain("You're checked in, but your point didn't save");
+      expect(text).toContain("Please let a volunteer know.");
+    });
+
+    it("doesn't offer to try again, or show a total that's missing the point", () => {
+      expect(text).not.toContain("Try again");
+      expect(text).not.toContain("Total");
+      expect(html).not.toContain('href="/checkin/ev_tonight"');
+    });
+
+    it("lets a shared phone switch members", () => {
+      expect(text).toContain("Signed in as Dante Ruiz");
+    });
+  });
+
+  describe("already checked in, on a fresh page load", () => {
+    const { text } = render(CHECKED_IN);
+
+    it("just shows the check-in and the total", () => {
+      expect(text).toContain("You're already checked in");
+      expect(text).toContain("Total: 5");
+      expect(text).not.toContain("no extra point");
       expect(text).not.toContain("+1");
     });
 
     it("shows the check-in without a total when the total is unreadable", () => {
-      const shown = render({ status: "checked_in", ...DANTE, total: null }).text;
+      const shown = render({ ...CHECKED_IN, total: null }).text;
       expect(shown).toContain("You're already checked in");
-      expect(shown).not.toContain("Your total");
+      expect(shown).not.toContain("Total");
     });
 
     it("lets a shared phone switch members", () => {
@@ -110,14 +143,15 @@ describe("StatusScreen", () => {
     expect(text).toContain("Social Night");
   });
 
-  it("says when check-in has closed", () => {
+  it("says when check-in has closed, naming the event once", () => {
     const { text } = render({ status: "closed", ...DANTE });
-    expect(text).toContain("Check-in for Social Night has closed");
+    expect(text).toContain("Social Night Check-in has closed");
+    expect(text.match(/Social Night/g)).toHaveLength(1);
   });
 
   it("names a stand-in when the event has no name", () => {
     const { text } = render({ status: "closed", name: "Dante Ruiz", eventName: null });
-    expect(text).toContain("Check-in for SML event has closed");
+    expect(text).toContain("SML event Check-in has closed");
   });
 
   it("asks the member to see a volunteer when their total is unreadable", () => {

@@ -26,7 +26,7 @@ async function CheckIn({
   const { eventId } = await params;
   const { status } = await memberStatus(eventId);
   if (status.status !== "ready") {
-    return <StatusScreen status={status} eventId={eventId} awarded={null} />;
+    return <StatusScreen status={status} eventId={eventId} notice={null} />;
   }
 
   // Plain forms, so checking in works even if JavaScript fails on older phones.

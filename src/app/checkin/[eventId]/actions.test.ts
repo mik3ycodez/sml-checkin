@@ -23,7 +23,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { SESSION_COOKIE, signSession } from "@/lib/auth/session";
-import { AWARD_NOTICE_COOKIE, readAwardNotice } from "@/lib/checkin/awardNotice";
+import { readTapNotice, TAP_NOTICE_COOKIE, type TapOutcome } from "@/lib/checkin/tapNotice";
 import { getTidyClient, TidyError } from "@/lib/tidyhq";
 import { checkInAction } from "./actions";
 
@@ -40,12 +40,12 @@ async function submit(eventId: unknown): Promise<string> {
   return error.url;
 }
 
-/** Points the action told the result page it just awarded, or null. */
-function awardNotice(eventId: string, contactId: string): number | null {
+/** What the action told the result page about this tap, or null. */
+function tapNotice(eventId: string, contactId: string): TapOutcome | null {
   const call = cookieStore.set.mock.calls.find(
-    ([name]) => name === AWARD_NOTICE_COOKIE,
+    ([name]) => name === TAP_NOTICE_COOKIE,
   );
-  return call ? readAwardNotice(call[1], { eventId, contactId }) : null;
+  return call ? readTapNotice(call[1], { eventId, contactId }) : null;
 }
 
 function sessionReissued() {
@@ -95,9 +95,9 @@ describe("checkInAction", () => {
   it("tells the result page how many points it just awarded", async () => {
     signInAs("c_dante");
     await submit("ev_tonight");
-    expect(awardNotice("ev_tonight", "c_dante")).toBe(1);
+    expect(tapNotice("ev_tonight", "c_dante")).toEqual({ kind: "awarded", points: 1 });
     expect(cookieStore.set).toHaveBeenCalledWith(
-      AWARD_NOTICE_COOKIE,
+      TAP_NOTICE_COOKIE,
       expect.any(String),
       expect.objectContaining({
         httpOnly: true,
@@ -106,15 +106,21 @@ describe("checkInAction", () => {
     );
   });
 
-  it("doesn't claim a point when already checked in", async () => {
+  it("tells the result page about a repeat tap, with no point", async () => {
     signInAs("c_dante");
     await submit("ev_tonight");
     cookieStore.set.mockClear();
     await submit("ev_tonight");
-    expect(awardNotice("ev_tonight", "c_dante")).toBeNull();
-    // Clears the first tap's note, so the result page doesn't show it again.
+    // Replaces the first tap's note, so the result page doesn't say "+1" again.
+    expect(tapNotice("ev_tonight", "c_dante")).toEqual({ kind: "repeat" });
+  });
+
+  it("clears an earlier tap's note when the check-in is refused", async () => {
+    signInAs("c_lee");
+    await submit("ev_tonight");
+    expect(tapNotice("ev_tonight", "c_lee")).toBeNull();
     expect(cookieStore.delete).toHaveBeenCalledWith({
-      name: AWARD_NOTICE_COOKIE,
+      name: TAP_NOTICE_COOKIE,
       path: "/checkin/ev_tonight/result",
     });
   });
@@ -184,43 +190,74 @@ describe("checkInAction", () => {
     expect(await submit("ev_tonight")).toBe("/checkin/ev_tonight/result");
     const after = await getTidyClient().listGroupContacts("grp_social_night");
     expect(after.map((c) => c.id)).toContain("c_lee");
-    expect(awardNotice("ev_tonight", "c_lee")).toBe(1);
+    expect(tapNotice("ev_tonight", "c_lee")).toEqual({ kind: "awarded", points: 1 });
   });
 
   describe("when TidyHQ fails", () => {
+    const unavailable = () => new TidyError(503, "TidyHQ unavailable");
+
     function failPointsWrite() {
       getTidyClient().updateContact = async () => {
-        throw new TidyError(503, "TidyHQ unavailable");
+        throw unavailable();
       };
     }
 
-    it("shows a friendly problem page instead of crashing", async () => {
+    function failGroupAdd() {
+      getTidyClient().addContactToGroup = async () => {
+        throw unavailable();
+      };
+    }
+
+    beforeEach(() => {
       vi.spyOn(console, "error").mockImplementation(() => {});
-      signInAs("c_dante");
-      failPointsWrite();
-      expect(await submit("ev_tonight")).toBe("/checkin/ev_tonight/problem");
-      expect(awardNotice("ev_tonight", "c_dante")).toBeNull();
     });
 
-    it("logs the event, member, failed step and TidyHQ status", async () => {
-      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    it("shows a friendly problem page if the member wasn't checked in", async () => {
+      signInAs("c_dante");
+      failGroupAdd();
+      expect(await submit("ev_tonight")).toBe("/checkin/ev_tonight/problem");
+      expect(tapNotice("ev_tonight", "c_dante")).toBeNull();
+    });
+
+    it("tells a member checked in without their point to see a volunteer", async () => {
+      // Not "try again": they're in the group, so a retry would only say
+      // "already checked in" and the lost point would go unnoticed.
+      signInAs("c_dante");
+      failPointsWrite();
+      expect(await submit("ev_tonight")).toBe("/checkin/ev_tonight/result");
+      expect(tapNotice("ev_tonight", "c_dante")).toEqual({ kind: "point_not_saved" });
+      expect(sessionReissued()).toBe(true);
+    });
+
+    it("logs the event, member, failed step and TidyHQ's error", async () => {
       signInAs("c_dante");
       failPointsWrite();
       await submit("ev_tonight");
-      expect(log).toHaveBeenCalledWith("check-in failed", {
+      expect(console.error).toHaveBeenCalledWith("check-in failed", {
         eventId: "ev_tonight",
         contactId: "c_dante",
         step: "points_write",
         tidyStatus: 503,
+        message: "TidyHQ unavailable",
       });
     });
 
     it("never logs the session cookie", async () => {
-      const log = vi.spyOn(console, "error").mockImplementation(() => {});
       signInAs("c_dante");
       failPointsWrite();
       await submit("ev_tonight");
-      expect(JSON.stringify(log.mock.calls)).not.toContain(jar.get(SESSION_COOKIE));
+      expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(
+        jar.get(SESSION_COOKIE),
+      );
+    });
+
+    it("lets a bug that isn't a TidyHQ failure reach the error page", async () => {
+      signInAs("c_dante");
+      const bug = new TypeError("bad patch");
+      getTidyClient().updateContact = async () => {
+        throw bug;
+      };
+      await expect(checkInAction("ev_tonight")).rejects.toBe(bug);
     });
   });
 });

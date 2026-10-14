@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import type { CheckinStatus } from "@/lib/checkin/checkinStatus";
+import type { CheckInAssessment } from "@/lib/checkin/checkIn";
+import type { TapOutcome } from "@/lib/checkin/tapNotice";
 import { seattleTimeLabel } from "@/lib/dates";
 import { tidyhqSiteUrl } from "@/lib/tidyhq/site";
 
@@ -67,43 +68,36 @@ export function SignedInAs({
 
 /** What the pages show for every status except "ready" (which shows the button). */
 export type ShownStatus = Exclude<
-  CheckinStatus,
+  CheckInAssessment,
   { status: "ready" } | { status: "unknown_contact" }
 >;
 
 /**
- * The screen for a member's status at an event. `awarded` is the points this
- * tap just awarded (from the award notice), or null if it awarded none.
+ * The screen for a member's status at an event. `notice` is what the tap that
+ * led here did (from the tap notice), or null on a plain page load.
  */
 export function StatusScreen({
   status,
   eventId,
-  awarded,
+  notice,
 }: {
   status: ShownStatus;
   eventId: string;
-  awarded: number | null;
+  notice: TapOutcome | null;
 }) {
   if (status.status === "unknown_event") return <UnknownEvent />;
 
   const event = eventTitle(status.eventName);
   const signedInAs = <SignedInAs name={status.name} eventId={eventId} />;
   switch (status.status) {
-    case "checked_in":
-      return awarded !== null ? (
-        <Screen event={event} title={`You're checked in, ${status.name}!`} big>
-          <p className="text-4xl font-bold">
-            +{awarded} {awarded === 1 ? "point" : "points"}
-          </p>
-          <Total total={status.total} />
-          {signedInAs}
-        </Screen>
-      ) : (
-        <Screen event={event} title="You're already checked in">
-          <Note>One check-in per event, so no extra point this time.</Note>
-          <Total total={status.total} />
-          {signedInAs}
-        </Screen>
+    case "already_checked_in":
+      return (
+        <CheckedIn
+          status={status}
+          event={event}
+          notice={notice}
+          signedInAs={signedInAs}
+        />
       );
     case "membership_inactive":
       return (
@@ -136,7 +130,7 @@ export function StatusScreen({
       );
     case "closed":
       return (
-        <Screen event={event} title={`Check-in for ${event} has closed`}>
+        <Screen event={event} title="Check-in has closed">
           <Note>If you were there, a volunteer can check you in.</Note>
           {signedInAs}
         </Screen>
@@ -149,6 +143,56 @@ export function StatusScreen({
             points total in TidyHQ, and a volunteer needs to fix it before you
             can check in.
           </Note>
+          {signedInAs}
+        </Screen>
+      );
+  }
+}
+
+/** A member in the event's group, worded for what the tap (if any) did. */
+function CheckedIn({
+  status,
+  event,
+  notice,
+  signedInAs,
+}: {
+  status: Extract<ShownStatus, { status: "already_checked_in" }>;
+  event: string;
+  notice: TapOutcome | null;
+  signedInAs: ReactNode;
+}) {
+  switch (notice?.kind) {
+    case "awarded":
+      return (
+        <Screen event={event} title={`You're checked in, ${status.name}!`} big>
+          <p className="text-4xl font-bold">
+            +{notice.points} {notice.points === 1 ? "point" : "points"}
+          </p>
+          <Total total={status.total} />
+          {signedInAs}
+        </Screen>
+      );
+    case "point_not_saved":
+      // No total: it's missing the point. No "try again": it would only say
+      // "already checked in". A volunteer can add the point in TidyHQ.
+      return (
+        <Screen event={event} title="You're checked in, but your point didn't save">
+          <Note>Please let a volunteer know.</Note>
+          {signedInAs}
+        </Screen>
+      );
+    case "repeat":
+      return (
+        <Screen event={event} title="You're already checked in">
+          <Note>One check-in per event, so no extra point this time.</Note>
+          <Total total={status.total} />
+          {signedInAs}
+        </Screen>
+      );
+    default:
+      return (
+        <Screen event={event} title="You're already checked in">
+          <Total total={status.total} />
           {signedInAs}
         </Screen>
       );
@@ -208,7 +252,7 @@ function Total({ total }: { total: number | null }) {
   if (total === null) return null;
   return (
     <p className="text-xl">
-      Your total: <span className="font-semibold">{total}</span>
+      Total: <span className="font-semibold">{total}</span>
     </p>
   );
 }
