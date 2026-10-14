@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 4 done (#12, #13, #14, #15); PR 5 in review.
+**Status:** In progress. PRs 1 to 4 done (#12, #13, #14, #15); PR 5 in review (#16).
 
 ## Context
 
@@ -137,7 +137,7 @@ name)` helper that goes through the fake TidyHQ page.
 - Optional, by hand in GitHub settings afterwards: require both jobs to
   pass before merging.
 
-### PR 5: The rest of the milestone 2 checklist 🔍 In review
+### PR 5: The rest of the milestone 2 checklist 🔍 In review (#16)
 
 - Reloading shows "already checked in", and the total is unchanged.
 - Lee sees the expired screen with a renew link to the TidyHQ site.
