@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 5 done (#12, #13, #14, #15, #16); PR 6 in review.
+**Status:** In progress. PRs 1 to 5 done (#12, #13, #14, #15, #16); PR 6 in review (#17).
 
 ## Context
 
@@ -157,7 +157,7 @@ name)` helper that goes through the fake TidyHQ page.
   with a script. The `@nojs` spec is skipped in that project until it's fixed
   in PR 6.)_
 
-### PR 6: Member pages work with JavaScript off 🔍 In review
+### PR 6: Member pages work with JavaScript off 🔍 In review (#17)
 
 Why: PR 5's `webkit-no-js` project found that every page behind `<Suspense>`
 shows "Loading…" forever with JavaScript off, because Next reveals streamed
