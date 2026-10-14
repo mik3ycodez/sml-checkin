@@ -35,6 +35,12 @@ describe("register (server startup checks)", () => {
     await expect(register()).rejects.toThrow(/APP_ORIGIN must be set/);
   });
 
+  it("refuses to start with a TIDYHQ_DOMAIN_PREFIX that isn't a subdomain", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("TIDYHQ_DOMAIN_PREFIX", "sml.tidyhq.com");
+    await expect(register()).rejects.toThrow(/TIDYHQ_DOMAIN_PREFIX/);
+  });
+
   it("starts in production with both set", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("APP_ORIGIN", "https://checkin.example.org");
