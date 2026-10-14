@@ -118,6 +118,9 @@ export function StatusScreen({
           <a href={checkinPath(eventId)} className={SECONDARY}>
             I&apos;ve renewed, check me in
           </a>
+          <Note>
+            Just renewed? It can take a minute to update. Try again shortly.
+          </Note>
           {signedInAs}
         </Screen>
       );

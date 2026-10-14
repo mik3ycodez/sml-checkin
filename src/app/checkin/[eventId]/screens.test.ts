@@ -88,6 +88,12 @@ describe("StatusScreen", () => {
       expect(html).toContain('href="/checkin/ev_tonight"');
     });
 
+    it("warns that a renewal can take a minute to show up", () => {
+      expect(text).toContain(
+        "Just renewed? It can take a minute to update. Try again shortly.",
+      );
+    });
+
     it("lets a shared phone switch members", () => {
       expect(text).toContain("Signed in as Dante Ruiz");
     });
