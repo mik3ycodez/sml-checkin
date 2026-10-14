@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** Planned. No PRs merged yet.
+**Status:** In progress. PR 1 done (#12); PR 2 in review (#13).
 
 ## Context
 
@@ -64,7 +64,7 @@ Decisions so far:
 
 ## Pull requests (in order)
 
-### PR 1: Prettier
+### PR 1: Prettier ✅ Done (#12)
 
 - Add `prettier` and `prettier-plugin-tailwindcss` (sorts Tailwind classes
   in a fixed order, so class lists don't churn in diffs) as dev dependencies.
@@ -80,7 +80,7 @@ Decisions so far:
 - Check: `npm test`, `npm run typecheck` and `npm run lint` all pass with no
   logic changes.
 
-### PR 2: Remove check-in roles
+### PR 2: Remove check-in roles 🔍 In review (#13)
 
 - `src/lib/points.ts`: drop `CheckInRole` and the per-role record.
   `POINTS_PER_CHECKIN` becomes a single number (`1`), still the one place
