@@ -43,6 +43,11 @@ export class MockTidyOAuth implements TidyOAuth {
     return code;
   }
 
+  /** Forgets every issued code. Mock only: for the end-to-end tests' reset. */
+  reset(): void {
+    this.codes.clear();
+  }
+
   async exchangeCode({
     code,
     redirectUri,

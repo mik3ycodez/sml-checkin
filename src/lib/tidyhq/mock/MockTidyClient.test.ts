@@ -302,4 +302,27 @@ describe("MockTidyClient", () => {
       expect((await client.getContact("c_dante")).first_name).toBe("Dante");
     });
   });
+
+  describe("reset (mock only)", () => {
+    it("restores seed points and group members after changes", async () => {
+      const original = await client.getContact("c_dante");
+      await client.updateContact("c_dante", buildPointsPatch(5));
+      await client.addContactToGroup("grp_social_night", "c_dante");
+
+      client.reset();
+
+      const restored = await client.getContact("c_dante");
+      expect(readPoints(restored)).toBe(readPoints(original));
+      const members = await client.listGroupContacts("grp_social_night");
+      expect(members.map((c) => c.id)).not.toContain("c_dante");
+    });
+
+    it("can be reset more than once", async () => {
+      await client.addContactToGroup("grp_social_night", "c_dante");
+      client.reset();
+      await client.addContactToGroup("grp_social_night", "c_dante");
+      client.reset();
+      expect(await client.listGroupContacts("grp_social_night")).toEqual([]);
+    });
+  });
 });

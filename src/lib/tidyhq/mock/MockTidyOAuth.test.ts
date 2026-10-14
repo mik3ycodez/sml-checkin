@@ -105,6 +105,16 @@ describe("MockTidyOAuth", () => {
       await expectTidyError(client.getMe(token), 401);
     });
   });
+  describe("reset (mock only)", () => {
+    it("forgets codes that were issued but not yet used", async () => {
+      const code = oauth.issueCode("c_dante", REDIRECT_URI);
+      oauth.reset();
+      await expectTidyError(
+        oauth.exchangeCode({ code, redirectUri: REDIRECT_URI }),
+        401,
+      );
+    });
+  });
 });
 
 describe("parseMockAuthorizeRequest", () => {
