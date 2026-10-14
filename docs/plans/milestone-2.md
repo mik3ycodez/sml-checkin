@@ -1,6 +1,6 @@
 # Milestone 2: Member check-in flow
 
-**Status:** PRs 1–6 done (merged as #3–#6, #8 and #9). PR 7 in review.
+**Status:** Milestone 2 complete. PRs 1–7 done (merged as #3–#6, #8, #9 and #10).
 
 ## Context
 The TidyHQ layer is done: `TidyClient`, `MockTidyClient`, seed data, `resolveEventGroup`, and the points field helpers. Nothing lets a member check in yet. This milestone adds the full self check-in path. A member scans a QR code, signs in with (mock) TidyHQ, taps once, and sees a confirmation. We verify their membership, add them to the event's attendance group, and recalculate their points. Each step is built test-first, in small PRs.
@@ -75,7 +75,7 @@ Admins set check-in open/close times when they create the event in TidyHQ. We do
 - **Sliding session expiry** (deferred from the PR 4 review): after a successful check-in, the Server Action calls `setSession(contactId)` again, which resets the 90-day expiry. Members who keep coming never get signed out. It's done in the action because Server Components can't set cookies. Test first: the action re-issues the cookie on `checked_in` and `already_checked_in`.
 - *As built:* the result page reads state through `getCheckinStatus` (`src/lib/checkin/checkinStatus.ts`), which shares `findEvent` with `checkIn` and changes nothing. "+N points" shows only when this tap awarded them: group membership can't tell (the points write may have failed, or staff added the member), so the action leaves a 60-second httpOnly note for the result page (`src/lib/checkin/awardNotice.ts`), tied to the member and event so a shared phone never shows someone else's point. The total is always re-read. A session whose contact TidyHQ no longer has (`checkIn` and `getCheckinStatus` now return `unknown_contact`) sends the member to sign in again. `readAttendance` is the one place that decides "already checked in", for both. Both pages show "Signed in as X. Not you? Sign out" (`SignedInAs`), so a shared phone can switch members from the result page too. Every action outcome except `unknown_event` redirects to the result page; members who weren't checked in (expired, not open, unreadable total) see a plain "You're not checked in" until PR 7 explains why. "Not you? sign out" posts `returnTo` to `/auth/signout` (checked with `safeReturnTo`), so it leads straight back to sign-in. The pages sit behind `<Suspense>` because `cacheComponents` is on; a redirect from there is sent as a meta refresh, which works without JavaScript.
 
-### PR 7: Friendly outcome screens
+### PR 7: Friendly outcome screens ✅ Done (#10)
 - One small component per non-happy outcome, shown from the page or the action result:
   - **Membership expired**: renew link to `https://${TIDYHQ_DOMAIN_PREFIX}.tidyhq.com` (in config).
   - **Already checked in**: "You're already checked in, no extra point", plus the current total.
