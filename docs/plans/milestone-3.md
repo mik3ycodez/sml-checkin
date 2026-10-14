@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 3 done (#12, #13, #14); PR 4 in review (#15).
+**Status:** In progress. PRs 1 to 4 done (#12, #13, #14, #15); PR 5 in review (#16).
 
 ## Context
 
@@ -126,7 +126,7 @@ name)` helper that goes through the fake TidyHQ page.
 - Commands to learn: `npx playwright install` (one-time browser download),
   `npm run test:e2e`, `npx playwright show-report`.
 
-### PR 4: GitHub Actions CI 🔍 In review (#15)
+### PR 4: GitHub Actions CI ✅ Done (#15)
 
 - `.github/workflows/ci.yml`, on pull requests and pushes to `main`, using
   Node 24 from `.nvmrc` and `npm ci`.
@@ -137,7 +137,7 @@ name)` helper that goes through the fake TidyHQ page.
 - Optional, by hand in GitHub settings afterwards: require both jobs to
   pass before merging.
 
-### PR 5: The rest of the milestone 2 checklist
+### PR 5: The rest of the milestone 2 checklist 🔍 In review (#16)
 
 - Reloading shows "already checked in", and the total is unchanged.
 - Lee sees the expired screen with a renew link to the TidyHQ site.
@@ -151,8 +151,60 @@ name)` helper that goes through the fake TidyHQ page.
   specs, per the older-phones rule.
 - Once this lands, milestone 2's "Verification" list is automated. The
   "Verification" section below drops the manual browser steps.
+- _(Built: the no-JavaScript project, `webkit-no-js`, found a real gap. Pages
+  behind `<Suspense>` (all the check-in pages and the fake sign-in page) show
+  "Loading…" forever with JavaScript off, because Next reveals streamed content
+  with a script. The `@nojs` spec is skipped in that project until it's fixed
+  in PR 6.)_
 
-### PR 6: Member summary (pure logic, test-first)
+### PR 6: Member pages work with JavaScript off
+
+Why: PR 5's `webkit-no-js` project found that every page behind `<Suspense>`
+shows "Loading…" forever with JavaScript off, because Next reveals streamed
+content with a script. (A `redirect()` inside streamed content has the same
+problem: it can't send a real 307 once streaming has started, so it falls back
+to a script.)
+
+Approach to investigate first: turn off `cacheComponents` (and
+`partialPrefetching`, which requires it) in `next.config.ts`, then remove the
+`<Suspense>` wrappers from the pages. Every page here reads cookies or the
+request, so none benefits from prerendering or caching. Without
+`cacheComponents`, Next doesn't require Suspense around request-time data,
+so a page can render complete HTML, with real redirect and 404 statuses.
+
+Downsides, to confirm before changing anything:
+
+- Leaves Next's direction of travel. The docs say Cache Components and
+  Partial Prefetching become the default in the next major version, so a
+  later upgrade means re-adopting them (and Suspense) or opting out.
+- No `use cache`, `cacheLife`, `cacheTag`, or static app shell. Nothing here
+  uses them. If live TidyHQ reads turn out to be slow, caching moves to
+  `unstable_cache` or plain in-memory caching in `TidyClient`, not `use cache`.
+- Pages wait for all their TidyHQ reads before sending any HTML, where today
+  the layout shows first with "Loading…". That's a slower first paint at the
+  door, offset by no spinner flash. Measure it with live access (see
+  "Deferred").
+- Behavior shifts: routes that don't touch request data get prerendered at
+  build time. Pages that need mock-mode checks at request time must stay
+  dynamic (`connection()`).
+
+Steps (test-first):
+
+- Remove the `knownNoJsGap` skip from `e2e/fixtures.ts` first, confirm
+  the `@nojs` spec fails in `webkit-no-js`, then change the config and pages
+  until it passes in all three projects.
+- Remove `cacheComponents` and `partialPrefetching` from `next.config.ts`.
+  Remove `<Suspense>` and the `Loading` fallback from the check-in, result,
+  problem, error and mock authorize pages, keeping `connection()` where a page
+  would otherwise be prerendered.
+- Extend the `@nojs` tag to the other member specs (already checked in,
+  expired, unknown event, not open yet) and the sign-in edge cases.
+- `CLAUDE.md`: add a decision (no Cache Components; why; avoid Suspense on
+  member pages), so later pages (`/me`) follow it.
+- Check: `npm run build` succeeds, all checks pass, and the no-JS skip is
+  gone.
+
+### PR 7: Member summary (pure logic, test-first)
 
 - `src/lib/member/memberSummary.ts`:
   `getMemberSummary(client, { contactId, now })`. It's read-only and
@@ -172,7 +224,7 @@ name)` helper that goes through the fake TidyHQ page.
   (expired), several memberships, an unreadable points field, and an
   unknown contact.
 
-### PR 7: Rewards: club colors (test-first)
+### PR 8: Rewards: club colors (test-first)
 
 - `src/lib/points.ts`, next to `POINTS_PER_CHECKIN`: `REWARDS`, a list of
   `{ id: "club_colors", name: "club colors", pointsRequired: 18 }`. Only
@@ -198,7 +250,7 @@ rewardId): boolean | null`. It's the only place that knows the field's
 - Tests: 0, 17, 18 and 30 points not issued; issued at 25 and at 10; an
   unreadable issued field; unreadable points.
 
-### PR 8: Recent events
+### PR 9: Recent events
 
 - `src/lib/member/recentEvents.ts`: `getRecentEvents(client, { contactId,
 now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
@@ -213,7 +265,7 @@ now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
 - Tests: attended / not attended, outside the window, more than 5, an
   unmapped event, and a group read failing.
 
-### PR 9: `/me` page
+### PR 10: `/me` page
 
 - `src/app/me/page.tsx` (Server Component, behind `<Suspense>` like the
   check-in pages). No session redirects to
@@ -239,8 +291,9 @@ now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
   `screens.test.ts`.
 
 **Dependencies:** PR 1 goes first, then PR 2. PRs 3→4→5 are one track
-(tests and CI). PRs 6→7→8→9 are the `/me` track. PR 9's spec needs PR 3.
-The suggested order is 1–9, one PR at a time.
+(tests and CI). PR 6 (member pages without JavaScript) follows PR 5 and comes before the
+`/me` track, so `/me` is built without Suspense. PRs 7→8→9→10 are the `/me`
+track. PR 10's spec needs PR 3. The suggested order is 1–10, one PR at a time.
 
 ## Deferred
 
@@ -259,7 +312,7 @@ The suggested order is 1–9, one PR at a time.
   - A "this contact's groups" endpoint in place of downloading the whole
     group.
 
-  `/me`'s recent events (PR 8) belong in that measurement too.
+  `/me`'s recent events (PR 9) belong in that measurement too.
 
 - **Later: more rewards** (merchandise, vendor discounts). Add them to
   `REWARDS`, each with its own issued field.
@@ -282,6 +335,6 @@ The suggested order is 1–9, one PR at a time.
   `npm run format:check` (from PR 1), and `npm run test:e2e` (from PR 3).
   For TDD, run the new tests first and confirm they fail.
 - From PR 4, CI runs all of these on every PR.
-- After PR 9, one look by hand on a real phone (`npm run dev`, then open
+- After PR 10, one look by hand on a real phone (`npm run dev`, then open
   `http://<your-laptop-ip>:3000/me` on the same Wi-Fi). Playwright's
   WebKit is close to Safari, but not the same as an old iPhone.

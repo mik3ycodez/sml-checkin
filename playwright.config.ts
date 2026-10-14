@@ -18,6 +18,13 @@ export default defineConfig({
   projects: [
     { name: "webkit-phone", use: { ...devices["iPhone 15"] } },
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    // Older phones where scripts fail: only the specs tagged @nojs, which
+    // cover signing in and checking in.
+    {
+      name: "webkit-no-js",
+      grep: /@nojs/,
+      use: { ...devices["iPhone 15"], javaScriptEnabled: false },
+    },
   ],
   webServer: {
     command: `npm run build && npm run start -- --port ${PORT}`,
