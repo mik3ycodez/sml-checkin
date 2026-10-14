@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 3 done (#12, #13, #14); PR 4 in review.
+**Status:** In progress. PRs 1 to 3 done (#12, #13, #14); PR 4 in review (#15).
 
 ## Context
 
@@ -126,7 +126,7 @@ name)` helper that goes through the fake TidyHQ page.
 - Commands to learn: `npx playwright install` (one-time browser download),
   `npm run test:e2e`, `npx playwright show-report`.
 
-### PR 4: GitHub Actions CI 🔍 In review
+### PR 4: GitHub Actions CI 🔍 In review (#15)
 
 - `.github/workflows/ci.yml`, on pull requests and pushes to `main`, using
   Node 24 from `.nvmrc` and `npm ci`.
