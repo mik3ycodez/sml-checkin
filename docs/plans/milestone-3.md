@@ -30,8 +30,9 @@ Decisions so far:
   code and docs. Words like "see a volunteer at the door" in the UI stay:
   they refer to people, not a role.
 - **Mock state resets through a mock-only route.** `POST /mock-tidyhq/reset`
-  rebuilds the seed. It returns 404 unless `TIDYHQ_MODE=mock`, the same
-  guard as the fake sign-in page. Playwright tests run one at a time
+  rebuilds the seed. It returns 404 unless `TIDYHQ_MODE=mock` and `E2E=1`. Mock is the
+  default mode, so mock alone would leave it open on a demo site; only
+  `playwright.config.ts` sets `E2E=1`. Playwright tests run one at a time
   (`workers: 1`) so a reset never interrupts another test.
 - **CI runs in this milestone.** GitHub Actions runs lint, the format check,
   typecheck, Vitest, and Playwright on every PR.
@@ -114,7 +115,9 @@ Decisions so far:
 - Mock reset (test-first): add `reset()` to `MockTidyClient` (and
   `MockTidyOAuth`'s pending codes). It isn't on the `TidyClient` interface.
   Add `POST /mock-tidyhq/reset`, which returns 404 unless
-  `TIDYHQ_MODE=mock`. Unit tests cover the route's 404 in live mode and
+  `TIDYHQ_MODE=mock` _(and, added in review, unless `E2E=1`, which only
+  `playwright.config.ts` sets, since mock is the default mode)_. Unit tests
+  cover the route's 404 in live mode and
   that a reset restores seed totals.
 - An `e2e/fixtures.ts` that resets before each test, plus a `signInAs(page,
 name)` helper that goes through the fake TidyHQ page.

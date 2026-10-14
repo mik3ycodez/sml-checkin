@@ -27,6 +27,8 @@ export default defineConfig({
     timeout: 180_000,
     env: {
       TIDYHQ_MODE: "mock",
+      // Turns on POST /mock-tidyhq/reset. Set nowhere else.
+      E2E: "1",
       // http, so cookies aren't Secure: WebKit won't store those over http.
       APP_ORIGIN: ORIGIN,
       // Test-only value; never used outside this config.
