@@ -18,11 +18,9 @@ export default defineConfig({
   projects: [
     { name: "webkit-phone", use: { ...devices["iPhone 15"] } },
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    // Older phones where scripts fail: only the specs tagged @nojs, which
-    // cover signing in and checking in.
+    // Scripts failing to load on event Wi-Fi: every spec must still pass.
     {
       name: "webkit-no-js",
-      grep: /@nojs/,
       use: { ...devices["iPhone 15"], javaScriptEnabled: false },
     },
   ],
