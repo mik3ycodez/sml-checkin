@@ -108,8 +108,9 @@ Decisions so far:
   `APP_ORIGIN=http://localhost:<port>` and a test-only `SESSION_SECRET`.
   Projects: phone-sized WebKit (an iPhone device profile) and Chromium.
   `workers: 1`. _(Built: WebKit won't store `Secure` cookies over
-  `http://localhost`, so a test-only proxy, `e2e/http-proxy.mjs`, sits in front
-  of `next start` and strips the flag. App cookie settings are unchanged.)_
+  `http://localhost`, so the cookie `secure` flag now follows APP_ORIGIN's
+  scheme, and production startup requires https unless the host is localhost
+  or 127.0.0.1.)_
 - Mock reset (test-first): add `reset()` to `MockTidyClient` (and
   `MockTidyOAuth`'s pending codes). It isn't on the `TidyClient` interface.
   Add `POST /mock-tidyhq/reset`, which returns 404 unless

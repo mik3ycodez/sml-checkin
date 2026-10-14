@@ -35,6 +35,18 @@ describe("register (server startup checks)", () => {
     await expect(register()).rejects.toThrow(/APP_ORIGIN must be set/);
   });
 
+  it("refuses to start in production with a plain-http APP_ORIGIN", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_ORIGIN", "http://checkin.example.org");
+    await expect(register()).rejects.toThrow(/APP_ORIGIN must use https/);
+  });
+
+  it("starts in production with an http localhost APP_ORIGIN", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_ORIGIN", "http://localhost:3100");
+    await expect(register()).resolves.toBeUndefined();
+  });
+
   it("refuses to start with a TIDYHQ_DOMAIN_PREFIX that isn't a subdomain", async () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("TIDYHQ_DOMAIN_PREFIX", "sml.tidyhq.com");

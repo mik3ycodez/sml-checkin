@@ -1,8 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// Browsers use PORT (a proxy); the app itself listens on APP_PORT.
 const PORT = 3100;
-const APP_PORT = 3101;
 const ORIGIN = `http://localhost:${PORT}`;
 
 // Runs against a production build (`next build && next start`), not
@@ -21,25 +19,18 @@ export default defineConfig({
     { name: "webkit-phone", use: { ...devices["iPhone 15"] } },
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   ],
-  webServer: [
-    {
-      command: `npm run build && npm run start -- --port ${APP_PORT}`,
-      url: `http://localhost:${APP_PORT}`,
-      // Always a fresh server, so the env below is what the app really runs with.
-      reuseExistingServer: false,
-      timeout: 180_000,
-      env: {
-        TIDYHQ_MODE: "mock",
-        APP_ORIGIN: ORIGIN,
-        // Test-only value; never used outside this config.
-        SESSION_SECRET: "e2e-only-session-secret-0123456789abcdef",
-      },
+  webServer: {
+    command: `npm run build && npm run start -- --port ${PORT}`,
+    url: ORIGIN,
+    // Always a fresh server, so the env below is what the app really runs with.
+    reuseExistingServer: false,
+    timeout: 180_000,
+    env: {
+      TIDYHQ_MODE: "mock",
+      // http, so cookies aren't Secure: WebKit won't store those over http.
+      APP_ORIGIN: ORIGIN,
+      // Test-only value; never used outside this config.
+      SESSION_SECRET: "e2e-only-session-secret-0123456789abcdef",
     },
-    {
-      // What the browsers talk to; see the file for why it exists.
-      command: `node e2e/http-proxy.mjs ${PORT} ${APP_PORT}`,
-      url: ORIGIN,
-      reuseExistingServer: false,
-    },
-  ],
+  },
 });

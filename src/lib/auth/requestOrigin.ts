@@ -5,7 +5,9 @@ type OriginEnv = { APP_ORIGIN?: string; NODE_ENV?: string };
  * outside production when it's unset. Required in production, where the
  * request's own headers can't be trusted to name the site: a proxy may
  * rewrite Host or leave out the scheme. Throws if it is missing there, or
- * isn't a bare http(s) origin.
+ * isn't a bare http(s) origin. In production it must be https, except for
+ * localhost and 127.0.0.1 (local runs and end-to-end tests): cookies are
+ * marked Secure from this scheme, so a plain-http site would be a mistake.
  */
 export function configuredAppOrigin(
   env: OriginEnv = process.env,
@@ -29,6 +31,16 @@ export function configuredAppOrigin(
   ) {
     throw new Error(
       `APP_ORIGIN must be a bare origin like https://checkin.example.org, got "${value}"`,
+    );
+  }
+  if (
+    env.NODE_ENV === "production" &&
+    url.protocol === "http:" &&
+    url.hostname !== "localhost" &&
+    url.hostname !== "127.0.0.1"
+  ) {
+    throw new Error(
+      `APP_ORIGIN must use https in production (http is only allowed for localhost), got "${value}"`,
     );
   }
   return url.origin;

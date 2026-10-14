@@ -38,6 +38,34 @@ describe("configuredAppOrigin", () => {
     );
   });
 
+  describe("http in production", () => {
+    it.each(["http://localhost:3100", "http://127.0.0.1:3000"])(
+      "is allowed for %j (local testing)",
+      (value) => {
+        expect(configuredAppOrigin({ ...PROD, APP_ORIGIN: value })).toBe(value);
+      },
+    );
+
+    it.each([
+      "http://checkin.example.org",
+      "http://localhost.example.org",
+      "http://192.168.1.20:3000",
+    ])("is refused for %j", (value) => {
+      expect(() => configuredAppOrigin({ ...PROD, APP_ORIGIN: value })).toThrow(
+        /APP_ORIGIN must use https/,
+      );
+    });
+
+    it("is still allowed outside production", () => {
+      expect(
+        configuredAppOrigin({
+          ...DEV,
+          APP_ORIGIN: "http://checkin.example.org",
+        }),
+      ).toBe("http://checkin.example.org");
+    });
+  });
+
   it.each([
     "checkin.example.org",
     "ftp://checkin.example.org",
