@@ -331,24 +331,32 @@ rewardId): boolean | null`. It's the only place that knows the field's
 - `TidyClient.listContactGroups(contactId)` (`GET /v1/contacts/{id}/groups`):
   every group the contact is in, event or not, **archived ones included**
   (past events' attendance groups are archived in the TidyHQ admin screens
-  but still appear on the contact). `Group` gains `archived`. The mock seed
+  but still appear on the contact). `Group` gains an optional `archived` (only the mock sets it). The mock seed
   archives Pub Night's group and adds non-event groups (Members,
   Volunteers).
 - `src/lib/member/recentEvents.ts`: `getRecentEvents(client, { contactId,
-now })` makes two requests in parallel: `listEvents({ after, before: now })`
-  for the last `RECENT_EVENTS_DAYS` (90), and `listContactGroups`. An event
+now })` makes two requests in parallel: `listEvents` and
+  `listContactGroups`. The events run from the start of the Seattle day
+  `RECENT_EVENTS_DAYS` (90) ago to the end of today (`seattleStartOfDay` in
+  `dates.ts`), so an early check-in shows on `/me` right away while later
+  days' events (RSVP groups, say) never do. An event
   counts when `findEventGroup(event)` is one of the member's group ids. It
   returns them newest first, at most 5 (`{ id, name, startAt }`). Matching
   from events outward means non-event groups can never appear, and today's
   event shows up because current groups are included too.
+- Newest first is by moment (`Date.parse`), not timestamp text, since
+  TidyHQ's offsets may differ.
 - `isInGroup` moves out of `checkIn.ts` into `src/lib/tidyhq/groups.ts`
   (like `findContact`). Check-in's "already checked in" still uses it, on the
-  event's group.
+  event's group; `/me` asks the other way round, so the two must agree (see
+  open questions).
 - Unmapped events are skipped. A failed read fails the whole section, not
   the page: the page shows "Couldn't load recent events".
-- Tests: attended / not attended, today's event, outside the window, future
-  event, more than 5, an unmapped event, non-event groups, the request count
-  (one events read, one groups read, no group reads), and a read failing.
+- Tests: attended / not attended, an early check-in later today, tomorrow's
+  event, the 90-day edge across a clock change, mixed-offset ordering, more
+  than 5, an unmapped event, non-event groups, the request count (one events
+  read, one groups read, no group reads), and a read failing. `dates.ts` gets
+  `seattleStartOfDay` tests.
 
 ### PR 11: `/me` page
 
@@ -402,6 +410,15 @@ track. PR 11's spec needs PR 3. The suggested order is 1–11, one PR at a time.
   mock includes them. If live TidyHQ leaves them out, past events vanish
   from `/me`; fall back to reading each event's group (the earlier design,
   `isInGroup` per event). Also check that it follows all pages.
+- **Do `listContactGroups` and `listGroupContacts` agree?** Check-in asks
+  the event's attendee list (`isInGroup`); `/me` asks the member's groups.
+  Compare them on live data: archived groups, pagination, and any delay
+  between a group add and the contact's group list showing it. A member
+  checked in a moment ago should show on both.
+- **Events with no `end_at`.** `listEvents({ after })` filters on end time.
+  An event with no `end_at` may never be returned, so it would never show in
+  recent events. Check how TidyHQ handles this (and what `after` means in the
+  live API).
 - Verify all of these during live integration.
 
 ## Deferred

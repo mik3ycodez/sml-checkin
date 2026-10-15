@@ -1,10 +1,10 @@
+import { addDays, seattleDate, seattleStartOfDay } from "../dates";
 import type { TidyClient } from "../tidyhq/client";
 import { findEventGroup } from "../tidyhq/eventGroups";
 
 /** How far back `/me` looks for attended events. */
 export const RECENT_EVENTS_DAYS = 90;
 const MAX_RECENT_EVENTS = 5;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface RecentEvent {
   id: string;
@@ -15,7 +15,11 @@ export interface RecentEvent {
 
 /**
  * Events from the last `RECENT_EVENTS_DAYS` that the member attended, newest
- * first, at most 5. Two requests: the recent events, and every group the
+ * first, at most 5. "Last 90 days" and "today" are Seattle calendar days:
+ * the window runs from the start of the day 90 days ago to the end of today,
+ * so a member who checked in before the event's start (the admin window can
+ * open early) sees it straight away, while later days' events never appear.
+ * Two requests: the recent events, and every group the
  * member is in (archived ones too, since past events' groups are archived).
  * An event counts if its attendance group is one of the member's, so
  * non-event groups (Members, Volunteers) can't appear, and events with no
@@ -26,10 +30,11 @@ export async function getRecentEvents(
   client: TidyClient,
   { contactId, now }: { contactId: string; now: Date },
 ): Promise<RecentEvent[]> {
+  const today = seattleDate(now);
   const [events, groups] = await Promise.all([
     client.listEvents({
-      after: new Date(now.getTime() - RECENT_EVENTS_DAYS * DAY_MS),
-      before: now,
+      after: seattleStartOfDay(addDays(today, -RECENT_EVENTS_DAYS)),
+      before: seattleStartOfDay(addDays(today, 1)),
     }),
     client.listContactGroups(contactId),
   ]);
@@ -41,6 +46,6 @@ export async function getRecentEvents(
     attended.push({ id: event.id, name: event.name, startAt: event.start_at });
   }
   return attended
-    .sort((a, b) => b.startAt.localeCompare(a.startAt))
+    .sort((a, b) => Date.parse(b.startAt) - Date.parse(a.startAt))
     .slice(0, MAX_RECENT_EVENTS);
 }

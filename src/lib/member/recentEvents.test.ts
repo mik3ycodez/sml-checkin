@@ -15,10 +15,6 @@ vi.mock("../tidyhq/eventGroups", async (importOriginal) => {
       event.id.startsWith("ev_extra_")
         ? "grp_extra"
         : actual.findEventGroup(event),
-    resolveEventGroup: (event: { id: string }) =>
-      event.id.startsWith("ev_extra_")
-        ? "grp_extra"
-        : actual.resolveEventGroup(event),
   };
 });
 
@@ -29,6 +25,11 @@ function seededClient(edit?: (seed: MockSeed) => void) {
   const seed = createSeed(NOW);
   edit?.(seed);
   return new MockTidyClient(seed, () => NOW);
+}
+
+/** An event with exact timestamps, mapped like `pastEvent`'s. */
+function eventAt(id: string, startAt: string, endAt: string): Event {
+  return { ...pastEvent(id, 1), start_at: startAt, end_at: endAt };
 }
 
 /** An event `daysAgo` days back lasting two hours, mapped to `ev_*` ids in eventGroups. */
@@ -58,6 +59,85 @@ describe("getRecentEvents", () => {
       expect.objectContaining({ id: "ev_pub_night", name: "Pub Night" }),
     ]);
     expect(typeof result[0].startAt).toBe("string");
+  });
+
+  it("includes an event later today that the member checked into early", async () => {
+    // 02:00 UTC tomorrow is 7pm tonight in Seattle; NOW is 11am.
+    const client = seededClient((seed) => {
+      seed.events = [
+        eventAt(
+          "ev_bootblack_social",
+          "2026-10-13T02:00:00Z",
+          "2026-10-13T05:00:00Z",
+        ),
+      ];
+      seed.groupMembers.grp_bootblack_social = ["c_dante"];
+    });
+    const result = await getRecentEvents(client, {
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(result.map((e) => e.id)).toEqual(["ev_bootblack_social"]);
+  });
+
+  it("skips an event that starts tomorrow, even if the member is in its group", async () => {
+    // 07:00 UTC on the 13th is midnight Seattle: the first moment of tomorrow.
+    const client = seededClient((seed) => {
+      seed.events = [
+        eventAt(
+          "ev_bootblack_social",
+          "2026-10-13T07:00:00Z",
+          "2026-10-13T10:00:00Z",
+        ),
+      ];
+      seed.groupMembers.grp_bootblack_social = ["c_dante"];
+    });
+    const result = await getRecentEvents(client, {
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(result).toEqual([]);
+  });
+
+  it("orders by moment, not by timestamp text, when offsets differ", async () => {
+    // Text order puts "…T01:00:00Z" on the 11th after "…T19:00:00-07:00" on
+    // the 10th, but the first is really the earlier moment (the 10th's is
+    // 02:00Z on the 11th).
+    const client = seededClient((seed) => {
+      seed.events = [
+        eventAt("ev_pub_night", "2026-10-11T01:00:00Z", "2026-10-11T03:00:00Z"),
+        eventAt(
+          "ev_bar_night",
+          "2026-10-10T19:00:00-07:00",
+          "2026-10-10T22:00:00-07:00",
+        ),
+      ];
+      seed.groupMembers.grp_pub_night = ["c_dante"];
+      seed.groupMembers.grp_bar_night = ["c_dante"];
+    });
+    const result = await getRecentEvents(client, {
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(result.map((e) => e.id)).toEqual(["ev_bar_night", "ev_pub_night"]);
+  });
+
+  it("measures the 90 days in Seattle calendar days, across a clock change", async () => {
+    // Seattle today is 2026-03-20 (PDT). 90 days back is 2025-12-20, which is
+    // PST, so its midnight is 08:00Z. An event ending at 08:30Z that day is
+    // inside the window, though it's more than 90 x 24 hours before `now`.
+    const now = new Date("2026-03-20T18:00:00Z");
+    const seed = createSeed(now);
+    seed.events = [
+      eventAt("ev_pub_night", "2025-12-20T06:00:00Z", "2025-12-20T08:30:00Z"),
+    ];
+    seed.groupMembers.grp_pub_night = ["c_dante"];
+    const client = new MockTidyClient(seed, () => now);
+    const result = await getRecentEvents(client, {
+      contactId: "c_dante",
+      now,
+    });
+    expect(result.map((e) => e.id)).toEqual(["ev_pub_night"]);
   });
 
   it("skips events the member didn't attend", async () => {
