@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 5 done (#12, #13, #14, #15, #16); PR 6 in review (#17).
+**Status:** In progress. PRs 1 to 6 done (#12, #13, #14, #15, #16, #17); PR 7 in review (#18).
 
 ## Context
 
@@ -157,7 +157,7 @@ name)` helper that goes through the fake TidyHQ page.
   with a script. The `@nojs` spec is skipped in that project until it's fixed
   in PR 6.)_
 
-### PR 6: Member pages work with JavaScript off 🔍 In review (#17)
+### PR 6: Member pages work with JavaScript off ✅ Done (#17)
 
 Why: PR 5's `webkit-no-js` project found that every page behind `<Suspense>`
 shows "Loading…" forever with JavaScript off, because Next reveals streamed
@@ -205,25 +205,30 @@ Steps (test-first):
 - Check: `npm run build` succeeds, all checks pass, and the no-JS skip is
   gone.
 
-### PR 7: Member summary (pure logic, test-first)
+### PR 7: Member summary (pure logic, test-first) 🔍 In review (#18)
 
 - `src/lib/member/memberSummary.ts`:
   `getMemberSummary(client, { contactId, now })`. It's read-only and
   returns one of:
   - `ok { name, level, membershipEndsOn, membership: "active" |
 "renew_soon" | "expired", points: number | null }`
+  - `not_member { name, points }` (no counted membership on record; `/me`
+    shows a "become a member" message linking to SML's TidyHQ)
   - `unknown_contact` (the session's contact is gone; sign in again, as on
     the check-in page)
-- Level: the active membership with the latest end date, then
-  `getMembershipLevel`. Expired members still see their last level.
+- Only memberships that count (not pending or cancelled, already started;
+  `countsAsMembership`) are considered. Level: the active one with the
+  latest end date, else the most recently ended, then `getMembershipLevel`
+  (a deleted level shows "Member"). Expired members still see their last
+  level.
 - Renewal reminder: `renew_soon` within `RENEWAL_REMINDER_DAYS` (30, a
-  constant in `membership.ts`) of the end date. Reuse
-  `hasActiveMembership` and the Seattle date helper.
+  constant in `membership.ts`) of the end date. Uses `isActiveMembership`
+  and the Seattle date helper.
 - Points: `readPoints`. `null` (unreadable) is passed through for the page
   to explain.
 - Tests: Dante (active), Sam (ends in two weeks → `renew_soon`), Lee
-  (expired), several memberships, an unreadable points field, and an
-  unknown contact.
+  (expired), several memberships, no memberships (`not_member`), an
+  unreadable points field, and an unknown contact.
 
 ### PR 8: Rewards: club colors (test-first)
 
@@ -268,8 +273,9 @@ now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
 
 ### PR 10: `/me` page
 
-- `src/app/me/page.tsx` (Server Component, behind `<Suspense>` like the
-  check-in pages). No session redirects to
+- `src/app/me/page.tsx` (Server Component, rendered fully on the server
+  like the check-in pages now do: no `<Suspense>` and no `loading.tsx`, per
+  CLAUDE.md and `noSuspense.test.ts`). No session redirects to
   `/auth/signin?returnTo=/me`, and `unknown_contact` does the same.
 - Shows the name, membership level, and points total (or "Your points
   total needs fixing. Please see a volunteer" when it's unreadable).

@@ -3,7 +3,7 @@ import { readPoints } from "../tidyhq/customFields";
 import { TidyError } from "../tidyhq/errors";
 import { MockTidyClient } from "../tidyhq/mock/MockTidyClient";
 import { createSeed } from "../tidyhq/mock/seed";
-import { assessCheckIn, CheckInFailure, checkIn, findContact } from "./checkIn";
+import { assessCheckIn, CheckInFailure, checkIn } from "./checkIn";
 
 const NOW = new Date("2026-10-12T18:00:00Z");
 
@@ -527,26 +527,5 @@ describe("assessCheckIn", () => {
       status: "checked_in",
       pointsAwarded: 1,
     });
-  });
-});
-
-describe("findContact", () => {
-  it("returns the contact", async () => {
-    const contact = await findContact(seededClient(), "c_dante");
-    expect(contact?.display_name).toBe("Dante Ruiz");
-  });
-
-  it("returns null for a contact TidyHQ doesn't have", async () => {
-    expect(await findContact(seededClient(), "c_nobody")).toBeNull();
-  });
-
-  it("lets other TidyHQ errors through", async () => {
-    const client = seededClient();
-    client.getContact = async () => {
-      throw new TidyError(503, "TidyHQ unavailable");
-    };
-    await expect(findContact(client, "c_dante")).rejects.toBeInstanceOf(
-      TidyError,
-    );
   });
 });

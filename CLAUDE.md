@@ -57,6 +57,10 @@ system of record; this app is a thin layer on top of it.
   unreadable total: check-in is refused (`points_unreadable`) and the field is
   never overwritten. A blank field counts as 0.
 - Check-ins record who, which event, when, and method (`self` or `staff`).
+- Memberships start on the payment date; there are no future-dated
+  memberships. Renewing extends the existing end date (about a year out).
+  Renewal reminders apply only within 30 days of the end date
+  (`RENEWAL_REMINDER_DAYS`), so a renewed member stops seeing them.
 
 ## TidyHQ access: mock first
 
