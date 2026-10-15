@@ -56,7 +56,13 @@ describe("MockTidyClient", () => {
         "c_riley",
         "c_taylor",
         "c_morgan",
+        "c_casey",
       ]);
+    });
+
+    it("has an App Admin group with only Casey Moreno in it", async () => {
+      const admins = await client.listGroupContacts("grp_app_admin");
+      expect(admins.map((c) => c.display_name)).toEqual(["Casey Moreno"]);
     });
   });
 
