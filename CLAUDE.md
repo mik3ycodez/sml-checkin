@@ -57,6 +57,29 @@ system of record; this app is a thin layer on top of it.
   unreadable total: check-in is refused (`points_unreadable`) and the field is
   never overwritten. A blank field counts as 0.
 - Check-ins record who, which event, when, and method (`self` or `staff`).
+- Membership standing (check-in and `/me` use one rule, `membershipStanding`).
+  Pending and cancelled memberships never count. Use the counted membership
+  with the latest end date. End date today or later with status activated or
+  partial: can check in and earn points. End date passed by up to
+  `GRACE_PERIOD_DAYS` (60, next to `RENEWAL_REMINDER_DAYS`) in any counted
+  status, including expired: grace period, can still check in and earn
+  points. An `expired` membership ending today counts as grace too (TidyHQ
+  may flip the state before Seattle's end of day). Passed by more: refused. All dates are Seattle time. Messages: a
+  partial membership with a future end date says "You have a balance due.
+  Complete payment in TidyHQ." (it beats the renewal reminder); the grace
+  period says when it expired and the date to renew by.
+- An `expired` membership with a future or missing end date shouldn't occur
+  (ending early in TidyHQ is "cancelled"), so it's a data inconsistency: it
+  never outranks a sound membership, is refused if it's all they have, and is
+  logged as a warning (contact and membership ids only). Admin pages will
+  flag these (milestone 4).
+- **Unverified assumptions (check against live TidyHQ data).** We don't know
+  how TidyHQ represents renewal invoices: whether an Active membership
+  becomes Partial when invoiced, or whether a renewal creates a new unpaid
+  subscription with future dates. Known risk: in the second case, "latest end
+  date wins" would treat an unpaid renewal as current and the grace period
+  would never start. If live data shows this, measure grace from the end of
+  the last fully paid period instead.
 - Memberships start on the payment date; there are no future-dated
   memberships. Renewing extends the existing end date (about a year out).
   Renewal reminders apply only within 30 days of the end date

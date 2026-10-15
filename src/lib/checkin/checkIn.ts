@@ -1,4 +1,9 @@
-import { hasActiveMembership } from "../membership";
+import { logInconsistentMemberships } from "../logInconsistentMemberships";
+import {
+  membershipNotice,
+  membershipStanding,
+  type MembershipNotice,
+} from "../membership";
 import { POINTS_PER_CHECKIN, type CheckInMethod } from "../points";
 import { getCheckinWindow, isCheckinOpen } from "../tidyhq/checkinWindow";
 import type { TidyClient } from "../tidyhq/client";
@@ -39,6 +44,8 @@ export type CheckInResult =
       eventName: string | null;
       pointsAwarded: number;
       total: number;
+      /** A balance due or grace-period message to show with the confirmation. */
+      membershipNotice: MembershipNotice | null;
     }
   | {
       status: "already_checked_in";
@@ -61,6 +68,8 @@ export class CheckInFailure extends Error {
   constructor(
     readonly step: CheckInStep,
     override readonly cause: TidyError,
+    /** The message the member would have seen, for a `points_write` failure. */
+    readonly membershipNotice: MembershipNotice | null = null,
   ) {
     super(`Check-in failed at ${step}`, { cause });
     this.name = "CheckInFailure";
@@ -73,11 +82,15 @@ export class CheckInFailure extends Error {
  * Next.js's own logging see it. (The live client must report network
  * failures as TidyErrors for them to count as TidyHQ failures.)
  */
-async function step<T>(name: CheckInStep, run: () => Promise<T>): Promise<T> {
+async function step<T>(
+  name: CheckInStep,
+  run: () => Promise<T>,
+  notice: MembershipNotice | null = null,
+): Promise<T> {
   try {
     return await run();
   } catch (error) {
-    if (isTidyError(error)) throw new CheckInFailure(name, error);
+    if (isTidyError(error)) throw new CheckInFailure(name, error, notice);
     throw error;
   }
 }
@@ -138,6 +151,7 @@ export type CheckInAssessment =
       groupId: string;
       /** The stored points total, readable. */
       stored: number;
+      membershipNotice: MembershipNotice | null;
     };
 
 /**
@@ -183,13 +197,23 @@ export async function assessCheckIn(
   if (open === "closed") return { status: "closed", name, eventName };
 
   const memberships = await client.getMemberships(contactId);
-  if (!hasActiveMembership(memberships, now)) {
+  // Current members and those in the grace period may check in.
+  logInconsistentMemberships(contactId, memberships, now);
+  const standing = membershipStanding(memberships, now);
+  if (standing.kind !== "current" && standing.kind !== "grace") {
     return { status: "membership_inactive", name, eventName };
   }
 
   const stored = readPoints(contact);
   if (stored === null) return { status: "points_unreadable", name, eventName };
-  return { status: "ready", name, eventName, groupId, stored };
+  return {
+    status: "ready",
+    name,
+    eventName,
+    groupId,
+    stored,
+    membershipNotice: membershipNotice(standing),
+  };
 }
 
 /**
@@ -213,12 +237,22 @@ export async function checkIn(
   );
   if (assessment.status !== "ready") return assessment;
   const { name, eventName, groupId, stored } = assessment;
+  const { membershipNotice: notice } = assessment;
 
   await step("group_add", () => client.addContactToGroup(groupId, contactId));
   const pointsAwarded = POINTS_PER_CHECKIN;
   const total = stored + pointsAwarded;
-  await step("points_write", () =>
-    client.updateContact(contactId, buildPointsPatch(total)),
+  await step(
+    "points_write",
+    () => client.updateContact(contactId, buildPointsPatch(total)),
+    notice,
   );
-  return { status: "checked_in", name, eventName, pointsAwarded, total };
+  return {
+    status: "checked_in",
+    name,
+    eventName,
+    pointsAwarded,
+    total,
+    membershipNotice: notice,
+  };
 }

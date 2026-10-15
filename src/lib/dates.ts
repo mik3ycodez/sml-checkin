@@ -21,6 +21,7 @@ export function seattleDate(date: Date): string {
  * so the result never slips a day the way adding 24-hour blocks can.
  */
 export function addDays(date: string, days: number): string {
+  assertCalendarDate(date);
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
@@ -46,4 +47,56 @@ export function seattleTimeLabel(date: Date): string {
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((p) => p.type === type)!.value;
   return `${part("weekday")}, ${part("month")} ${part("day")} at ${part("hour")}:${part("minute")} ${part("dayPeriod")}`;
+}
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/**
+ * A `YYYY-MM-DD` calendar date as members read it: "September 22, 2026".
+ * Pure string work, with no time zone or locale data involved.
+ */
+export function dateLabel(date: string): string {
+  assertCalendarDate(date);
+  const [year, month, day] = date.split("-").map(Number);
+  return `${MONTHS[month - 1]} ${day}, ${year}`;
+}
+
+/** True for a real `YYYY-MM-DD` date (rejects "2026-13-45" and timestamps). */
+export function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const d = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
+
+function assertCalendarDate(value: string): void {
+  if (!isCalendarDate(value)) {
+    throw new Error(`Not a YYYY-MM-DD date: ${JSON.stringify(value)}`);
+  }
+}
+
+/**
+ * A date from TidyHQ as `YYYY-MM-DD`: a plain date as is, a timestamp cut to
+ * its date part (as written, not shifted between time zones), anything else
+ * (or null) as null. Used where TidyHQ's dates come in, so a format surprise
+ * can't throw in the middle of a check-in.
+ */
+export function calendarDate(value: string | null): string | null {
+  if (value === null) return null;
+  const day = value.slice(0, 10);
+  const rest = value.slice(10);
+  if (rest !== "" && !rest.startsWith("T")) return null;
+  return isCalendarDate(day) ? day : null;
 }

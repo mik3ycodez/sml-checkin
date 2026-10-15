@@ -51,6 +51,8 @@ describe("MockTidyClient", () => {
         "c_jordan",
         "c_sam",
         "c_lee",
+        "c_robin",
+        "c_avery",
       ]);
     });
   });
@@ -78,6 +80,26 @@ describe("MockTidyClient", () => {
       const [membership] = await client.getMemberships("c_lee");
       expect(membership.state).toBe("expired");
       expect(daysBetween(NOW, membership.end_date!)).toBeLessThan(0);
+    });
+
+    it("expired Lee well past the 60-day grace period, so refusals stay refusals", async () => {
+      const [membership] = await client.getMemberships("c_lee");
+      expect(daysBetween(NOW, membership.end_date!)).toBeLessThan(-60);
+    });
+
+    it("has a member about 20 days into the grace period", async () => {
+      const [membership] = await client.getMemberships("c_robin");
+      expect(membership.state).toBe("expired");
+      // About 20 days: daysBetween counts from NOW's UTC time, not Seattle's date.
+      const days = daysBetween(NOW, membership.end_date!);
+      expect(days).toBeGreaterThanOrEqual(-21);
+      expect(days).toBeLessThanOrEqual(-19);
+    });
+
+    it("has a partial member with a future end date", async () => {
+      const [membership] = await client.getMemberships("c_avery");
+      expect(membership.state).toBe("partial");
+      expect(daysBetween(NOW, membership.end_date!)).toBeGreaterThan(30);
     });
 
     it("has one member expiring within 30 days (renewal reminder)", async () => {

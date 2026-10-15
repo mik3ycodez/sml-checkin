@@ -9,6 +9,7 @@ import {
   checkIn,
   type CheckInResult,
 } from "@/lib/checkin/checkIn";
+import type { MembershipNotice } from "@/lib/membership";
 import { logCheckinFailure } from "@/lib/checkin/logFailure";
 import {
   encodeTapNotice,
@@ -36,7 +37,9 @@ export async function checkInAction(eventId: unknown): Promise<never> {
   if (!session) redirect(signInPath(eventId));
 
   const { contactId } = session;
-  let result: CheckInResult | { status: "point_not_saved" };
+  let result:
+    | CheckInResult
+    | { status: "point_not_saved"; membershipNotice: MembershipNotice | null };
   try {
     result = await checkIn(getTidyClient(), {
       eventId,
@@ -50,7 +53,10 @@ export async function checkInAction(eventId: unknown): Promise<never> {
     if (error.step !== "points_write") redirect(problemPath(eventId));
     // In the group without the point. Trying again would only say "already
     // checked in", so the result page asks them to tell a volunteer instead.
-    result = { status: "point_not_saved" };
+    result = {
+      status: "point_not_saved",
+      membershipNotice: error.membershipNotice,
+    };
   }
   // The session is valid but TidyHQ no longer has the contact; signing in
   // again replaces it.
@@ -79,15 +85,28 @@ export async function checkInAction(eventId: unknown): Promise<never> {
 
 /** What a tap did for a member now in the group, or null if they aren't. */
 function tapOutcome(
-  result: CheckInResult | { status: "point_not_saved" },
+  result:
+    | CheckInResult
+    | { status: "point_not_saved"; membershipNotice: MembershipNotice | null },
 ): TapOutcome | null {
   switch (result.status) {
     case "checked_in":
-      return { kind: "awarded", points: result.pointsAwarded };
+      return {
+        kind: "awarded",
+        points: result.pointsAwarded,
+        ...(result.membershipNotice && {
+          membershipNotice: result.membershipNotice,
+        }),
+      };
     case "already_checked_in":
       return { kind: "repeat" };
     case "point_not_saved":
-      return { kind: "point_not_saved" };
+      return {
+        kind: "point_not_saved",
+        ...(result.membershipNotice && {
+          membershipNotice: result.membershipNotice,
+        }),
+      };
     default:
       return null;
   }

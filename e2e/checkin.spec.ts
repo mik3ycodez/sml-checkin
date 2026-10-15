@@ -33,7 +33,7 @@ test("reloading shows already checked in, and the total stays 1", async ({
   await expect(page.getByRole("button", { name: "Check in" })).toHaveCount(0);
 });
 
-test("a member with an expired membership is sent to renew", async ({
+test("a member expired past the grace period is sent to renew", async ({
   page,
 }) => {
   await signInAs(page, "Lee Hart", "/checkin/ev_tonight");
@@ -45,6 +45,44 @@ test("a member with an expired membership is sent to renew", async ({
     page.getByRole("link", { name: "Renew on TidyHQ" }),
   ).toHaveAttribute("href", /^https:\/\/[a-z0-9-]+\.tidyhq\.com\/?$/);
   await expect(page.getByRole("button", { name: "Check in" })).toHaveCount(0);
+});
+
+test("a member in the grace period checks in and is told when to renew by", async ({
+  page,
+}) => {
+  await signInAs(page, "Robin Vale", "/checkin/ev_tonight");
+  await page.getByRole("button", { name: "Check in" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "You're checked in, Robin Vale!" }),
+  ).toBeVisible();
+  await expect(page.getByText("+1 point")).toBeVisible();
+  await expect(page.getByText("Total: 1")).toBeVisible();
+  await expect(
+    page.getByText(
+      /Your membership expired on .+\. Renew by .+ to keep earning points\./,
+    ),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: /Renew/ })).toHaveAttribute(
+    "href",
+    /^https:\/\/[a-z0-9-]+\.tidyhq\.com\/?$/,
+  );
+});
+
+test("a member with a balance due checks in and is told to pay in TidyHQ", async ({
+  page,
+}) => {
+  await signInAs(page, "Avery Quinn", "/checkin/ev_tonight");
+  await page.getByRole("button", { name: "Check in" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "You're checked in, Avery Quinn!" }),
+  ).toBeVisible();
+  await expect(page.getByText("+1 point")).toBeVisible();
+  await expect(
+    page.getByText("You have a balance due. Complete payment in TidyHQ."),
+  ).toBeVisible();
+  await expect(page.getByText(/expired on/)).toHaveCount(0);
 });
 
 test("an unknown event shows the unknown-event screen", async ({ page }) => {

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { CheckInAssessment } from "@/lib/checkin/checkIn";
 import type { TapOutcome } from "@/lib/checkin/tapNotice";
 import { seattleTimeLabel } from "@/lib/dates";
+import { membershipNoticeText, type MembershipNotice } from "@/lib/membership";
 import { tidyhqSiteUrl } from "@/lib/tidyhq/site";
 
 // Shared pieces of the check-in pages: one small screen per outcome, chosen
@@ -80,10 +81,13 @@ export function StatusScreen({
   status,
   eventId,
   notice,
+  now = new Date(),
 }: {
   status: ShownStatus;
   eventId: string;
   notice: TapOutcome | null;
+  /** For tests; the real clock otherwise. */
+  now?: Date;
 }) {
   if (status.status === "unknown_event") return <UnknownEvent />;
 
@@ -96,6 +100,7 @@ export function StatusScreen({
           status={status}
           event={event}
           notice={notice}
+          now={now}
           signedInAs={signedInAs}
         />
       );
@@ -154,11 +159,13 @@ function CheckedIn({
   status,
   event,
   notice,
+  now,
   signedInAs,
 }: {
   status: Extract<ShownStatus, { status: "already_checked_in" }>;
   event: string;
   notice: TapOutcome | null;
+  now: Date;
   signedInAs: ReactNode;
 }) {
   switch (notice?.kind) {
@@ -169,6 +176,9 @@ function CheckedIn({
             +{notice.points} {notice.points === 1 ? "point" : "points"}
           </p>
           <Total total={status.total} />
+          {notice.membershipNotice && (
+            <MembershipNoticeBlock notice={notice.membershipNotice} now={now} />
+          )}
           {signedInAs}
         </Screen>
       );
@@ -181,6 +191,9 @@ function CheckedIn({
           title="You're checked in, but your point didn't save"
         >
           <Note>Please let a volunteer know.</Note>
+          {notice.membershipNotice && (
+            <MembershipNoticeBlock notice={notice.membershipNotice} now={now} />
+          )}
           {signedInAs}
         </Screen>
       );
@@ -200,6 +213,24 @@ function CheckedIn({
         </Screen>
       );
   }
+}
+
+/** A balance-due or grace-period message, linking to SML's TidyHQ to act on it. */
+function MembershipNoticeBlock({
+  notice,
+  now,
+}: {
+  notice: MembershipNotice;
+  now: Date;
+}) {
+  return (
+    <div className="border-foreground/20 flex flex-col gap-3 rounded-lg border p-4">
+      <p className="text-lg">{membershipNoticeText(notice, now)}</p>
+      <a href={tidyhqSiteUrl()} className={SECONDARY}>
+        {notice.kind === "grace" ? "Renew on TidyHQ" : "Pay on TidyHQ"}
+      </a>
+    </div>
+  );
 }
 
 /** Shown when TidyHQ failed partway through a check-in. */

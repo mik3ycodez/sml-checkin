@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { addDays } from "../dates";
 import { readPoints } from "../tidyhq/customFields";
 import { TidyError } from "../tidyhq/errors";
 import { MockTidyClient } from "../tidyhq/mock/MockTidyClient";
@@ -41,6 +42,7 @@ describe("checkIn", () => {
       eventName: "Social Night",
       pointsAwarded: 1,
       total: 1,
+      membershipNotice: null,
     });
     expect(await groupIds(client, "grp_social_night")).toContain("c_dante");
     expect(await storedPoints(client, "c_dante")).toBe(1);
@@ -273,6 +275,140 @@ describe("checkIn", () => {
     expect(await storedPoints(client, "c_lee")).toBe(0);
   });
 
+  describe("grace period and balance due", () => {
+    const expiredDaysAgo = (days: number) => (client: MockTidyClient) => {
+      const m = client.getMemberships.bind(client);
+      client.getMemberships = async (id) =>
+        (await m(id)).map((x) => ({
+          ...x,
+          state: "expired" as const,
+          end_date: addDays("2026-10-12", -days),
+        }));
+    };
+    const tap = (client: MockTidyClient, contactId = "c_dante") =>
+      checkIn(client, { eventId: "ev_tonight", contactId, now: NOW });
+
+    it("checks in a member in the grace period, awards a point, and says when to renew", async () => {
+      const client = seededClient();
+      const result = await tap(client, "c_robin");
+      expect(result).toEqual({
+        status: "checked_in",
+        name: "Robin Vale",
+        eventName: "Social Night",
+        pointsAwarded: 1,
+        total: 1,
+        membershipNotice: {
+          kind: "grace",
+          expiredOn: "2026-09-22",
+          renewBy: "2026-11-21",
+        },
+      });
+      expect(await groupIds(client, "grp_social_night")).toContain("c_robin");
+      expect(await storedPoints(client, "c_robin")).toBe(1);
+    });
+
+    it("allows an expired-state member whose membership ends today, with the grace message", async () => {
+      const client = seededClient();
+      expiredDaysAgo(0)(client);
+      expect(await tap(client)).toMatchObject({
+        status: "checked_in",
+        membershipNotice: {
+          kind: "grace",
+          expiredOn: "2026-10-12",
+          renewBy: "2026-12-11",
+        },
+      });
+    });
+
+    it("allows an expired-state member whose membership ended yesterday", async () => {
+      const client = seededClient();
+      expiredDaysAgo(1)(client);
+      expect(await tap(client)).toMatchObject({
+        status: "checked_in",
+        membershipNotice: { kind: "grace", expiredOn: "2026-10-11" },
+      });
+    });
+
+    it("doesn't log an expired-state membership ending today as bad data", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const client = seededClient();
+      expiredDaysAgo(0)(client);
+      await tap(client);
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it("allows a member exactly 60 days past their end date", async () => {
+      const client = seededClient();
+      expiredDaysAgo(60)(client);
+      expect(await tap(client)).toMatchObject({
+        status: "checked_in",
+        membershipNotice: { kind: "grace", renewBy: "2026-10-12" },
+      });
+      expect(await storedPoints(client, "c_dante")).toBe(1);
+    });
+
+    it("refuses a member 61 days past their end date, changing nothing", async () => {
+      const client = seededClient();
+      expiredDaysAgo(61)(client);
+      expect(await tap(client)).toMatchObject({
+        status: "membership_inactive",
+      });
+      expect(await groupIds(client, "grp_social_night")).not.toContain(
+        "c_dante",
+      );
+      expect(await storedPoints(client, "c_dante")).toBe(0);
+    });
+
+    it("checks in a partial member with a future end date, with the balance-due notice", async () => {
+      const client = seededClient();
+      const result = await tap(client, "c_avery");
+      expect(result).toMatchObject({
+        status: "checked_in",
+        pointsAwarded: 1,
+        membershipNotice: { kind: "balance_due" },
+      });
+      expect(await storedPoints(client, "c_avery")).toBe(1);
+    });
+
+    it("carries the notice on the assessment before the tap", async () => {
+      const assessment = await assessCheckIn(seededClient(), {
+        eventId: "ev_tonight",
+        contactId: "c_robin",
+        now: NOW,
+      });
+      expect(assessment).toMatchObject({
+        status: "ready",
+        membershipNotice: { kind: "grace" },
+      });
+    });
+
+    it("carries the notice on a points-write failure, so the member still sees it", async () => {
+      const client = seededClient();
+      client.updateContact = async () => {
+        throw new TidyError(503, "TidyHQ unavailable");
+      };
+      const failure = await tap(client, "c_robin").catch((e: unknown) => e);
+      expect(failure).toBeInstanceOf(CheckInFailure);
+      expect(failure).toMatchObject({
+        step: "points_write",
+        membershipNotice: { kind: "grace", expiredOn: "2026-09-22" },
+      });
+    });
+
+    it("still refuses a pending or cancelled membership, however recent", async () => {
+      for (const state of ["pending", "cancelled"] as const) {
+        const client = seededClient();
+        const m = client.getMemberships.bind(client);
+        client.getMemberships = async (id) =>
+          (await m(id)).map((x) => ({ ...x, state }));
+        expect(await tap(client)).toMatchObject({
+          status: "membership_inactive",
+        });
+      }
+    });
+  });
+
   it("reports an unknown event", async () => {
     const client = seededClient();
     const result = await checkIn(client, {
@@ -409,6 +545,86 @@ describe("checkIn failures", () => {
       throw bug;
     };
     await expect(checkIn(client, input)).rejects.toBe(bug);
+  });
+});
+
+describe("an expired-state membership dated in the future", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const withExtra = (contactId: string, end_date: string | null) => {
+    const client = seededClient();
+    const real = client.getMemberships.bind(client);
+    client.getMemberships = async (id) => [
+      ...(await real(id)),
+      {
+        id: "m_bad",
+        state: "expired",
+        status: "Expired",
+        membership_level_id: "lvl_full",
+        contact_id: contactId,
+        start_date: "2026-01-01",
+        end_date,
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+    ];
+    return client;
+  };
+  const input = { eventId: "ev_tonight", contactId: "c_dante", now: NOW };
+
+  it("doesn't shut out a member who also has a good active membership", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = withExtra("c_dante", "2030-01-01");
+    expect(await checkIn(client, input)).toMatchObject({
+      status: "checked_in",
+    });
+    expect(warn).toHaveBeenCalledWith(
+      "inconsistent membership record",
+      expect.objectContaining({ contactId: "c_dante", membershipId: "m_bad" }),
+    );
+  });
+
+  it("logs only ids and the problem, no personal data", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await assessCheckIn(withExtra("c_dante", null), input);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][1]).toEqual({
+      contactId: "c_dante",
+      membershipId: "m_bad",
+      problem: "expired_not_ended",
+    });
+  });
+
+  it("stays quiet for ordinary records", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await assessCheckIn(seededClient(), input);
+    await assessCheckIn(seededClient(), { ...input, contactId: "c_robin" });
+    await assessCheckIn(seededClient(), { ...input, contactId: "c_lee" });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("still refuses a member whose only membership is one, and logs it", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = seededClient();
+    client.getMemberships = async () => [
+      {
+        id: "m_bad",
+        state: "expired",
+        status: "Expired",
+        membership_level_id: "lvl_full",
+        contact_id: "c_dante",
+        start_date: "2026-01-01",
+        end_date: "2030-01-01",
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+    ];
+    expect(await assessCheckIn(client, input)).toMatchObject({
+      status: "membership_inactive",
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 });
 
