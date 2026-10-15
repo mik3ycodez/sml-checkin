@@ -3,16 +3,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { MembershipNotice } from "@/lib/membership";
 import type { TapOutcome } from "@/lib/checkin/tapNotice";
-import {
-  CheckinProblem,
-  SignedInAs,
-  StatusScreen,
-  type ShownStatus,
-} from "./screens";
+import { SignedInAs } from "../../memberUi";
+import { CheckinProblem, StatusScreen, type ShownStatus } from "./screens";
 
 describe("SignedInAs", () => {
   const html = renderToStaticMarkup(
-    createElement(SignedInAs, { name: "Dante Ruiz", eventId: "ev_tonight" }),
+    createElement(SignedInAs, {
+      name: "Dante Ruiz",
+      returnTo: "/checkin/ev_tonight",
+    }),
   );
 
   it("names the member", () => {
@@ -183,6 +182,30 @@ describe("StatusScreen", () => {
         "club colors",
       );
       expect(render(at18, null).text).not.toContain("club colors");
+    });
+  });
+
+  describe("link to the status page", () => {
+    it.each([
+      ["a fresh check-in", { kind: "awarded", points: 1 } as const],
+      ["a repeat tap", { kind: "repeat" } as const],
+      ["a plain reload", null],
+    ])("is offered after %s", (_name, notice) => {
+      const { html, text } = render(CHECKED_IN, notice);
+      expect(html).toMatch(/<a[^>]*href="\/me"[^>]*>See your points<\/a>/);
+      expect(text).toContain("See your points");
+    });
+
+    it("is offered when the point didn't save, too", () => {
+      expect(render(CHECKED_IN, { kind: "point_not_saved" }).html).toContain(
+        'href="/me"',
+      );
+    });
+
+    it("isn't offered when the member isn't checked in", () => {
+      expect(render({ status: "closed", ...DANTE }).html).not.toContain(
+        'href="/me"',
+      );
     });
   });
 

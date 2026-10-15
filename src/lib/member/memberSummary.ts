@@ -1,7 +1,6 @@
 import { logInconsistentMemberships } from "../logInconsistentMemberships";
 import {
   isRenewalDue,
-  membershipNotice,
   membershipStanding,
   type MembershipNotice,
   type MembershipStanding,
@@ -19,30 +18,18 @@ import { readPoints } from "../tidyhq/customFields";
 import { isTidyError } from "../tidyhq/errors";
 import type { Contact, Membership } from "../tidyhq/types";
 
-/** How the status page describes a member's membership. */
-export type MembershipStatus =
-  "active" | "renew_soon" | "balance_due" | "grace" | "expired";
-
 export type MemberSummary =
-  | {
+  | ({
       status: "ok";
       name: string;
       level: string;
       /** `YYYY-MM-DD`; null if open-ended. */
       membershipEndsOn: string | null;
-      /**
-       * `balance_due` (partial, end date still ahead) takes priority over
-       * `renew_soon`. `grace` is past the end date but within
-       * `GRACE_PERIOD_DAYS`; `expired` is beyond it.
-       */
-      membership: "active" | "renew_soon" | "balance_due" | "grace" | "expired";
-      /** The balance-due or grace message, with its dates; otherwise null. */
-      notice: MembershipNotice | null;
       /** Null if the stored total is unreadable; the page explains. */
       points: number | null;
       /** Rewards we can read; one that can't be read is left out. */
       rewards: MemberReward[];
-    }
+    } & MembershipView)
   /**
    * TidyHQ has no real membership on record for them: none at all, or only
    * pending or cancelled ones. The page shows
@@ -57,6 +44,20 @@ export type MemberSummary =
     }
   /** The session names a contact TidyHQ no longer has; sign in again. */
   | { status: "unknown_contact" };
+
+/**
+ * How the membership reads. `balance_due` (partial, end date still ahead)
+ * takes priority over `renew_soon`. `grace` is past the end date but within
+ * `GRACE_PERIOD_DAYS`; `expired` is beyond it. The two that carry a message
+ * always have its `notice`, so pages needn't check.
+ */
+export type MembershipView =
+  | { membership: "active" | "renew_soon" | "expired"; notice: null }
+  | { membership: "balance_due"; notice: { kind: "balance_due" } }
+  | {
+      membership: "grace";
+      notice: Extract<MembershipNotice, { kind: "grace" }>;
+    };
 
 export interface MemberReward {
   reward: Reward;
@@ -122,33 +123,44 @@ export async function getMemberSummary(
   const shown = standing.membership;
   const level = await levelName(client, shown.membership_level_id);
 
-  let membership: MembershipStatus;
-  switch (standing.kind) {
-    case "current":
-      membership = standing.balanceDue
-        ? "balance_due"
-        : isRenewalDue(standing.endsOn, now)
-          ? "renew_soon"
-          : "active";
-      break;
-    case "grace":
-      membership = "grace";
-      break;
-    case "lapsed":
-      membership = "expired";
-      break;
-  }
-
   return {
     status: "ok",
     name: contact.display_name,
     level,
     membershipEndsOn: standing.endsOn,
-    membership,
-    notice: membershipNotice(standing),
     points,
     rewards,
+    ...membershipView(standing, now),
   };
+}
+
+function membershipView(
+  standing: Exclude<MembershipStanding, { kind: "none" }>,
+  now: Date,
+): MembershipView {
+  switch (standing.kind) {
+    case "current":
+      if (standing.balanceDue) {
+        return { membership: "balance_due", notice: { kind: "balance_due" } };
+      }
+      return {
+        membership: isRenewalDue(standing.endsOn, now)
+          ? "renew_soon"
+          : "active",
+        notice: null,
+      };
+    case "grace":
+      return {
+        membership: "grace",
+        notice: {
+          kind: "grace",
+          expiredOn: standing.endsOn,
+          renewBy: standing.renewBy,
+        },
+      };
+    case "lapsed":
+      return { membership: "expired", notice: null };
+  }
 }
 
 /** Rewards we can read, with the message for the member's standing. */

@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 9 done (#12 to #20); PR 10 (recent events) in review (#21).
+**Status:** Complete in 0.3.0. PRs 1 to 10 done (#12 to #21); PR 11 (the `/me` page) in review.
 
 ## Context
 
@@ -326,7 +326,7 @@ rewardId): boolean | null`. It's the only place that knows the field's
   reaches 18 and sees "You qualify for club colors!"; a reload doesn't
   repeat it.
 
-### PR 10: Recent events 🔍 In review (#21)
+### PR 10: Recent events ✅ Done (#21)
 
 - `TidyClient.listContactGroups(contactId)` (`GET /v1/contacts/{id}/groups`):
   every group the contact is in, event or not, **archived ones included**
@@ -358,7 +358,7 @@ now })` makes two requests in parallel: `listEvents` and
   read, one groups read, no group reads), and a read failing. `dates.ts` gets
   `seattleStartOfDay` tests.
 
-### PR 11: `/me` page
+### PR 11: `/me` page 🔍 In review
 
 - `src/app/me/page.tsx` (Server Component, rendered fully on the server
   like the check-in pages now do: no `<Suspense>` and no `loading.tsx`, per
@@ -389,6 +389,11 @@ now })` makes two requests in parallel: `listEvents` and
   qualified and issued seed members' colors lines; Lee's expired message.
 - Unit tests for the colors and membership message text, like
   `screens.test.ts`.
+- _(Built, after review: `/me` and check-in share `memberUi.tsx`
+  (`SignedInAs`, the notice block, button styles), `memberPaths.ts`
+  (`ME_PATH`, `signInPath`) and `MemberError`, which both `error.tsx` pages
+  use. A lapsed membership with a future end date reads "isn't active", and
+  `getRecentEvents` skips events whose start can't be parsed.)_
 
 **Dependencies:** PR 1 goes first, then PR 2. PRs 3→4→5 are one track
 (tests and CI). PR 6 (member pages without JavaScript) follows PR 5 and comes before the

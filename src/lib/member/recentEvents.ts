@@ -23,7 +23,7 @@ export interface RecentEvent {
  * member is in (archived ones too, since past events' groups are archived).
  * An event counts if its attendance group is one of the member's, so
  * non-event groups (Members, Volunteers) can't appear, and events with no
- * group are skipped. A failed read throws, so the caller can show an error
+ * group or no readable start time are skipped. A failed read throws, so the caller can show an error
  * for this section alone.
  */
 export async function getRecentEvents(
@@ -43,6 +43,8 @@ export async function getRecentEvents(
   for (const event of events) {
     const groupId = findEventGroup(event);
     if (!groupId || !event.start_at || !memberGroupIds.has(groupId)) continue;
+    // A start time we can't read would crash the page's date formatting.
+    if (Number.isNaN(Date.parse(event.start_at))) continue;
     attended.push({ id: event.id, name: event.name, startAt: event.start_at });
   }
   return attended
