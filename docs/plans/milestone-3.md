@@ -270,8 +270,9 @@ now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
 
 ### PR 10: `/me` page
 
-- `src/app/me/page.tsx` (Server Component, behind `<Suspense>` like the
-  check-in pages). No session redirects to
+- `src/app/me/page.tsx` (Server Component, rendered fully on the server
+  like the check-in pages now do: no `<Suspense>` and no `loading.tsx`, per
+  CLAUDE.md and `noSuspense.test.ts`). No session redirects to
   `/auth/signin?returnTo=/me`, and `unknown_contact` does the same.
 - Shows the name, membership level, and points total (or "Your points
   total needs fixing. Please see a volunteer" when it's unreadable).
