@@ -4,6 +4,7 @@ import {
   membershipNotice,
   membershipStanding,
   type MembershipNotice,
+  type MembershipStanding,
 } from "../membership";
 import type { Reward } from "../points";
 import {
@@ -16,7 +17,7 @@ import type { TidyClient } from "../tidyhq/client";
 import { findContact } from "../tidyhq/contacts";
 import { readPoints } from "../tidyhq/customFields";
 import { isTidyError } from "../tidyhq/errors";
-import type { Membership } from "../tidyhq/types";
+import type { Contact, Membership } from "../tidyhq/types";
 
 /** How the status page describes a member's membership. */
 export type MembershipStatus =
@@ -47,7 +48,13 @@ export type MemberSummary =
    * pending or cancelled ones. The page shows
    * a "become a member" message linking to SML's TidyHQ.
    */
-  | { status: "not_member"; name: string; points: number | null }
+  | {
+      status: "not_member";
+      name: string;
+      points: number | null;
+      /** As for a lapsed member: colors need a membership first. */
+      rewards: MemberReward[];
+    }
   /** The session names a contact TidyHQ no longer has; sign in again. */
   | { status: "unknown_contact" };
 
@@ -102,14 +109,16 @@ export async function getMemberSummary(
 
   logInconsistentMemberships(contactId, memberships, now);
   const standing = membershipStanding(memberships, now);
+  const points = readPoints(contact);
+  const rewards = memberRewards(contact, points, standing);
   if (standing.kind === "none") {
     return {
       status: "not_member",
       name: contact.display_name,
-      points: readPoints(contact),
+      points,
+      rewards,
     };
   }
-  const points = readPoints(contact);
   const shown = standing.membership;
   const level = await levelName(client, shown.membership_level_id);
 
@@ -138,10 +147,19 @@ export async function getMemberSummary(
     membership,
     notice: membershipNotice(standing),
     points,
-    rewards: rewardEntries(contact, points).map(({ reward, status }) => ({
-      reward,
-      status,
-      message: rewardMessage(reward, status, rewardStanding(standing)),
-    })),
+    rewards,
   };
+}
+
+/** Rewards we can read, with the message for the member's standing. */
+function memberRewards(
+  contact: Contact,
+  points: number | null,
+  standing: MembershipStanding,
+): MemberReward[] {
+  return rewardEntries(contact, points).map(({ reward, status }) => ({
+    reward,
+    status,
+    message: rewardMessage(reward, status, rewardStanding(standing)),
+  }));
 }

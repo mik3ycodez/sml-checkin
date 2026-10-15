@@ -42,6 +42,8 @@ export function rewardStanding(standing: MembershipStanding): RewardStanding {
     case "grace":
       return "grace";
     case "lapsed":
+    // No counted membership (e.g. migrated points, never joined in TidyHQ):
+    // they'd need to join first, so they're told the same as lapsed members.
     case "none":
       return "lapsed";
   }

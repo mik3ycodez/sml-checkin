@@ -411,6 +411,13 @@ describe("getMemberSummary", () => {
       status: "not_member",
       name: "Dante Ruiz",
       points: 0,
+      rewards: [
+        {
+          reward: REWARDS[0],
+          status: { kind: "progress", remaining: 18 },
+          message: "18 more points until you qualify for club colors.",
+        },
+      ],
     });
   });
 
@@ -551,6 +558,13 @@ describe("getMemberSummary", () => {
       status: "not_member",
       name: "Dante Ruiz",
       points: 0,
+      rewards: [
+        {
+          reward: REWARDS[0],
+          status: { kind: "progress", remaining: 18 },
+          message: "18 more points until you qualify for club colors.",
+        },
+      ],
     });
   });
 
@@ -634,7 +648,7 @@ describe("getMemberSummary", () => {
         contactId,
         now: NOW,
       });
-      return result.status === "ok" ? result.rewards : undefined;
+      return result.status === "unknown_contact" ? undefined : result.rewards;
     };
 
     const setField = (
@@ -720,6 +734,39 @@ describe("getMemberSummary", () => {
             "You qualify for club colors. You will need to renew before receiving club colors.",
         },
       ]);
+    });
+
+    it("asks a non-member at 18+ points to renew, like a lapsed member", async () => {
+      const rewards = await rewardsFor("c_dante", (seed) => {
+        seed.memberships = [];
+        setField(seed, "c_dante", POINTS_FIELD_ID, "20");
+      });
+      expect(rewards).toEqual([
+        {
+          reward: REWARDS[0],
+          status: { kind: "qualified" },
+          message:
+            "You qualify for club colors. You will need to renew before receiving club colors.",
+        },
+      ]);
+    });
+
+    it("tells a non-member with colors issued that they received them", async () => {
+      const rewards = await rewardsFor("c_morgan", (seed) => {
+        seed.memberships = [];
+      });
+      expect(rewards).toMatchObject([
+        { status: { kind: "issued" }, message: "Club colors received ✓" },
+      ]);
+    });
+
+    it("shows a non-member nothing when the issued field is unreadable", async () => {
+      const rewards = await rewardsFor("c_dante", (seed) => {
+        seed.memberships = [];
+        setField(seed, "c_dante", POINTS_FIELD_ID, "20");
+        setField(seed, "c_dante", COLORS_ISSUED_FIELD_ID, "maybe");
+      });
+      expect(rewards).toEqual([]);
     });
 
     it("shows nothing when the issued field is unreadable", async () => {

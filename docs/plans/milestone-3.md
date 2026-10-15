@@ -306,7 +306,8 @@ rewardId): boolean | null`. It's the only place that knows the field's
   message depends on membership standing (`rewardStanding`): colors need a
   current, fully paid membership. Qualified and current: "You qualify for club
   colors! A Board member will connect with you to distribute your club
-  colors." Grace or lapsed: renew first. Balance due: complete payment first.
+  colors." Grace, lapsed, or no counted membership (`not_member`, which also gains
+  `rewards`): renew first. Balance due: complete payment first.
   Under 18: "X more points until you qualify for club colors." Issued: "Club
   colors received ✓".
 - Check-in: `checkIn` decides which rewards this check-in reached
