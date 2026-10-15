@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 6 done (#12, #13, #14, #15, #16, #17); PR 7 in review.
+**Status:** In progress. PRs 1 to 6 done (#12, #13, #14, #15, #16, #17); PR 7 in review (#18).
 
 ## Context
 
@@ -205,7 +205,7 @@ Steps (test-first):
 - Check: `npm run build` succeeds, all checks pass, and the no-JS skip is
   gone.
 
-### PR 7: Member summary (pure logic, test-first) 🔍 In review
+### PR 7: Member summary (pure logic, test-first) 🔍 In review (#18)
 
 - `src/lib/member/memberSummary.ts`:
   `getMemberSummary(client, { contactId, now })`. It's read-only and
