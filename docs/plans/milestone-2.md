@@ -25,7 +25,7 @@ Decisions so far:
 ### PR 1: Points and membership rules (pure logic) ✅ Done (#3)
 
 - `src/lib/points.ts`: `POINTS_PER_CHECKIN: Record<CheckInRole, number> = { attendee: 1, volunteer: 1 }`, plus types `CheckInRole = "attendee" | "volunteer"` and `CheckInMethod = "self" | "staff"`. _(Superseded in milestone 3: no check-in roles.)_
-- `src/lib/membership.ts`: `hasActiveMembership(memberships, today)` is true if any membership is `activated`/`partial` and its `end_date` hasn't passed.
+- `src/lib/membership.ts`: `hasActiveMembership(memberships, today)` is true if any membership is `activated`/`partial` and its `end_date` hasn't passed. _(Superseded in milestone 3: `membershipStanding` replaces it, adding a 60-day grace period and Partial-status messages.)_
 - Tests first: `points.test.ts`, `membership.test.ts`. Cases: expired, partial, null end date, several memberships.
 
 ### PR 2: Event check-in window (one lookup, mock-backed) ✅ Done (#4)

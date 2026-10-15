@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { addDays } from "../dates";
 import { readPoints } from "../tidyhq/customFields";
 import { TidyError } from "../tidyhq/errors";
 import { MockTidyClient } from "../tidyhq/mock/MockTidyClient";
@@ -41,6 +42,7 @@ describe("checkIn", () => {
       eventName: "Social Night",
       pointsAwarded: 1,
       total: 1,
+      membershipNotice: null,
     });
     expect(await groupIds(client, "grp_social_night")).toContain("c_dante");
     expect(await storedPoints(client, "c_dante")).toBe(1);
@@ -271,6 +273,96 @@ describe("checkIn", () => {
     });
     expect(await groupIds(client, "grp_social_night")).not.toContain("c_lee");
     expect(await storedPoints(client, "c_lee")).toBe(0);
+  });
+
+  describe("grace period and balance due", () => {
+    const expiredDaysAgo = (days: number) => (client: MockTidyClient) => {
+      const m = client.getMemberships.bind(client);
+      client.getMemberships = async (id) =>
+        (await m(id)).map((x) => ({
+          ...x,
+          state: "expired" as const,
+          end_date: addDays("2026-10-12", -days),
+        }));
+    };
+    const tap = (client: MockTidyClient, contactId = "c_dante") =>
+      checkIn(client, { eventId: "ev_tonight", contactId, now: NOW });
+
+    it("checks in a member in the grace period, awards a point, and says when to renew", async () => {
+      const client = seededClient();
+      const result = await tap(client, "c_robin");
+      expect(result).toEqual({
+        status: "checked_in",
+        name: "Robin Vale",
+        eventName: "Social Night",
+        pointsAwarded: 1,
+        total: 1,
+        membershipNotice: {
+          kind: "grace",
+          expiredOn: "2026-09-22",
+          renewBy: "2026-11-21",
+        },
+      });
+      expect(await groupIds(client, "grp_social_night")).toContain("c_robin");
+      expect(await storedPoints(client, "c_robin")).toBe(1);
+    });
+
+    it("allows a member exactly 60 days past their end date", async () => {
+      const client = seededClient();
+      expiredDaysAgo(60)(client);
+      expect(await tap(client)).toMatchObject({
+        status: "checked_in",
+        membershipNotice: { kind: "grace", renewBy: "2026-10-12" },
+      });
+      expect(await storedPoints(client, "c_dante")).toBe(1);
+    });
+
+    it("refuses a member 61 days past their end date, changing nothing", async () => {
+      const client = seededClient();
+      expiredDaysAgo(61)(client);
+      expect(await tap(client)).toMatchObject({
+        status: "membership_inactive",
+      });
+      expect(await groupIds(client, "grp_social_night")).not.toContain(
+        "c_dante",
+      );
+      expect(await storedPoints(client, "c_dante")).toBe(0);
+    });
+
+    it("checks in a partial member with a future end date, with the balance-due notice", async () => {
+      const client = seededClient();
+      const result = await tap(client, "c_avery");
+      expect(result).toMatchObject({
+        status: "checked_in",
+        pointsAwarded: 1,
+        membershipNotice: { kind: "balance_due" },
+      });
+      expect(await storedPoints(client, "c_avery")).toBe(1);
+    });
+
+    it("carries the notice on the assessment before the tap", async () => {
+      const assessment = await assessCheckIn(seededClient(), {
+        eventId: "ev_tonight",
+        contactId: "c_robin",
+        now: NOW,
+      });
+      expect(assessment).toMatchObject({
+        status: "ready",
+        membershipNotice: { kind: "grace" },
+      });
+    });
+
+    it("still refuses a pending or cancelled membership, however recent", async () => {
+      for (const state of ["pending", "cancelled"] as const) {
+        const client = seededClient();
+        const m = client.getMemberships.bind(client);
+        client.getMemberships = async (id) =>
+          (await m(id)).map((x) => ({ ...x, state }));
+        expect(await tap(client)).toMatchObject({
+          status: "membership_inactive",
+        });
+      }
+    });
   });
 
   it("reports an unknown event", async () => {

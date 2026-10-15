@@ -1,4 +1,8 @@
-import { hasActiveMembership } from "../membership";
+import {
+  membershipNotice,
+  membershipStanding,
+  type MembershipNotice,
+} from "../membership";
 import { POINTS_PER_CHECKIN, type CheckInMethod } from "../points";
 import { getCheckinWindow, isCheckinOpen } from "../tidyhq/checkinWindow";
 import type { TidyClient } from "../tidyhq/client";
@@ -39,6 +43,8 @@ export type CheckInResult =
       eventName: string | null;
       pointsAwarded: number;
       total: number;
+      /** A balance due or grace-period message to show with the confirmation. */
+      membershipNotice: MembershipNotice | null;
     }
   | {
       status: "already_checked_in";
@@ -138,6 +144,7 @@ export type CheckInAssessment =
       groupId: string;
       /** The stored points total, readable. */
       stored: number;
+      membershipNotice: MembershipNotice | null;
     };
 
 /**
@@ -183,13 +190,22 @@ export async function assessCheckIn(
   if (open === "closed") return { status: "closed", name, eventName };
 
   const memberships = await client.getMemberships(contactId);
-  if (!hasActiveMembership(memberships, now)) {
+  // Current members and those in the grace period may check in.
+  const standing = membershipStanding(memberships, now);
+  if (standing.kind !== "current" && standing.kind !== "grace") {
     return { status: "membership_inactive", name, eventName };
   }
 
   const stored = readPoints(contact);
   if (stored === null) return { status: "points_unreadable", name, eventName };
-  return { status: "ready", name, eventName, groupId, stored };
+  return {
+    status: "ready",
+    name,
+    eventName,
+    groupId,
+    stored,
+    membershipNotice: membershipNotice(standing),
+  };
 }
 
 /**
@@ -213,6 +229,7 @@ export async function checkIn(
   );
   if (assessment.status !== "ready") return assessment;
   const { name, eventName, groupId, stored } = assessment;
+  const { membershipNotice } = assessment;
 
   await step("group_add", () => client.addContactToGroup(groupId, contactId));
   const pointsAwarded = POINTS_PER_CHECKIN;
@@ -220,5 +237,12 @@ export async function checkIn(
   await step("points_write", () =>
     client.updateContact(contactId, buildPointsPatch(total)),
   );
-  return { status: "checked_in", name, eventName, pointsAwarded, total };
+  return {
+    status: "checked_in",
+    name,
+    eventName,
+    pointsAwarded,
+    total,
+    membershipNotice,
+  };
 }

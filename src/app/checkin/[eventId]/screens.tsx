@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { CheckInAssessment } from "@/lib/checkin/checkIn";
 import type { TapOutcome } from "@/lib/checkin/tapNotice";
 import { seattleTimeLabel } from "@/lib/dates";
+import { membershipNoticeText, type MembershipNotice } from "@/lib/membership";
 import { tidyhqSiteUrl } from "@/lib/tidyhq/site";
 
 // Shared pieces of the check-in pages: one small screen per outcome, chosen
@@ -169,6 +170,9 @@ function CheckedIn({
             +{notice.points} {notice.points === 1 ? "point" : "points"}
           </p>
           <Total total={status.total} />
+          {notice.membershipNotice && (
+            <MembershipNoticeBlock notice={notice.membershipNotice} />
+          )}
           {signedInAs}
         </Screen>
       );
@@ -200,6 +204,18 @@ function CheckedIn({
         </Screen>
       );
   }
+}
+
+/** A balance-due or grace-period message, linking to SML's TidyHQ to act on it. */
+function MembershipNoticeBlock({ notice }: { notice: MembershipNotice }) {
+  return (
+    <div className="border-foreground/20 flex flex-col gap-3 rounded-lg border p-4">
+      <p className="text-lg">{membershipNoticeText(notice)}</p>
+      <a href={tidyhqSiteUrl()} className={SECONDARY}>
+        {notice.kind === "grace" ? "Renew on TidyHQ" : "Pay on TidyHQ"}
+      </a>
+    </div>
+  );
 }
 
 /** Shown when TidyHQ failed partway through a check-in. */

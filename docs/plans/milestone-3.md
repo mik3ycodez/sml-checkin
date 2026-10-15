@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 6 done (#12, #13, #14, #15, #16, #17); PR 7 in review (#18).
+**Status:** In progress. PRs 1 to 7 done (#12 to #18); PR 8 (grace period and Partial status) in review.
 
 ## Context
 
@@ -205,7 +205,7 @@ Steps (test-first):
 - Check: `npm run build` succeeds, all checks pass, and the no-JS skip is
   gone.
 
-### PR 7: Member summary (pure logic, test-first) 🔍 In review (#18)
+### PR 7: Member summary (pure logic, test-first) ✅ Done (#18)
 
 - `src/lib/member/memberSummary.ts`:
   `getMemberSummary(client, { contactId, now })`. It's read-only and
@@ -229,8 +229,53 @@ Steps (test-first):
 - Tests: Dante (active), Sam (ends in two weeks → `renew_soon`), Lee
   (expired), several memberships, no memberships (`not_member`), an
   unreadable points field, and an unknown contact.
+- _(Superseded in PR 8: which membership is shown, and what counts as
+  `expired`, now come from `membershipStanding`, with a 60-day grace
+  period.)_
 
-### PR 8: Rewards: club colors (test-first)
+### PR 8: Membership grace period and Partial status 🔍 In review
+
+SML policy, for check-in and `/me` alike. Pending and cancelled memberships
+never count. Use the counted membership with the **latest end date**, then:
+
+- End date today or later, state `activated` or `partial`: can check in and
+  earn points.
+- End date passed by 60 days or fewer, any counted state (`activated`,
+  `partial`, `expired`): **grace period**, can still check in and earn
+  points.
+- End date passed by more than 60 days: refused, as expired members are today.
+
+Dates are Seattle calendar days. `GRACE_PERIOD_DAYS = 60` lives in
+`membership.ts` next to `RENEWAL_REMINDER_DAYS`. On the day count: exactly 60
+days past is allowed, 61 is refused.
+
+Messages (on the check-in confirmation and on `/me`'s summary):
+
+- **Partial with a future end date:** "You have a balance due. Complete
+  payment in TidyHQ." Takes priority over the renewal reminder.
+- **Grace period:** "Your membership expired on [end date]. Renew by [end date + 60 days] to keep earning points." With the renew link.
+
+Steps (test-first):
+
+- `membership.ts`: `membershipStanding(memberships, now)` returns `none`,
+  `current` (with `balanceDue`), `grace` (with `renewBy`) or `lapsed`. It
+  replaces `hasActiveMembership`, so check-in and `/me` read one rule. On a
+  tie for the latest end date, activated beats partial beats expired.
+  `membershipNotice(standing)` and `membershipNoticeText(notice)` give the
+  two messages.
+- `checkIn.ts`: `assessCheckIn` accepts `current` and `grace`.
+  `ready` and `checked_in` carry `membershipNotice`.
+- The notice reaches the confirmation page through the tap-notice cookie
+  (the result page only knows "in the group"). It carries the notice kind and
+  the end date; the renew-by date is worked out again on read.
+- `getMemberSummary`: `membership` gains `balance_due` and `grace`, plus a
+  `notice` field. `/me` (PR 11) renders them.
+- Seed: Lee moves to expired 90 days ago, so the "refused" tests keep their
+  meaning. New members: Robin Vale (expired about 20 days ago, grace) and
+  Avery Quinn (partial, future end date).
+- Playwright: grace and balance-due check-ins.
+
+### PR 9: Rewards: club colors (test-first)
 
 - `src/lib/points.ts`, next to `POINTS_PER_CHECKIN`: `REWARDS`, a list of
   `{ id: "club_colors", name: "club colors", pointsRequired: 18 }`. Only
@@ -256,7 +301,7 @@ rewardId): boolean | null`. It's the only place that knows the field's
 - Tests: 0, 17, 18 and 30 points not issued; issued at 25 and at 10; an
   unreadable issued field; unreadable points.
 
-### PR 9: Recent events
+### PR 10: Recent events
 
 - `src/lib/member/recentEvents.ts`: `getRecentEvents(client, { contactId,
 now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
@@ -271,7 +316,7 @@ now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
 - Tests: attended / not attended, outside the window, more than 5, an
   unmapped event, and a group read failing.
 
-### PR 10: `/me` page
+### PR 11: `/me` page
 
 - `src/app/me/page.tsx` (Server Component, rendered fully on the server
   like the check-in pages now do: no `<Suspense>` and no `loading.tsx`, per
@@ -280,8 +325,12 @@ now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
 - Shows the name, membership level, and points total (or "Your points
   total needs fixing. Please see a volunteer" when it's unreadable).
 - Membership messages:
+  - `balance_due`: "You have a balance due. Complete payment in TidyHQ."
+    (wins over the renewal reminder).
   - `renew_soon`: "Your membership ends on <date>", plus a renew link from
     `tidyhqSiteUrl()`.
+  - `grace`: "Your membership expired on <date>. Renew by <date + 60 days> to
+    keep earning points." plus the renew link. (`membershipNoticeText`.)
   - `expired`: an expired message plus the renew link.
 - Club colors, one of:
   - "X more points until you qualify for club colors"
@@ -292,15 +341,28 @@ now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
 - View only: no forms except "Not you? Sign out" (`SignedInAs`).
 - Link to `/me` ("See your points") from the check-in result screens.
 - Plain HTML with no client JavaScript, readable on older phones.
-- Playwright spec: Dante after checking in; Sam's renewal message; the
+- Playwright spec: Dante after checking in; Sam's renewal message; Robin's
+  grace message and Avery's balance due; the
   qualified and issued seed members' colors lines; Lee's expired message.
 - Unit tests for the colors and membership message text, like
   `screens.test.ts`.
 
 **Dependencies:** PR 1 goes first, then PR 2. PRs 3→4→5 are one track
 (tests and CI). PR 6 (member pages without JavaScript) follows PR 5 and comes before the
-`/me` track, so `/me` is built without Suspense. PRs 7→8→9→10 are the `/me`
-track. PR 10's spec needs PR 3. The suggested order is 1–10, one PR at a time.
+`/me` track, so `/me` is built without Suspense. PRs 7→8→9→10→11 are the `/me`
+track. PR 11's spec needs PR 3. The suggested order is 1–11, one PR at a time.
+
+## Open questions (verify with real TidyHQ data)
+
+- **How does TidyHQ represent a renewal invoice?** Either an Active
+  membership becomes Partial when invoiced, or a renewal creates a new
+  unpaid subscription with future dates. We don't know which. The mock
+  assumes the first.
+- **Known risk: "latest end date wins".** If a renewal invoice creates a new
+  unpaid subscription with a future end date, the unpaid renewal would look
+  current, and the grace period would never start. If live data shows this,
+  measure grace from the end of the last fully paid period instead.
+- Verify both during live integration.
 
 ## Deferred
 
@@ -319,7 +381,7 @@ track. PR 10's spec needs PR 3. The suggested order is 1–10, one PR at a time.
   - A "this contact's groups" endpoint in place of downloading the whole
     group.
 
-  `/me`'s recent events (PR 9) belong in that measurement too.
+  `/me`'s recent events (PR 10) belong in that measurement too.
 
 - **Later: more rewards** (merchandise, vendor discounts). Add them to
   `REWARDS`, each with its own issued field.
@@ -342,6 +404,6 @@ track. PR 10's spec needs PR 3. The suggested order is 1–10, one PR at a time.
   `npm run format:check` (from PR 1), and `npm run test:e2e` (from PR 3).
   For TDD, run the new tests first and confirm they fail.
 - From PR 4, CI runs all of these on every PR.
-- After PR 10, one look by hand on a real phone (`npm run dev`, then open
+- After PR 11, one look by hand on a real phone (`npm run dev`, then open
   `http://<your-laptop-ip>:3000/me` on the same Wi-Fi). Playwright's
   WebKit is close to Safari, but not the same as an old iPhone.

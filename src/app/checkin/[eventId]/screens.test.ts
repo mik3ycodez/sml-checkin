@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import type { MembershipNotice } from "@/lib/membership";
 import type { TapOutcome } from "@/lib/checkin/tapNotice";
 import {
   CheckinProblem,
@@ -64,6 +65,48 @@ describe("StatusScreen", () => {
       expect(render(CHECKED_IN, { kind: "awarded", points: 2 }).text).toContain(
         "+2 points",
       );
+    });
+  });
+
+  describe("checked in with a membership notice", () => {
+    const awarded = (membershipNotice: MembershipNotice) =>
+      render(CHECKED_IN, { kind: "awarded", points: 1, membershipNotice });
+
+    it("tells a member with a balance due to pay in TidyHQ, with a link", () => {
+      const { html, text } = awarded({ kind: "balance_due" });
+      expect(text).toContain("You're checked in, Dante Ruiz!");
+      expect(text).toContain("+1 point");
+      expect(text).toContain(
+        "You have a balance due. Complete payment in TidyHQ.",
+      );
+      expect(html).toMatch(
+        /<a[^>]*href="https:\/\/sml\.tidyhq\.com"[^>]*>[^<]*TidyHQ/,
+      );
+    });
+
+    it("tells a member in the grace period when it expired and when to renew by", () => {
+      const { html, text } = awarded({
+        kind: "grace",
+        expiredOn: "2026-09-22",
+        renewBy: "2026-11-21",
+      });
+      expect(text).toContain("+1 point");
+      expect(text).toContain(
+        "Your membership expired on September 22, 2026. Renew by November 21, 2026 to keep earning points.",
+      );
+      expect(html).toMatch(
+        /<a[^>]*href="https:\/\/sml\.tidyhq\.com"[^>]*>Renew/,
+      );
+    });
+
+    it("shows no notice for a paid-up member", () => {
+      const { text } = render(CHECKED_IN, { kind: "awarded", points: 1 });
+      expect(text).not.toContain("balance due");
+      expect(text).not.toContain("Renew");
+    });
+
+    it("shows no notice on a plain page load", () => {
+      expect(render(CHECKED_IN).text).not.toContain("balance due");
     });
   });
 

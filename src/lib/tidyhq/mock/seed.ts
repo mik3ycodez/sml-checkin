@@ -7,6 +7,7 @@ import type {
   Group,
   Membership,
   MembershipLevel,
+  MembershipState,
 } from "../types";
 
 /** All mock TidyHQ state. MockTidyClient clones this, so tests stay isolated. */
@@ -85,12 +86,17 @@ export function createSeed(now: Date = new Date()): MockSeed {
     levelId: string,
     startDays: number,
     endDays: number,
+    state: MembershipState = endDays < 0 ? "expired" : "activated",
   ): Membership => {
-    const expired = endDays < 0;
     return {
       id,
-      state: expired ? "expired" : "activated",
-      status: expired ? "Expired" : "Activated",
+      state,
+      status:
+        state === "partial"
+          ? "Partial"
+          : state === "expired"
+            ? "Expired"
+            : "Activated",
       membership_level_id: levelId,
       contact_id: contactId,
       start_date: addDays(today, startDays),
@@ -208,15 +214,24 @@ export function createSeed(now: Date = new Date()): MockSeed {
       contact("c_jordan", "Jordan", "Park", 1),
       // Membership ends in two weeks: exercises the renewal reminder.
       contact("c_sam", "Sam", "Okafor", 0),
-      // Membership expired last month: check-in should be refused.
+      // Membership expired 90 days ago, past the 60-day grace period:
+      // check-in should be refused.
       contact("c_lee", "Lee", "Hart", 0),
+      // Membership expired 20 days ago: in the grace period, so check-in
+      // works, with a renewal message.
+      contact("c_robin", "Robin", "Vale", 0),
+      // Partial (invoice part-paid) with a future end date: check-in works,
+      // with a balance-due message.
+      contact("c_avery", "Avery", "Quinn", 0),
     ],
     memberships: [
       membership("m_marcus", "c_marcus", "lvl_full", -120, 245),
       membership("m_dante", "c_dante", "lvl_full", -200, 165),
       membership("m_jordan", "c_jordan", "lvl_associate", -60, 305),
       membership("m_sam", "c_sam", "lvl_full", -351, 14),
-      membership("m_lee", "c_lee", "lvl_full", -405, -40),
+      membership("m_lee", "c_lee", "lvl_full", -455, -90),
+      membership("m_robin", "c_robin", "lvl_full", -385, -20),
+      membership("m_avery", "c_avery", "lvl_full", -100, 265, "partial"),
     ],
     membershipLevels: [
       { id: "lvl_full", name: "Full Member", description: null },

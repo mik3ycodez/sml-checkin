@@ -47,3 +47,27 @@ export function seattleTimeLabel(date: Date): string {
     parts.find((p) => p.type === type)!.value;
   return `${part("weekday")}, ${part("month")} ${part("day")} at ${part("hour")}:${part("minute")} ${part("dayPeriod")}`;
 }
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/**
+ * A `YYYY-MM-DD` calendar date as members read it: "September 22, 2026".
+ * Pure string work, with no time zone or locale data involved.
+ */
+export function dateLabel(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return `${MONTHS[month - 1]} ${day}, ${year}`;
+}

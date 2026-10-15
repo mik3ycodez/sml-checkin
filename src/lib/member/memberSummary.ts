@@ -1,8 +1,8 @@
-import { seattleDate } from "../dates";
 import {
-  countsAsMembership,
-  isActiveMembership,
   isRenewalDue,
+  membershipNotice,
+  membershipStanding,
+  type MembershipNotice,
 } from "../membership";
 import type { TidyClient } from "../tidyhq/client";
 import { findContact } from "../tidyhq/contacts";
@@ -17,7 +17,14 @@ export type MemberSummary =
       level: string;
       /** `YYYY-MM-DD`; null if open-ended. */
       membershipEndsOn: string | null;
-      membership: "active" | "renew_soon" | "expired";
+      /**
+       * `balance_due` (partial, end date still ahead) takes priority over
+       * `renew_soon`. `grace` is past the end date but within
+       * `GRACE_PERIOD_DAYS`; `expired` is beyond it.
+       */
+      membership: "active" | "renew_soon" | "balance_due" | "grace" | "expired";
+      /** The balance-due or grace message, with its dates; otherwise null. */
+      notice: MembershipNotice | null;
       /** Null if the stored total is unreadable; the page explains. */
       points: number | null;
     }
@@ -32,20 +39,6 @@ export type MemberSummary =
 
 /** Shown when TidyHQ no longer has the membership's level. */
 export const UNKNOWN_LEVEL_NAME = "Member";
-
-/** Later end date first; open-ended (null) counts as the latest. */
-function endsLater(a: Membership, b: Membership): boolean {
-  if (a.end_date === null) return b.end_date !== null;
-  return b.end_date !== null && a.end_date > b.end_date;
-}
-
-function latestEnding(memberships: Membership[]): Membership | null {
-  let best: Membership | null = null;
-  for (const m of memberships) {
-    if (best === null || endsLater(m, best)) best = m;
-  }
-  return best;
-}
 
 /** The contact's memberships, or null if TidyHQ doesn't have the contact. */
 async function findMemberships(
@@ -71,11 +64,10 @@ async function levelName(client: TidyClient, levelId: string): Promise<string> {
 }
 
 /**
- * What the member status page shows. Read-only. Only memberships that count
- * (not pending or cancelled, already started) are considered. The shown one
- * is the active one ending latest; with none active, the one that ended most
- * recently, so expired members still see their last level. No counted
- * membership is `not_member`.
+ * What the member status page shows. Read-only. Uses `membershipStanding`,
+ * the same rule check-in uses: the counted membership with the latest end
+ * date (not pending or cancelled, already started). Expired members still
+ * see their last level. No counted membership is `not_member`.
  */
 export async function getMemberSummary(
   client: TidyClient,
@@ -87,25 +79,33 @@ export async function getMemberSummary(
   ]);
   if (!contact || !memberships) return { status: "unknown_contact" };
 
-  const today = seattleDate(now);
-  const counted = memberships.filter((m) => countsAsMembership(m, today));
-  const active = counted.filter((m) => isActiveMembership(m, today));
-  const shown = latestEnding(active) ?? latestEnding(counted);
-  if (!shown) {
+  const standing = membershipStanding(memberships, now);
+  if (standing.kind === "none") {
     return {
       status: "not_member",
       name: contact.display_name,
       points: readPoints(contact),
     };
   }
+  const shown = standing.membership;
   const level = await levelName(client, shown.membership_level_id);
 
-  const membership =
-    active.length === 0
-      ? "expired"
-      : isRenewalDue(shown.end_date, now)
-        ? "renew_soon"
-        : "active";
+  let membership: "active" | "renew_soon" | "balance_due" | "grace" | "expired";
+  switch (standing.kind) {
+    case "current":
+      membership = standing.balanceDue
+        ? "balance_due"
+        : isRenewalDue(standing.endsOn, now)
+          ? "renew_soon"
+          : "active";
+      break;
+    case "grace":
+      membership = "grace";
+      break;
+    case "lapsed":
+      membership = "expired";
+      break;
+  }
 
   return {
     status: "ok",
@@ -113,6 +113,7 @@ export async function getMemberSummary(
     level,
     membershipEndsOn: shown.end_date,
     membership,
+    notice: membershipNotice(standing),
     points: readPoints(contact),
   };
 }

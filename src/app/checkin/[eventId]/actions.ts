@@ -83,7 +83,11 @@ function tapOutcome(
 ): TapOutcome | null {
   switch (result.status) {
     case "checked_in":
-      return { kind: "awarded", points: result.pointsAwarded };
+      return {
+        kind: "awarded",
+        points: result.pointsAwarded,
+        membershipNotice: result.membershipNotice,
+      };
     case "already_checked_in":
       return { kind: "repeat" };
     case "point_not_saved":

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, seattleDate, seattleTimeLabel } from "./dates";
+import { addDays, dateLabel, seattleDate, seattleTimeLabel } from "./dates";
 
 describe("seattleDate", () => {
   it("returns the Seattle calendar date as YYYY-MM-DD", () => {
@@ -57,5 +57,13 @@ describe("seattleTimeLabel", () => {
     expect(seattleTimeLabel(new Date("2026-10-13T07:05:00Z"))).toBe(
       "Tuesday, October 13 at 12:05 AM",
     );
+  });
+});
+
+describe("dateLabel", () => {
+  it("writes a calendar date out for members", () => {
+    expect(dateLabel("2026-09-22")).toBe("September 22, 2026");
+    expect(dateLabel("2027-01-05")).toBe("January 5, 2027");
+    expect(dateLabel("2026-12-31")).toBe("December 31, 2026");
   });
 });

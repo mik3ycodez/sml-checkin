@@ -42,6 +42,7 @@ describe("getMemberSummary", () => {
       level: "Full Member",
       membershipEndsOn: "2027-03-26",
       membership: "active",
+      notice: null,
       points: 0,
     });
   });
@@ -138,7 +139,7 @@ describe("getMemberSummary", () => {
       name: "Lee Hart",
       level: "Full Member",
       membership: "expired",
-      membershipEndsOn: "2026-09-02",
+      membershipEndsOn: "2026-07-14",
     });
   });
 
@@ -221,7 +222,7 @@ describe("getMemberSummary", () => {
           contact_id: "c_lee",
           membership_level_id: "lvl_associate",
           state: "expired",
-          end_date: "2026-09-01",
+          end_date: "2026-07-01",
         }),
       ];
     });
@@ -231,8 +232,95 @@ describe("getMemberSummary", () => {
     });
     expect(result).toMatchObject({
       level: "Associate Member",
-      membershipEndsOn: "2026-09-01",
+      membershipEndsOn: "2026-07-01",
       membership: "expired",
+    });
+  });
+
+  describe("grace period and balance due", () => {
+    const withMembership = (overrides: Partial<Membership>) =>
+      seededClient((seed) => {
+        seed.memberships = [
+          extraMembership({
+            id: "m_edge",
+            contact_id: "c_dante",
+            ...overrides,
+          }),
+        ];
+      });
+    const summary = (client: MockTidyClient) =>
+      getMemberSummary(client, { contactId: "c_dante", now: NOW });
+
+    it("shows a member in the grace period the dates to renew by", async () => {
+      const result = await getMemberSummary(seededClient(), {
+        contactId: "c_robin",
+        now: NOW,
+      });
+      expect(result).toMatchObject({
+        status: "ok",
+        name: "Robin Vale",
+        membership: "grace",
+        membershipEndsOn: "2026-09-22",
+        notice: {
+          kind: "grace",
+          expiredOn: "2026-09-22",
+          renewBy: "2026-11-21",
+        },
+      });
+    });
+
+    it("is grace exactly 60 days past the end date, expired 61 days past", async () => {
+      const at60 = await summary(
+        withMembership({ state: "expired", end_date: "2026-08-13" }),
+      );
+      const at61 = await summary(
+        withMembership({ state: "expired", end_date: "2026-08-12" }),
+      );
+      expect(at60).toMatchObject({ membership: "grace" });
+      expect(at61).toMatchObject({ membership: "expired", notice: null });
+    });
+
+    it("is grace for a still-activated membership past its end date", async () => {
+      const result = await summary(
+        withMembership({ state: "activated", end_date: "2026-10-01" }),
+      );
+      expect(result).toMatchObject({ membership: "grace" });
+    });
+
+    it("shows a balance due for a partial membership with a future end date", async () => {
+      const result = await getMemberSummary(seededClient(), {
+        contactId: "c_avery",
+        now: NOW,
+      });
+      expect(result).toMatchObject({
+        status: "ok",
+        name: "Avery Quinn",
+        membership: "balance_due",
+        notice: { kind: "balance_due" },
+      });
+    });
+
+    it("puts the balance due ahead of the renewal reminder", async () => {
+      const result = await summary(
+        withMembership({
+          state: "partial",
+          status: "Partial",
+          end_date: "2026-10-26",
+        }),
+      );
+      expect(result).toMatchObject({
+        membership: "balance_due",
+        membershipEndsOn: "2026-10-26",
+      });
+    });
+
+    it("has no notice for a plain active member or a renewal reminder", async () => {
+      expect(await summary(seededClient())).toMatchObject({ notice: null });
+      const sam = await getMemberSummary(seededClient(), {
+        contactId: "c_sam",
+        now: NOW,
+      });
+      expect(sam).toMatchObject({ membership: "renew_soon", notice: null });
     });
   });
 
@@ -305,7 +393,7 @@ describe("getMemberSummary", () => {
     expect(result).toMatchObject({
       level: "Full Member",
       membership: "expired",
-      membershipEndsOn: "2026-09-02",
+      membershipEndsOn: "2026-07-14",
     });
   });
 
@@ -335,7 +423,7 @@ describe("getMemberSummary", () => {
     expect(result).toMatchObject({
       level: "Full Member",
       membership: "expired",
-      membershipEndsOn: "2026-09-02",
+      membershipEndsOn: "2026-07-14",
     });
   });
 
@@ -347,7 +435,7 @@ describe("getMemberSummary", () => {
           contact_id: "c_lee",
           membership_level_id: "lvl_full",
           state: "expired",
-          end_date: "2026-09-01",
+          end_date: "2026-07-01",
         }),
         extraMembership({
           id: "m_cancelled_open",
@@ -365,7 +453,7 @@ describe("getMemberSummary", () => {
     expect(result).toMatchObject({
       level: "Full Member",
       membership: "expired",
-      membershipEndsOn: "2026-09-01",
+      membershipEndsOn: "2026-07-01",
     });
   });
 
