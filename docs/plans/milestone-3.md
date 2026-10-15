@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 9 done (#12 to #20); PR 10 (recent events) in review.
+**Status:** In progress. PRs 1 to 9 done (#12 to #20); PR 10 (recent events) in review (#21).
 
 ## Context
 
@@ -326,7 +326,7 @@ rewardId): boolean | null`. It's the only place that knows the field's
   reaches 18 and sees "You qualify for club colors!"; a reload doesn't
   repeat it.
 
-### PR 10: Recent events 🔍 In review
+### PR 10: Recent events 🔍 In review (#21)
 
 - `src/lib/member/recentEvents.ts`: `getRecentEvents(client, { contactId,
 now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
