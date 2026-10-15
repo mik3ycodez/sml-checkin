@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 8 done (#12 to #19); PR 9 (club colors reward) in review (#20).
+**Status:** In progress. PRs 1 to 9 done (#12 to #20); PR 10 (recent events) in review.
 
 ## Context
 
@@ -282,7 +282,7 @@ Steps (test-first):
   mid-check-in.
 - Playwright: grace and balance-due check-ins.
 
-### PR 9: Rewards: club colors (test-first) 🔍 In review (#20)
+### PR 9: Rewards: club colors (test-first) ✅ Done (#20)
 
 - `src/lib/points.ts`, next to `POINTS_PER_CHECKIN`: `REWARDS`, a list of
   `{ id: "club_colors", name: "club colors", pointsRequired: 18 }`. Only
@@ -326,15 +326,16 @@ rewardId): boolean | null`. It's the only place that knows the field's
   reaches 18 and sees "You qualify for club colors!"; a reload doesn't
   repeat it.
 
-### PR 10: Recent events
+### PR 10: Recent events 🔍 In review
 
 - `src/lib/member/recentEvents.ts`: `getRecentEvents(client, { contactId,
 now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
   `listEvents({ after, before: now })`. For each one it calls
-  `resolveEventGroup` and reads the group in parallel, keeps the events the
+  `findEventGroup` and reads the group in parallel, keeps the events the
   member is in, newest first, and returns at most 5 (`{ id, name, startAt
 }`).
-- Shares `readAttendance`'s "is this contact in the group" check, so
+- Shares `readAttendance`'s "is this contact in the group" check (now the
+  exported `isInGroup`), so
   check-in and `/me` agree.
 - Unmapped events are skipped. A failed group read fails the whole
   section, not the page: the page shows "Couldn't load recent events".

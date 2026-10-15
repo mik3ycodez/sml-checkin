@@ -122,9 +122,21 @@ export async function findEvent(
 }
 
 /**
+ * Whether the contact is in the event's attendance group. The one place that
+ * decides "already checked in"; `/me`'s recent events use it too.
+ */
+export async function isInGroup(
+  client: TidyClient,
+  groupId: string,
+  contactId: string,
+): Promise<boolean> {
+  const attendees = await client.listGroupContacts(groupId);
+  return attendees.some((c) => c.id === contactId);
+}
+
+/**
  * The member's contact (with their stored points) and whether they're in the
- * event's attendance group, or null if the contact is gone. The one place
- * that decides "already checked in".
+ * event's attendance group (`isInGroup`), or null if the contact is gone.
  *
  * The contact is read before the group, never alongside it. Otherwise an
  * overlapping check-in could land between the two reads: this request would
@@ -137,8 +149,7 @@ export async function readAttendance(
 ): Promise<{ contact: Contact; checkedIn: boolean } | null> {
   const contact = await findContact(client, contactId);
   if (!contact) return null;
-  const attendees = await client.listGroupContacts(groupId);
-  return { contact, checkedIn: attendees.some((c) => c.id === contactId) };
+  return { contact, checkedIn: await isInGroup(client, groupId, contactId) };
 }
 
 /**
