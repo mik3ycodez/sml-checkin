@@ -44,19 +44,20 @@ export function problemPath(eventId: string): string {
 
 /**
  * Who's signed in, with a way to switch members on a shared phone. A plain
- * form post (sign-out refuses GETs), returning to this event's check-in page,
- * which sends the next member straight to sign-in.
+ * form post (sign-out refuses GETs), returning to `returnTo`: the page the
+ * member was on, which sends the next member straight to sign-in.
  */
 export function SignedInAs({
   name,
-  eventId,
+  returnTo,
 }: {
   name: string;
-  eventId: string;
+  /** The page to land on after signing out (it sends the next member to sign in). */
+  returnTo: string;
 }) {
   return (
     <form method="post" action="/auth/signout" className="text-foreground/70">
-      <input type="hidden" name="returnTo" value={checkinPath(eventId)} />
+      <input type="hidden" name="returnTo" value={returnTo} />
       Signed in as {name}.{" "}
       <span className="whitespace-nowrap">
         Not you?{" "}
@@ -93,7 +94,9 @@ export function StatusScreen({
   if (status.status === "unknown_event") return <UnknownEvent />;
 
   const event = eventTitle(status.eventName);
-  const signedInAs = <SignedInAs name={status.name} eventId={eventId} />;
+  const signedInAs = (
+    <SignedInAs name={status.name} returnTo={checkinPath(eventId)} />
+  );
   switch (status.status) {
     case "already_checked_in":
       return (
@@ -161,7 +164,7 @@ function CheckedIn({
   event,
   notice,
   now,
-  signedInAs,
+  signedInAs: signedInAsOnly,
 }: {
   status: Extract<ShownStatus, { status: "already_checked_in" }>;
   event: string;
@@ -169,6 +172,12 @@ function CheckedIn({
   now: Date;
   signedInAs: ReactNode;
 }) {
+  const signedInAs = (
+    <>
+      <PointsLink />
+      {signedInAsOnly}
+    </>
+  );
   switch (notice?.kind) {
     case "awarded":
       return (
@@ -217,6 +226,15 @@ function CheckedIn({
         </Screen>
       );
   }
+}
+
+/** From a check-in screen to the member's status page. */
+function PointsLink() {
+  return (
+    <a href="/me" className={SECONDARY}>
+      See your points
+    </a>
+  );
 }
 
 /** A balance-due or grace-period message, linking to SML's TidyHQ to act on it. */

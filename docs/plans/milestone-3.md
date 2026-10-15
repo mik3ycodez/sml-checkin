@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 9 done (#12 to #20); PR 10 (recent events) in review (#21).
+**Status:** Complete in 0.3.0. PRs 1 to 10 done (#12 to #21); PR 11 (the `/me` page) in review.
 
 ## Context
 
@@ -326,7 +326,7 @@ rewardId): boolean | null`. It's the only place that knows the field's
   reaches 18 and sees "You qualify for club colors!"; a reload doesn't
   repeat it.
 
-### PR 10: Recent events 🔍 In review (#21)
+### PR 10: Recent events ✅ Done (#21)
 
 - `TidyClient.listContactGroups(contactId)` (`GET /v1/contacts/{id}/groups`):
   every group the contact is in, event or not, **archived ones included**
@@ -358,7 +358,7 @@ now })` makes two requests in parallel: `listEvents` and
   read, one groups read, no group reads), and a read failing. `dates.ts` gets
   `seattleStartOfDay` tests.
 
-### PR 11: `/me` page
+### PR 11: `/me` page 🔍 In review
 
 - `src/app/me/page.tsx` (Server Component, rendered fully on the server
   like the check-in pages now do: no `<Suspense>` and no `loading.tsx`, per
