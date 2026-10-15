@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 7 done (#12 to #18); PR 8 (grace period and Partial status) in review (#19).
+**Status:** In progress. PRs 1 to 8 done (#12 to #19); PR 9 (club colors reward) in review (#20).
 
 ## Context
 
@@ -233,7 +233,7 @@ Steps (test-first):
   `expired`, now come from `membershipStanding`, with a 60-day grace
   period.)_
 
-### PR 8: Membership grace period and Partial status 🔍 In review (#19)
+### PR 8: Membership grace period and Partial status ✅ Done (#19)
 
 SML policy, for check-in and `/me` alike. Pending and cancelled memberships
 never count. Use the counted membership with the **latest end date**, then:
@@ -282,7 +282,7 @@ Steps (test-first):
   mid-check-in.
 - Playwright: grace and balance-due check-ins.
 
-### PR 9: Rewards: club colors (test-first)
+### PR 9: Rewards: club colors (test-first) 🔍 In review (#20)
 
 - `src/lib/points.ts`, next to `POINTS_PER_CHECKIN`: `REWARDS`, a list of
   `{ id: "club_colors", name: "club colors", pointsRequired: 18 }`. Only
@@ -302,9 +302,18 @@ rewardId): boolean | null`. It's the only place that knows the field's
 - Seed: add the issued field to contacts, plus two new members: one with
   18 points and colors not issued (qualified), and one with 25 points and
   colors issued.
-- `getMemberSummary` gains `rewards: { reward, status }[]`.
-- `CLAUDE.md`: add a "Rewards" key decision covering club colors at 18
-  points, display-only, and the issued field read from TidyHQ.
+- `getMemberSummary` gains `rewards: { reward, status, message }[]`. The
+  message depends on membership standing (`rewardStanding`): colors need a
+  current, fully paid membership. Qualified and current: "You qualify for club
+  colors! A Board member will connect with you to distribute your club
+  colors." Grace or lapsed: renew first. Balance due: complete payment first.
+  Under 18: "X more points until you qualify for club colors." Issued: "Club
+  colors issued."
+- Check-in: `already_checked_in` carries `rewards`. The confirmation shows the
+  qualified message only when that tap's point brought the member to 18
+  (`newlyQualified`); the standing comes from the tap notice (none = current).
+- `CLAUDE.md`: "Rewards" and "colors need a current, fully paid membership"
+  key decisions.
 - Tests: 0, 17, 18 and 30 points not issued; issued at 25 and at 10; an
   unreadable issued field; unreadable points.
 
