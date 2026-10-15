@@ -253,7 +253,7 @@ Messages (on the check-in confirmation and on `/me`'s summary):
 
 - **Partial with a future end date:** "You have a balance due. Complete
   payment in TidyHQ." Takes priority over the renewal reminder.
-- **Grace period:** "Your membership expired on [end date]. Renew by [end date + 60 days] to keep earning points." With the renew link.
+- **Grace period:** "Your membership expired on [end date]. Renew by [end date + 60 days] to keep earning points." With the renew link. When the end date is today: "Your membership ends today. Renew by [today + 60 days] to keep earning points."
 
 Steps (test-first):
 
@@ -265,7 +265,7 @@ Steps (test-first):
   an unreadable end date) never outranks a sound membership, is logged
   (`logInconsistentMemberships`, contact and membership ids only), and on its
   own is refused. Flagging it for admins goes in milestone 4.
-  `membershipNotice(standing)` and `membershipNoticeText(notice)` give the
+  `membershipNotice(standing)` and `membershipNoticeText(notice, now)` give the
   two messages.
 - `checkIn.ts`: `assessCheckIn` accepts `current` and `grace`.
   `ready` and `checked_in` carry `membershipNotice`.
@@ -337,7 +337,8 @@ now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
   - `renew_soon`: "Your membership ends on <date>", plus a renew link from
     `tidyhqSiteUrl()`.
   - `grace`: "Your membership expired on <date>. Renew by <date + 60 days> to
-    keep earning points." plus the renew link. (`membershipNoticeText`.)
+    keep earning points." (or "ends today" when the date is today) plus the
+    renew link. (`membershipNoticeText(notice, now)`.)
   - `expired`: an expired message plus the renew link.
 - Club colors, one of:
   - "X more points until you qualify for club colors"

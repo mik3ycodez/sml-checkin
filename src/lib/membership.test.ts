@@ -5,6 +5,7 @@ import {
   findInconsistentMemberships,
   isRenewalDue,
   membershipNotice,
+  membershipNoticeText,
   membershipStanding,
   RENEWAL_REMINDER_DAYS,
 } from "./membership";
@@ -434,5 +435,43 @@ describe("findInconsistentMemberships", () => {
         membership("pending", null),
       ),
     ).toEqual([]);
+  });
+});
+
+describe("membershipNoticeText", () => {
+  const grace = (expiredOn: string, renewBy: string) =>
+    ({ kind: "grace", expiredOn, renewBy }) as const;
+
+  it("says the balance is due", () => {
+    expect(membershipNoticeText({ kind: "balance_due" }, NOW)).toBe(
+      "You have a balance due. Complete payment in TidyHQ.",
+    );
+  });
+
+  it("says when a past membership expired", () => {
+    expect(membershipNoticeText(grace("2026-10-11", "2026-12-10"), NOW)).toBe(
+      "Your membership expired on October 11, 2026. Renew by December 10, 2026 to keep earning points.",
+    );
+  });
+
+  it("says the membership ends today when the end date is today", () => {
+    expect(membershipNoticeText(grace("2026-10-12", "2026-12-11"), NOW)).toBe(
+      "Your membership ends today. Renew by December 11, 2026 to keep earning points.",
+    );
+  });
+
+  it("decides 'today' by the Seattle date, not the UTC date", () => {
+    // 03:00 UTC on the 13th is still the 12th in Seattle.
+    const lateEvening = new Date("2026-10-13T03:00:00Z");
+    expect(
+      membershipNoticeText(grace("2026-10-12", "2026-12-11"), lateEvening),
+    ).toContain("ends today");
+    // ...and the next morning it has expired.
+    expect(
+      membershipNoticeText(
+        grace("2026-10-12", "2026-12-11"),
+        new Date("2026-10-13T18:00:00Z"),
+      ),
+    ).toContain("expired on October 12, 2026");
   });
 });

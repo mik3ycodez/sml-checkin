@@ -36,9 +36,13 @@ function text(html: string): string {
     .trim();
 }
 
-function render(status: ShownStatus, notice: TapOutcome | null = null) {
+function render(
+  status: ShownStatus,
+  notice: TapOutcome | null = null,
+  now?: Date,
+) {
   const html = renderToStaticMarkup(
-    createElement(StatusScreen, { status, eventId: "ev_tonight", notice }),
+    createElement(StatusScreen, { status, eventId: "ev_tonight", notice, now }),
   );
   return { html, text: text(html) };
 }
@@ -97,6 +101,26 @@ describe("StatusScreen", () => {
       expect(html).toMatch(
         /<a[^>]*href="https:\/\/sml\.tidyhq\.com"[^>]*>Renew/,
       );
+    });
+
+    it("says the membership ends today when it ends today", () => {
+      const { text } = render(
+        CHECKED_IN,
+        {
+          kind: "awarded",
+          points: 1,
+          membershipNotice: {
+            kind: "grace",
+            expiredOn: "2026-10-12",
+            renewBy: "2026-12-11",
+          },
+        },
+        new Date("2026-10-12T18:00:00Z"),
+      );
+      expect(text).toContain(
+        "Your membership ends today. Renew by December 11, 2026 to keep earning points.",
+      );
+      expect(text).not.toContain("expired on");
     });
 
     it("still shows the notice when the point didn't save", () => {

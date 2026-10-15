@@ -191,13 +191,24 @@ export function membershipNotice(
   return null;
 }
 
-/** What members read for a notice. Pages add the TidyHQ link. */
-export function membershipNoticeText(notice: MembershipNotice): string {
+/**
+ * What members read for a notice, as of `now`: a membership ending today says
+ * so, since "expired" would be early. Pages add the TidyHQ link.
+ */
+export function membershipNoticeText(
+  notice: MembershipNotice,
+  now: Date,
+): string {
   switch (notice.kind) {
     case "balance_due":
       return "You have a balance due. Complete payment in TidyHQ.";
-    case "grace":
-      return `Your membership expired on ${dateLabel(notice.expiredOn)}. Renew by ${dateLabel(notice.renewBy)} to keep earning points.`;
+    case "grace": {
+      const status =
+        notice.expiredOn === seattleDate(now)
+          ? "ends today"
+          : `expired on ${dateLabel(notice.expiredOn)}`;
+      return `Your membership ${status}. Renew by ${dateLabel(notice.renewBy)} to keep earning points.`;
+    }
   }
 }
 
