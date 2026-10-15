@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { hasActiveMembership } from "./membership";
+import {
+  hasActiveMembership,
+  isRenewalDue,
+  RENEWAL_REMINDER_DAYS,
+} from "./membership";
 import type { Membership, MembershipState } from "./tidyhq";
 
 // 18:00 UTC is 11am in Seattle, so the Seattle date is 2026-10-12.
@@ -120,5 +124,22 @@ describe("hasActiveMembership", () => {
     expect(
       hasActiveMembership([membership("activated", "2026-10-11")], NOW),
     ).toBe(false);
+  });
+});
+
+describe("isRenewalDue", () => {
+  it("is false for an open-ended membership", () => {
+    expect(isRenewalDue(null, NOW)).toBe(false);
+  });
+
+  it("is true up to RENEWAL_REMINDER_DAYS out, false a day later", () => {
+    // NOW is 2026-10-12 in Seattle; 30 days later is 2026-11-11.
+    expect(RENEWAL_REMINDER_DAYS).toBe(30);
+    expect(isRenewalDue("2026-11-11", NOW)).toBe(true);
+    expect(isRenewalDue("2026-11-12", NOW)).toBe(false);
+  });
+
+  it("is true on the end date itself", () => {
+    expect(isRenewalDue("2026-10-12", NOW)).toBe(true);
   });
 });
