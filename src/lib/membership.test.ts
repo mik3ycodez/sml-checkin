@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  countsAsMembership,
   hasActiveMembership,
+  isActiveMembership,
   isRenewalDue,
   RENEWAL_REMINDER_DAYS,
 } from "./membership";
@@ -124,6 +126,79 @@ describe("hasActiveMembership", () => {
     expect(
       hasActiveMembership([membership("activated", "2026-10-11")], NOW),
     ).toBe(false);
+  });
+});
+
+describe("isActiveMembership", () => {
+  const TODAY = "2026-10-12";
+
+  it("is true for an activated or partial membership within its dates", () => {
+    expect(
+      isActiveMembership(membership("activated", "2027-01-01"), TODAY),
+    ).toBe(true);
+    expect(isActiveMembership(membership("partial", "2027-01-01"), TODAY)).toBe(
+      true,
+    );
+  });
+
+  it("is false after the end date or before the start date", () => {
+    expect(
+      isActiveMembership(membership("activated", "2026-10-11"), TODAY),
+    ).toBe(false);
+    expect(
+      isActiveMembership(
+        membership("activated", "2027-11-01", "2026-10-13"),
+        TODAY,
+      ),
+    ).toBe(false);
+  });
+
+  it("is false for expired, pending or cancelled states", () => {
+    for (const state of ["expired", "pending", "cancelled"] as const) {
+      expect(isActiveMembership(membership(state, "2027-01-01"), TODAY)).toBe(
+        false,
+      );
+    }
+  });
+});
+
+describe("countsAsMembership", () => {
+  const TODAY = "2026-10-12";
+
+  it("counts active and expired memberships", () => {
+    expect(
+      countsAsMembership(membership("activated", "2027-01-01"), TODAY),
+    ).toBe(true);
+    expect(countsAsMembership(membership("expired", "2026-09-01"), TODAY)).toBe(
+      true,
+    );
+  });
+
+  it("doesn't count pending or cancelled memberships", () => {
+    expect(countsAsMembership(membership("pending", "2027-01-01"), TODAY)).toBe(
+      false,
+    );
+    expect(
+      countsAsMembership(membership("cancelled", "2027-01-01"), TODAY),
+    ).toBe(false);
+  });
+
+  it("doesn't count a membership that hasn't started", () => {
+    expect(
+      countsAsMembership(
+        membership("activated", "2027-11-01", "2026-11-01"),
+        TODAY,
+      ),
+    ).toBe(false);
+  });
+
+  it("counts one starting today or with no start date", () => {
+    expect(
+      countsAsMembership(membership("activated", "2027-10-12", TODAY), TODAY),
+    ).toBe(true);
+    expect(countsAsMembership(membership("activated", null, null), TODAY)).toBe(
+      true,
+    );
   });
 });
 

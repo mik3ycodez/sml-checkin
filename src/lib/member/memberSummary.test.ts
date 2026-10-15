@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { POINTS_FIELD_ID } from "../tidyhq/customFields";
+import { TidyError } from "../tidyhq/errors";
 import { MockTidyClient } from "../tidyhq/mock/MockTidyClient";
 import { createSeed, type MockSeed } from "../tidyhq/mock/seed";
 import type { Membership } from "../tidyhq/types";
-import { getMemberSummary } from "./memberSummary";
+import { getMemberSummary, UNKNOWN_LEVEL_NAME } from "./memberSummary";
 
 // 18:00 UTC is 11am in Seattle, so the Seattle date is 2026-10-12.
 const NOW = new Date("2026-10-12T18:00:00Z");
@@ -285,10 +286,179 @@ describe("getMemberSummary", () => {
     expect(result).toEqual({ status: "unknown_contact" });
   });
 
+  it("ignores a not-yet-started membership when deciding expired", async () => {
+    const client = seededClient((seed) => {
+      seed.memberships.push(
+        extraMembership({
+          id: "m_future",
+          contact_id: "c_lee",
+          membership_level_id: "lvl_associate",
+          start_date: "2026-11-01",
+          end_date: "2027-11-01",
+        }),
+      );
+    });
+    const result = await getMemberSummary(client, {
+      contactId: "c_lee",
+      now: NOW,
+    });
+    expect(result).toMatchObject({
+      level: "Full Member",
+      membership: "expired",
+      membershipEndsOn: "2026-09-02",
+    });
+  });
+
+  it("ignores pending and cancelled memberships when none is active", async () => {
+    const client = seededClient((seed) => {
+      seed.memberships.push(
+        extraMembership({
+          id: "m_cancelled",
+          contact_id: "c_lee",
+          membership_level_id: "lvl_associate",
+          state: "cancelled",
+          end_date: "2030-01-01",
+        }),
+        extraMembership({
+          id: "m_pending",
+          contact_id: "c_lee",
+          membership_level_id: "lvl_associate",
+          state: "pending",
+          end_date: "2027-10-12",
+        }),
+      );
+    });
+    const result = await getMemberSummary(client, {
+      contactId: "c_lee",
+      now: NOW,
+    });
+    expect(result).toMatchObject({
+      level: "Full Member",
+      membership: "expired",
+      membershipEndsOn: "2026-09-02",
+    });
+  });
+
+  it("doesn't let an open-ended cancelled membership beat a real expired one", async () => {
+    const client = seededClient((seed) => {
+      seed.memberships = [
+        extraMembership({
+          id: "m_expired",
+          contact_id: "c_lee",
+          membership_level_id: "lvl_full",
+          state: "expired",
+          end_date: "2026-09-01",
+        }),
+        extraMembership({
+          id: "m_cancelled_open",
+          contact_id: "c_lee",
+          membership_level_id: "lvl_associate",
+          state: "cancelled",
+          end_date: null,
+        }),
+      ];
+    });
+    const result = await getMemberSummary(client, {
+      contactId: "c_lee",
+      now: NOW,
+    });
+    expect(result).toMatchObject({
+      level: "Full Member",
+      membership: "expired",
+      membershipEndsOn: "2026-09-01",
+    });
+  });
+
+  it("returns not_member when the only memberships are pending or cancelled", async () => {
+    const client = seededClient((seed) => {
+      seed.memberships = [
+        extraMembership({ id: "m_p", contact_id: "c_dante", state: "pending" }),
+        extraMembership({
+          id: "m_c",
+          contact_id: "c_dante",
+          state: "cancelled",
+        }),
+      ];
+    });
+    const result = await getMemberSummary(client, {
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(result).toEqual({
+      status: "not_member",
+      name: "Dante Ruiz",
+      points: 0,
+    });
+  });
+
+  it("uses a generic level name if TidyHQ no longer has the level", async () => {
+    const client = seededClient((seed) => {
+      seed.membershipLevels = seed.membershipLevels.filter(
+        (l) => l.id !== "lvl_full",
+      );
+    });
+    const result = await getMemberSummary(client, {
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(result).toMatchObject({
+      status: "ok",
+      level: UNKNOWN_LEVEL_NAME,
+      membership: "active",
+    });
+  });
+
+  it("lets other errors reading the level through", async () => {
+    const client = seededClient();
+    client.getMembershipLevel = async () => {
+      throw new TidyError(503, "TidyHQ unavailable");
+    };
+    await expect(
+      getMemberSummary(client, { contactId: "c_dante", now: NOW }),
+    ).rejects.toBeInstanceOf(TidyError);
+  });
+
+  it("returns unknown_contact if the memberships read finds no contact", async () => {
+    const client = seededClient();
+    client.getMemberships = async () => {
+      throw new TidyError(404, "Contact c_dante not found");
+    };
+    const result = await getMemberSummary(client, {
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(result).toEqual({ status: "unknown_contact" });
+  });
+
+  it("reads the contact and memberships at the same time", async () => {
+    const client = seededClient();
+    let releaseContact!: () => void;
+    const contactRead = client.getContact.bind(client);
+    client.getContact = (id) =>
+      new Promise((resolve) => {
+        releaseContact = () => resolve(contactRead(id));
+      });
+    const membershipsRead = vi.spyOn(client, "getMemberships");
+    const pending = getMemberSummary(client, {
+      contactId: "c_dante",
+      now: NOW,
+    });
+    await Promise.resolve();
+    expect(membershipsRead).toHaveBeenCalled();
+    releaseContact();
+    expect(await pending).toMatchObject({ status: "ok" });
+  });
+
   it("changes nothing in TidyHQ", async () => {
     const client = seededClient();
+    const writes = [
+      vi.spyOn(client, "updateContact"),
+      vi.spyOn(client, "addNote"),
+      vi.spyOn(client, "addContactToGroup"),
+    ];
     const before = JSON.stringify(await client.getContact("c_sam"));
     await getMemberSummary(client, { contactId: "c_sam", now: NOW });
     expect(JSON.stringify(await client.getContact("c_sam"))).toBe(before);
+    for (const write of writes) expect(write).not.toHaveBeenCalled();
   });
 });

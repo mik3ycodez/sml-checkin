@@ -2,6 +2,7 @@ import { hasActiveMembership } from "../membership";
 import { POINTS_PER_CHECKIN, type CheckInMethod } from "../points";
 import { getCheckinWindow, isCheckinOpen } from "../tidyhq/checkinWindow";
 import type { TidyClient } from "../tidyhq/client";
+import { findContact } from "../tidyhq/contacts";
 import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
 import { isTidyError, type TidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
@@ -95,19 +96,6 @@ export async function findEvent(
   }
   const groupId = findEventGroup(event);
   return groupId ? { event, groupId } : null;
-}
-
-/** The contact, or null if TidyHQ doesn't have it. */
-export async function findContact(
-  client: TidyClient,
-  contactId: string,
-): Promise<Contact | null> {
-  try {
-    return await client.getContact(contactId);
-  } catch (error) {
-    if (isTidyError(error, 404)) return null;
-    throw error;
-  }
 }
 
 /**
