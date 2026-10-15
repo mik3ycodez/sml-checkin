@@ -212,15 +212,18 @@ Steps (test-first):
   returns one of:
   - `ok { name, level, membershipEndsOn, membership: "active" |
 "renew_soon" | "expired", points: number | null }`
-  - `not_member { name, points }` (no membership of any kind on record; `/me`
+  - `not_member { name, points }` (no counted membership on record; `/me`
     shows a "become a member" message linking to SML's TidyHQ)
   - `unknown_contact` (the session's contact is gone; sign in again, as on
     the check-in page)
-- Level: the active membership with the latest end date, then
-  `getMembershipLevel`. Expired members still see their last level.
+- Only memberships that count (not pending or cancelled, already started;
+  `countsAsMembership`) are considered. Level: the active one with the
+  latest end date, else the most recently ended, then `getMembershipLevel`
+  (a deleted level shows "Member"). Expired members still see their last
+  level.
 - Renewal reminder: `renew_soon` within `RENEWAL_REMINDER_DAYS` (30, a
-  constant in `membership.ts`) of the end date. Reuse
-  `hasActiveMembership` and the Seattle date helper.
+  constant in `membership.ts`) of the end date. Uses `isActiveMembership`
+  and the Seattle date helper.
 - Points: `readPoints`. `null` (unreadable) is passed through for the page
   to explain.
 - Tests: Dante (active), Sam (ends in two weeks → `renew_soon`), Lee
