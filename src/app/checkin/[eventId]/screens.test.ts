@@ -99,6 +99,15 @@ describe("StatusScreen", () => {
       );
     });
 
+    it("still shows the notice when the point didn't save", () => {
+      const { text } = render(CHECKED_IN, {
+        kind: "point_not_saved",
+        membershipNotice: { kind: "balance_due" },
+      });
+      expect(text).toContain("You're checked in, but your point didn't save");
+      expect(text).toContain("You have a balance due.");
+    });
+
     it("shows no notice for a paid-up member", () => {
       const { text } = render(CHECKED_IN, { kind: "awarded", points: 1 });
       expect(text).not.toContain("balance due");

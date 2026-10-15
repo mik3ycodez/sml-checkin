@@ -241,6 +241,16 @@ describe("checkInAction", () => {
       expect(sessionReissued()).toBe(true);
     });
 
+    it("keeps a grace-period member's renewal message when the point didn't save", async () => {
+      signInAs("c_robin");
+      failPointsWrite();
+      await submit("ev_tonight");
+      expect(tapNotice("ev_tonight", "c_robin")).toMatchObject({
+        kind: "point_not_saved",
+        membershipNotice: { kind: "grace" },
+      });
+    });
+
     it("logs the event, member, failed step and TidyHQ's error", async () => {
       signInAs("c_dante");
       failPointsWrite();

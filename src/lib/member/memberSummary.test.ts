@@ -324,6 +324,60 @@ describe("getMemberSummary", () => {
     });
   });
 
+  it("shows a later-dated expired-state row as the end date of the good membership, not its own", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = seededClient((seed) => {
+      seed.memberships = [
+        extraMembership({
+          id: "m_good",
+          contact_id: "c_dante",
+          end_date: "2027-03-01",
+        }),
+        extraMembership({
+          id: "m_bad",
+          contact_id: "c_dante",
+          state: "expired",
+          end_date: null,
+        }),
+      ];
+    });
+    const result = await getMemberSummary(client, {
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(result).toMatchObject({
+      membership: "active",
+      membershipEndsOn: "2027-03-01",
+    });
+    expect(warn).toHaveBeenCalledWith("inconsistent membership record", {
+      contactId: "c_dante",
+      membershipId: "m_bad",
+      problem: "expired_not_ended",
+    });
+    warn.mockRestore();
+  });
+
+  it("shows a timestamp end date as a plain date", async () => {
+    const client = seededClient((seed) => {
+      seed.memberships = [
+        extraMembership({
+          id: "m_ts",
+          contact_id: "c_dante",
+          state: "expired",
+          end_date: "2026-09-22T00:00:00Z",
+        }),
+      ];
+    });
+    const result = await getMemberSummary(client, {
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(result).toMatchObject({
+      membership: "grace",
+      membershipEndsOn: "2026-09-22",
+    });
+  });
+
   it("returns not_member when TidyHQ has no membership on record", async () => {
     const client = seededClient((seed) => {
       seed.memberships = [];

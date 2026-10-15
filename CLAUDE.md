@@ -67,6 +67,11 @@ system of record; this app is a thin layer on top of it.
   partial membership with a future end date says "You have a balance due.
   Complete payment in TidyHQ." (it beats the renewal reminder); the grace
   period says when it expired and the date to renew by.
+- An `expired` membership with a future or missing end date shouldn't occur
+  (ending early in TidyHQ is "cancelled"), so it's a data inconsistency: it
+  never outranks a sound membership, is refused if it's all they have, and is
+  logged as a warning (contact and membership ids only). Admin pages will
+  flag these (milestone 4).
 - **Unverified assumptions (check against live TidyHQ data).** We don't know
   how TidyHQ represents renewal invoices: whether an Active membership
   becomes Partial when invoiced, or whether a renewal creates a new unpaid

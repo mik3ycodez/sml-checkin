@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { addDays } from "../dates";
 import { readPoints } from "../tidyhq/customFields";
 import { TidyError } from "../tidyhq/errors";
@@ -352,6 +352,19 @@ describe("checkIn", () => {
       });
     });
 
+    it("carries the notice on a points-write failure, so the member still sees it", async () => {
+      const client = seededClient();
+      client.updateContact = async () => {
+        throw new TidyError(503, "TidyHQ unavailable");
+      };
+      const failure = await tap(client, "c_robin").catch((e: unknown) => e);
+      expect(failure).toBeInstanceOf(CheckInFailure);
+      expect(failure).toMatchObject({
+        step: "points_write",
+        membershipNotice: { kind: "grace", expiredOn: "2026-09-22" },
+      });
+    });
+
     it("still refuses a pending or cancelled membership, however recent", async () => {
       for (const state of ["pending", "cancelled"] as const) {
         const client = seededClient();
@@ -501,6 +514,86 @@ describe("checkIn failures", () => {
       throw bug;
     };
     await expect(checkIn(client, input)).rejects.toBe(bug);
+  });
+});
+
+describe("an expired-state membership dated in the future", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const withExtra = (contactId: string, end_date: string | null) => {
+    const client = seededClient();
+    const real = client.getMemberships.bind(client);
+    client.getMemberships = async (id) => [
+      ...(await real(id)),
+      {
+        id: "m_bad",
+        state: "expired",
+        status: "Expired",
+        membership_level_id: "lvl_full",
+        contact_id: contactId,
+        start_date: "2026-01-01",
+        end_date,
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+    ];
+    return client;
+  };
+  const input = { eventId: "ev_tonight", contactId: "c_dante", now: NOW };
+
+  it("doesn't shut out a member who also has a good active membership", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = withExtra("c_dante", "2030-01-01");
+    expect(await checkIn(client, input)).toMatchObject({
+      status: "checked_in",
+    });
+    expect(warn).toHaveBeenCalledWith(
+      "inconsistent membership record",
+      expect.objectContaining({ contactId: "c_dante", membershipId: "m_bad" }),
+    );
+  });
+
+  it("logs only ids and the problem, no personal data", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await assessCheckIn(withExtra("c_dante", null), input);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][1]).toEqual({
+      contactId: "c_dante",
+      membershipId: "m_bad",
+      problem: "expired_not_ended",
+    });
+  });
+
+  it("stays quiet for ordinary records", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await assessCheckIn(seededClient(), input);
+    await assessCheckIn(seededClient(), { ...input, contactId: "c_robin" });
+    await assessCheckIn(seededClient(), { ...input, contactId: "c_lee" });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("still refuses a member whose only membership is one, and logs it", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = seededClient();
+    client.getMemberships = async () => [
+      {
+        id: "m_bad",
+        state: "expired",
+        status: "Expired",
+        membership_level_id: "lvl_full",
+        contact_id: "c_dante",
+        start_date: "2026-01-01",
+        end_date: "2030-01-01",
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+    ];
+    expect(await assessCheckIn(client, input)).toMatchObject({
+      status: "membership_inactive",
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 });
 

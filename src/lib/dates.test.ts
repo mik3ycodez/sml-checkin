@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { addDays, dateLabel, seattleDate, seattleTimeLabel } from "./dates";
+import {
+  addDays,
+  calendarDate,
+  dateLabel,
+  isCalendarDate,
+  seattleDate,
+  seattleTimeLabel,
+} from "./dates";
 
 describe("seattleDate", () => {
   it("returns the Seattle calendar date as YYYY-MM-DD", () => {
@@ -65,5 +72,44 @@ describe("dateLabel", () => {
     expect(dateLabel("2026-09-22")).toBe("September 22, 2026");
     expect(dateLabel("2027-01-05")).toBe("January 5, 2027");
     expect(dateLabel("2026-12-31")).toBe("December 31, 2026");
+  });
+});
+
+describe("isCalendarDate", () => {
+  it("accepts a real YYYY-MM-DD date", () => {
+    expect(isCalendarDate("2026-09-22")).toBe(true);
+    expect(isCalendarDate("2028-02-29")).toBe(true);
+  });
+
+  it.each([
+    "",
+    "2026-9-22",
+    "2026-13-45",
+    "2027-02-29",
+    "2026-09-22T00:00:00Z",
+    "tomorrow",
+  ])("rejects %j", (value) => {
+    expect(isCalendarDate(value)).toBe(false);
+  });
+});
+
+describe("calendarDate", () => {
+  it("keeps a plain date and trims a timestamp to its date", () => {
+    expect(calendarDate("2026-09-22")).toBe("2026-09-22");
+    expect(calendarDate("2026-09-22T00:00:00Z")).toBe("2026-09-22");
+    expect(calendarDate("2026-09-22T23:30:00-07:00")).toBe("2026-09-22");
+  });
+
+  it("is null for nothing or for something that isn't a date", () => {
+    expect(calendarDate(null)).toBeNull();
+    expect(calendarDate("soon")).toBeNull();
+    expect(calendarDate("2026-13-45")).toBeNull();
+  });
+});
+
+describe("date helpers given something that isn't YYYY-MM-DD", () => {
+  it("addDays and dateLabel throw a clear error instead of returning garbage", () => {
+    expect(() => addDays("2026-09-22T00:00:00Z", 1)).toThrow(/YYYY-MM-DD/);
+    expect(() => dateLabel("soon")).toThrow(/YYYY-MM-DD/);
   });
 });

@@ -260,7 +260,11 @@ Steps (test-first):
 - `membership.ts`: `membershipStanding(memberships, now)` returns `none`,
   `current` (with `balanceDue`), `grace` (with `renewBy`) or `lapsed`. It
   replaces `hasActiveMembership`, so check-in and `/me` read one rule. On a
-  tie for the latest end date, activated beats partial beats expired.
+  tie for the latest end date, activated beats partial beats expired. A
+  data inconsistency (an `expired` row with a future or missing end date, or
+  an unreadable end date) never outranks a sound membership, is logged
+  (`logInconsistentMemberships`, contact and membership ids only), and on its
+  own is refused. Flagging it for admins goes in milestone 4.
   `membershipNotice(standing)` and `membershipNoticeText(notice)` give the
   two messages.
 - `checkIn.ts`: `assessCheckIn` accepts `current` and `grace`.
@@ -273,6 +277,9 @@ Steps (test-first):
 - Seed: Lee moves to expired 90 days ago, so the "refused" tests keep their
   meaning. New members: Robin Vale (expired about 20 days ago, grace) and
   Avery Quinn (partial, future end date).
+- TidyHQ dates are read with `calendarDate` (a timestamp is cut to its date,
+  anything unreadable is a data problem), so a format surprise can't throw
+  mid-check-in.
 - Playwright: grace and balance-due check-ins.
 
 ### PR 9: Rewards: club colors (test-first)

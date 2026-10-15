@@ -185,6 +185,9 @@ function CheckedIn({
           title="You're checked in, but your point didn't save"
         >
           <Note>Please let a volunteer know.</Note>
+          {notice.membershipNotice && (
+            <MembershipNoticeBlock notice={notice.membershipNotice} />
+          )}
           {signedInAs}
         </Screen>
       );

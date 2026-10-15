@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   countsAsMembership,
   GRACE_PERIOD_DAYS,
-  isActiveMembership,
+  findInconsistentMemberships,
   isRenewalDue,
   membershipNotice,
   membershipStanding,
@@ -30,39 +30,6 @@ function membership(
     updated_at: "2026-01-01T00:00:00Z",
   };
 }
-
-describe("isActiveMembership", () => {
-  const TODAY = "2026-10-12";
-
-  it("is true for an activated or partial membership within its dates", () => {
-    expect(
-      isActiveMembership(membership("activated", "2027-01-01"), TODAY),
-    ).toBe(true);
-    expect(isActiveMembership(membership("partial", "2027-01-01"), TODAY)).toBe(
-      true,
-    );
-  });
-
-  it("is false after the end date or before the start date", () => {
-    expect(
-      isActiveMembership(membership("activated", "2026-10-11"), TODAY),
-    ).toBe(false);
-    expect(
-      isActiveMembership(
-        membership("activated", "2027-11-01", "2026-10-13"),
-        TODAY,
-      ),
-    ).toBe(false);
-  });
-
-  it("is false for expired, pending or cancelled states", () => {
-    for (const state of ["expired", "pending", "cancelled"] as const) {
-      expect(isActiveMembership(membership(state, "2027-01-01"), TODAY)).toBe(
-        false,
-      );
-    }
-  });
-});
 
 describe("countsAsMembership", () => {
   const TODAY = "2026-10-12";
@@ -301,6 +268,66 @@ describe("membershipStanding", () => {
     expect(standing(membership("expired", "2026-01-01")).kind).toBe("lapsed");
   });
 
+  it("isn't thrown off by an expired-state row dated later than a valid membership", () => {
+    // TidyHQ ends memberships early as "cancelled", so this is bad data. It
+    // must not shut out a member who has a good, active membership.
+    const active = membership("activated", "2027-03-01");
+    expect(standing(active, membership("expired", "2027-06-01"))).toMatchObject(
+      { kind: "current", membership: active },
+    );
+    expect(standing(active, membership("expired", null))).toMatchObject({
+      kind: "current",
+      membership: active,
+    });
+  });
+
+  it("still refuses a member whose only membership is an expired-state row dated in the future", () => {
+    expect(standing(membership("expired", "2027-06-01")).kind).toBe("lapsed");
+    expect(standing(membership("expired", null)).kind).toBe("lapsed");
+  });
+
+  it("falls back to grace from a good row when the bad row is the later one", () => {
+    expect(
+      standing(
+        membership("expired", "2026-09-22"),
+        membership("expired", "2027-06-01"),
+      ),
+    ).toMatchObject({ kind: "grace", endsOn: "2026-09-22" });
+  });
+
+  it("reads a timestamp end date as its date", () => {
+    expect(
+      standing(membership("expired", "2026-09-22T00:00:00Z")),
+    ).toMatchObject({
+      kind: "grace",
+      endsOn: "2026-09-22",
+      renewBy: "2026-11-21",
+    });
+    expect(
+      standing(membership("activated", "2027-01-01T00:00:00Z")),
+    ).toMatchObject({ kind: "current", endsOn: "2027-01-01" });
+  });
+
+  it("reads a timestamp start date as its date too", () => {
+    expect(
+      standing(membership("activated", "2027-01-01", "2026-10-12T00:00:00Z"))
+        .kind,
+    ).toBe("current");
+    expect(
+      standing(membership("activated", "2027-01-01", "2026-10-13T00:00:00Z"))
+        .kind,
+    ).toBe("none");
+  });
+
+  it("refuses, rather than throws, on an end date it can't read", () => {
+    expect(standing(membership("activated", "soon")).kind).toBe("lapsed");
+    const good = membership("activated", "2027-01-01");
+    expect(standing(good, membership("activated", "soon"))).toMatchObject({
+      kind: "current",
+      membership: good,
+    });
+  });
+
   it("reports the membership it chose", () => {
     const m = membership("activated", "2027-01-01");
     expect(standing(m)).toMatchObject({ membership: m });
@@ -338,5 +365,38 @@ describe("membershipNotice", () => {
   it("is null when there's no membership or it's lapsed", () => {
     expect(notice()).toBeNull();
     expect(notice(membership("expired", "2026-01-01"))).toBeNull();
+  });
+});
+
+describe("findInconsistentMemberships", () => {
+  const find = (...ms: Membership[]) => findInconsistentMemberships(ms, NOW);
+
+  it("flags an expired-state membership with a future or missing end date", () => {
+    const future = membership("expired", "2027-06-01");
+    const open = membership("expired", null);
+    expect(find(future, open)).toEqual([
+      { membership: future, problem: "expired_not_ended" },
+      { membership: open, problem: "expired_not_ended" },
+    ]);
+  });
+
+  it("flags an end date it can't read", () => {
+    const bad = membership("activated", "soon");
+    expect(find(bad)).toEqual([
+      { membership: bad, problem: "invalid_end_date" },
+    ]);
+  });
+
+  it("doesn't flag ordinary records", () => {
+    expect(
+      find(
+        membership("activated", "2027-01-01"),
+        membership("partial", "2027-01-01"),
+        membership("expired", "2026-09-22"),
+        membership("expired", "2026-10-12T00:00:00Z"),
+        membership("cancelled", "2027-01-01"),
+        membership("pending", null),
+      ),
+    ).toEqual([]);
   });
 });

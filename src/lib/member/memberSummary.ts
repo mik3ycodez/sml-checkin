@@ -1,3 +1,4 @@
+import { logInconsistentMemberships } from "../logInconsistentMemberships";
 import {
   isRenewalDue,
   membershipNotice,
@@ -9,6 +10,10 @@ import { findContact } from "../tidyhq/contacts";
 import { readPoints } from "../tidyhq/customFields";
 import { isTidyError } from "../tidyhq/errors";
 import type { Membership } from "../tidyhq/types";
+
+/** How the status page describes a member's membership. */
+export type MembershipStatus =
+  "active" | "renew_soon" | "balance_due" | "grace" | "expired";
 
 export type MemberSummary =
   | {
@@ -79,6 +84,7 @@ export async function getMemberSummary(
   ]);
   if (!contact || !memberships) return { status: "unknown_contact" };
 
+  logInconsistentMemberships(contactId, memberships, now);
   const standing = membershipStanding(memberships, now);
   if (standing.kind === "none") {
     return {
@@ -90,7 +96,7 @@ export async function getMemberSummary(
   const shown = standing.membership;
   const level = await levelName(client, shown.membership_level_id);
 
-  let membership: "active" | "renew_soon" | "balance_due" | "grace" | "expired";
+  let membership: MembershipStatus;
   switch (standing.kind) {
     case "current":
       membership = standing.balanceDue
@@ -111,7 +117,7 @@ export async function getMemberSummary(
     status: "ok",
     name: contact.display_name,
     level,
-    membershipEndsOn: shown.end_date,
+    membershipEndsOn: standing.endsOn,
     membership,
     notice: membershipNotice(standing),
     points: readPoints(contact),

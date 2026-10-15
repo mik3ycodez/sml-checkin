@@ -53,6 +53,26 @@ describe("tap notice", () => {
     });
   });
 
+  it("round-trips a notice on a point that didn't save", () => {
+    const outcome = {
+      kind: "point_not_saved",
+      membershipNotice: { kind: "balance_due" },
+    } as const;
+    const value = encodeTapNotice({ ...FOR_DANTE, outcome });
+    expect(readTapNotice(value, FOR_DANTE)).toEqual(outcome);
+  });
+
+  it("leaves the notice out, rather than null, when there isn't one", () => {
+    const value = encodeTapNotice({
+      ...FOR_DANTE,
+      outcome: { kind: "awarded", points: 1 },
+    });
+    expect(readTapNotice(value, FOR_DANTE)).toStrictEqual({
+      kind: "awarded",
+      points: 1,
+    });
+  });
+
   it("round-trips a repeat tap", () => {
     const value = encodeTapNotice({
       ...FOR_DANTE,

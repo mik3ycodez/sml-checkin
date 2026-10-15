@@ -8,7 +8,7 @@
 // Not signed: it only changes what the member's own screen says. It's never
 // used to award or write points, and the total shown is always TidyHQ's.
 
-import { addDays } from "../dates";
+import { addDays, isCalendarDate } from "../dates";
 import { GRACE_PERIOD_DAYS, type MembershipNotice } from "../membership";
 
 export const TAP_NOTICE_COOKIE = "sml_tap";
@@ -20,13 +20,13 @@ export type TapOutcome =
   | {
       kind: "awarded";
       points: number;
-      /** Balance due or grace period, shown with the confirmation. */
-      membershipNotice?: MembershipNotice | null;
+      /** Balance due or grace period, shown with the confirmation. Left out, never null, when there's none. */
+      membershipNotice?: MembershipNotice;
     }
   /** Already checked in, so no point. */
   | { kind: "repeat" }
   /** Added to the group, but the points write failed. */
-  | { kind: "point_not_saved" };
+  | { kind: "point_not_saved"; membershipNotice?: MembershipNotice };
 
 type For = { eventId: string; contactId: string };
 
@@ -40,8 +40,8 @@ export function encodeTapNotice({
     c: contactId,
     o: outcome.kind,
   });
-  if (outcome.kind === "awarded") {
-    params.set("p", String(outcome.points));
+  if (outcome.kind === "awarded") params.set("p", String(outcome.points));
+  if (outcome.kind === "awarded" || outcome.kind === "point_not_saved") {
     const notice = outcome.membershipNotice;
     if (notice) {
       params.set("m", notice.kind);
@@ -76,8 +76,13 @@ export function readTapNotice(
     }
     case "repeat":
       return { kind: "repeat" };
-    case "point_not_saved":
-      return { kind: "point_not_saved" };
+    case "point_not_saved": {
+      const membershipNotice = readMembershipNotice(params);
+      return {
+        kind: "point_not_saved",
+        ...(membershipNotice && { membershipNotice }),
+      };
+    }
     default:
       return null;
   }
@@ -101,11 +106,4 @@ function readMembershipNotice(
     default:
       return null;
   }
-}
-
-/** A real `YYYY-MM-DD` date (rejects "2026-13-45"). */
-function isCalendarDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const d = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
 }

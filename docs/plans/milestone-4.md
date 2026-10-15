@@ -39,7 +39,7 @@ the member TidyHQ OAuth flow?
 
 - Lists members who qualify for club colors (18+ points) but haven't been
   issued them. Uses the same `rewardStatus` and `readRewardIssued` as `/me`
-  (milestone 3 / PR 8), so the report and the member page agree.
+  (milestone 3 / PR 9), so the report and the member page agree.
 - Members whose points or issued field can't be read are listed separately
   as "needs checking", not left out.
 - This is a supplemental cross-check. The Board's own auditing in TidyHQ
@@ -51,3 +51,15 @@ the member TidyHQ OAuth flow?
   closes before it opens. Check-in currently ignores such a window silently
   and falls back to the event's start and end (see CLAUDE.md, "Out of
   scope for MVP").
+
+### Flag inconsistent membership records
+
+- On admin member and event pages, flag membership records that look wrong
+  so someone can fix them in TidyHQ. Check-in and `/me` already log these
+  (`findInconsistentMemberships`, with the contact and membership ids only)
+  and carry on:
+  - an `expired` membership whose end date is in the future or missing
+    (ending early in TidyHQ is "cancelled", so this is bad data), and
+  - an end date the app can't read.
+- Such a record never outranks a sound membership. On its own, the member is
+  refused, so the warning is what tells staff why.
