@@ -47,7 +47,7 @@ const ISSUED_FIELD_IDS: Record<Reward["id"], string> = {
 /**
  * Whether the reward has been handed over. The only place that knows the
  * field's format, which is unknown until live access. For now: the text
- * "yes" means issued, blank or missing means not issued. Anything else is
+ * "yes" (any capitalization, since the Board types it) means issued, blank or missing means not issued. Anything else is
  * null (unreadable), because guessing wrong in either direction tells the
  * member something false.
  */
@@ -60,5 +60,5 @@ export function readRewardIssued(
   if (typeof value !== "string") return null;
   const text = value.trim();
   if (text === "") return false;
-  return text === "yes" ? true : null;
+  return text.toLowerCase() === "yes" ? true : null;
 }

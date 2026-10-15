@@ -65,13 +65,18 @@ describe("readRewardIssued", () => {
     expect(readRewardIssued(withIssued(" yes "), "club_colors")).toBe(true);
   });
 
+  it("reads yes in any capitalization", () => {
+    expect(readRewardIssued(withIssued("Yes"), "club_colors")).toBe(true);
+    expect(readRewardIssued(withIssued("YES"), "club_colors")).toBe(true);
+  });
+
   it("reads a missing or blank field as not issued", () => {
     expect(readRewardIssued({ custom_fields: {} }, "club_colors")).toBe(false);
     expect(readRewardIssued(withIssued(""), "club_colors")).toBe(false);
     expect(readRewardIssued(withIssued("  "), "club_colors")).toBe(false);
   });
 
-  it.each(["no", "Yes", "true", "1", "issued"])(
+  it.each(["no", "true", "1", "issued", "yes!"])(
     "treats %j as unreadable",
     (value) => {
       expect(readRewardIssued(withIssued(value), "club_colors")).toBeNull();
