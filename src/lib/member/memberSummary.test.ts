@@ -415,7 +415,8 @@ describe("getMemberSummary", () => {
         {
           reward: REWARDS[0],
           status: { kind: "progress", remaining: 18 },
-          message: "18 more points until you qualify for club colors.",
+          message:
+            "Members earn club colors at 18 points. Become a member to start earning.",
         },
       ],
     });
@@ -562,7 +563,8 @@ describe("getMemberSummary", () => {
         {
           reward: REWARDS[0],
           status: { kind: "progress", remaining: 18 },
-          message: "18 more points until you qualify for club colors.",
+          message:
+            "Members earn club colors at 18 points. Become a member to start earning.",
         },
       ],
     });
@@ -767,6 +769,26 @@ describe("getMemberSummary", () => {
         setField(seed, "c_dante", COLORS_ISSUED_FIELD_ID, "maybe");
       });
       expect(rewards).toEqual([]);
+    });
+
+    it("asks a lapsed member under 18 points to renew to keep earning", async () => {
+      expect(await rewardsFor("c_lee")).toEqual([
+        {
+          reward: REWARDS[0],
+          status: { kind: "progress", remaining: 18 },
+          message:
+            "Renew your membership to keep earning points toward club colors. 18 more points needed.",
+        },
+      ]);
+    });
+
+    it("counts down for a member in the grace period, who can still earn", async () => {
+      const rewards = await rewardsFor("c_robin", (seed) =>
+        setField(seed, "c_robin", POINTS_FIELD_ID, "15"),
+      );
+      expect(rewards).toMatchObject([
+        { message: "3 more points until you qualify for club colors." },
+      ]);
     });
 
     it("shows nothing when the issued field is unreadable", async () => {

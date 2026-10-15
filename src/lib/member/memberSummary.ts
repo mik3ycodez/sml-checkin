@@ -52,7 +52,7 @@ export type MemberSummary =
       status: "not_member";
       name: string;
       points: number | null;
-      /** As for a lapsed member: colors need a membership first. */
+      /** Worded for a non-member: colors need a membership first. */
       rewards: MemberReward[];
     }
   /** The session names a contact TidyHQ no longer has; sign in again. */

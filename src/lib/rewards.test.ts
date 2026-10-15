@@ -105,7 +105,7 @@ describe("rewardStanding", () => {
       { kind: "lapsed", membership: MEMBERSHIP, endsOn: "2026-01-01" },
       "lapsed",
     ],
-    [{ kind: "none" }, "lapsed"],
+    [{ kind: "none" }, "non_member"],
   ];
   it.each(cases)("maps %j to %s", (standing, expected) => {
     expect(rewardStanding(standing)).toBe(expected);
@@ -121,7 +121,7 @@ describe("rewardMessage", () => {
     );
   });
 
-  it.each(["grace", "lapsed"] as const)(
+  it.each(["grace", "lapsed", "non_member"] as const)(
     "tells a %s member to renew first",
     (standing) => {
       expect(rewardMessage(COLORS, qualified, standing)).toBe(
@@ -136,23 +136,40 @@ describe("rewardMessage", () => {
     );
   });
 
-  it("counts down the points to go, in any standing", () => {
-    for (const standing of [
-      "current",
-      "balance_due",
-      "grace",
-      "lapsed",
-    ] as const) {
+  it.each(["current", "balance_due", "grace"] as const)(
+    "counts down the points to go for a %s member, who can still earn them",
+    (standing) => {
       expect(
         rewardMessage(COLORS, { kind: "progress", remaining: 5 }, standing),
       ).toBe("5 more points until you qualify for club colors.");
-    }
-  });
+    },
+  );
 
   it("uses the singular for the last point", () => {
     expect(
       rewardMessage(COLORS, { kind: "progress", remaining: 1 }, "current"),
     ).toBe("1 more point until you qualify for club colors.");
+  });
+
+  it("asks a lapsed member to renew to keep earning, with the points to go", () => {
+    expect(
+      rewardMessage(COLORS, { kind: "progress", remaining: 5 }, "lapsed"),
+    ).toBe(
+      "Renew your membership to keep earning points toward club colors. 5 more points needed.",
+    );
+    expect(
+      rewardMessage(COLORS, { kind: "progress", remaining: 1 }, "lapsed"),
+    ).toBe(
+      "Renew your membership to keep earning points toward club colors. 1 more point needed.",
+    );
+  });
+
+  it("invites a non-member to join, without a countdown", () => {
+    expect(
+      rewardMessage(COLORS, { kind: "progress", remaining: 5 }, "non_member"),
+    ).toBe(
+      "Members earn club colors at 18 points. Become a member to start earning.",
+    );
   });
 
   it("says colors are received, whatever the standing", () => {
@@ -161,6 +178,7 @@ describe("rewardMessage", () => {
       "balance_due",
       "grace",
       "lapsed",
+      "non_member",
     ] as const) {
       expect(rewardMessage(COLORS, { kind: "issued" }, standing)).toBe(
         "Club colors received ✓",

@@ -65,7 +65,10 @@ system of record; this app is a thin layer on top of it.
   who isn't issued still sees "You qualify", but the message depends on
   `membershipStanding`: current says a Board member will connect with them;
   grace, lapsed, or no counted membership at all says renew first; balance
-  due says complete payment first.
+  due says complete payment first. Under 18 points, only members who can
+  still earn points (current, grace, balance due) see a plain countdown;
+  lapsed members are told to renew to keep earning, with the points still
+  needed, and non-members are told members earn colors at 18 points.
   The check-in confirmation shows it only when that check-in's point brought
   them to 18 (decided in `checkIn`, from the read before the write); `/me`
   shows it whenever it applies.

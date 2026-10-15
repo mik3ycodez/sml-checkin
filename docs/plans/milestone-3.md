@@ -308,7 +308,10 @@ rewardId): boolean | null`. It's the only place that knows the field's
   colors! A Board member will connect with you to distribute your club
   colors." Grace, lapsed, or no counted membership (`not_member`, which also gains
   `rewards`): renew first. Balance due: complete payment first.
-  Under 18: "X more points until you qualify for club colors." Issued: "Club
+  Under 18, current, grace or balance due: "X more points until you qualify
+  for club colors." Lapsed: "Renew your membership to keep earning points
+  toward club colors. X more points needed." Non-member: "Members earn club
+  colors at 18 points. Become a member to start earning." Issued: "Club
   colors received ✓".
 - Check-in: `checkIn` decides which rewards this check-in reached
   (`newlyQualified`, from the read before the write) and the standing from

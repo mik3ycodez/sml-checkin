@@ -29,11 +29,13 @@ export function rewardStatus(
 }
 
 /**
- * How a membership affects handing over a reward. Colors need a current,
- * fully paid membership, so a balance due, a grace period and a lapsed
- * membership each get their own wording.
+ * How a membership affects a reward. Colors need a current, fully paid
+ * membership, so a balance due, a grace period, a lapsed membership and no
+ * membership at all each get their own wording. Only current, balance-due
+ * and grace members can still earn points.
  */
-export type RewardStanding = "current" | "balance_due" | "grace" | "lapsed";
+export type RewardStanding =
+  "current" | "balance_due" | "grace" | "lapsed" | "non_member";
 
 export function rewardStanding(standing: MembershipStanding): RewardStanding {
   switch (standing.kind) {
@@ -42,10 +44,10 @@ export function rewardStanding(standing: MembershipStanding): RewardStanding {
     case "grace":
       return "grace";
     case "lapsed":
-    // No counted membership (e.g. migrated points, never joined in TidyHQ):
-    // they'd need to join first, so they're told the same as lapsed members.
-    case "none":
       return "lapsed";
+    // No counted membership (e.g. migrated points, never joined in TidyHQ).
+    case "none":
+      return "non_member";
   }
 }
 
@@ -54,6 +56,7 @@ export const REWARD_STANDINGS: readonly RewardStanding[] = [
   "balance_due",
   "grace",
   "lapsed",
+  "non_member",
 ];
 
 export function rewardMessage(
@@ -64,8 +67,20 @@ export function rewardMessage(
   switch (status.kind) {
     case "issued":
       return `${reward.name.charAt(0).toUpperCase()}${reward.name.slice(1)} received ✓`;
-    case "progress":
-      return `${status.remaining} more ${status.remaining === 1 ? "point" : "points"} until you qualify for ${reward.name}.`;
+    case "progress": {
+      const more = `${status.remaining} more ${status.remaining === 1 ? "point" : "points"}`;
+      switch (standing) {
+        case "current":
+        case "balance_due":
+        case "grace":
+          return `${more} until you qualify for ${reward.name}.`;
+        // Can't earn points until they renew or join, so no bare countdown.
+        case "lapsed":
+          return `Renew your membership to keep earning points toward ${reward.name}. ${more} needed.`;
+        case "non_member":
+          return `Members earn ${reward.name} at ${reward.pointsRequired} points. Become a member to start earning.`;
+      }
+    }
     case "qualified":
       switch (standing) {
         case "current":
@@ -74,6 +89,7 @@ export function rewardMessage(
           return `You qualify for ${reward.name}. You will need to complete payment before receiving ${reward.name}.`;
         case "grace":
         case "lapsed":
+        case "non_member":
           return `You qualify for ${reward.name}. You will need to renew before receiving ${reward.name}.`;
       }
   }
