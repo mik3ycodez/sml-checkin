@@ -3,12 +3,14 @@ import type { MembershipStanding } from "./membership";
 import { REWARDS } from "./points";
 import {
   newlyQualified,
+  rewardEntries,
   rewardMessage,
   rewardStanding,
   rewardStatus,
   type RewardEntry,
 } from "./rewards";
 import type { Membership } from "./tidyhq";
+import { COLORS_ISSUED_FIELD_ID } from "./tidyhq/customFields";
 
 const [COLORS] = REWARDS;
 
@@ -153,7 +155,7 @@ describe("rewardMessage", () => {
     ).toBe("1 more point until you qualify for club colors.");
   });
 
-  it("says colors are issued, whatever the standing", () => {
+  it("says colors are received, whatever the standing", () => {
     for (const standing of [
       "current",
       "balance_due",
@@ -161,7 +163,7 @@ describe("rewardMessage", () => {
       "lapsed",
     ] as const) {
       expect(rewardMessage(COLORS, { kind: "issued" }, standing)).toBe(
-        "Club colors issued.",
+        "Club colors received ✓",
       );
     }
   });
@@ -173,23 +175,45 @@ describe("newlyQualified", () => {
     status,
   });
 
-  it("returns the reward this check-in's point just earned", () => {
-    const entries = [entry({ kind: "qualified" })];
-    expect(newlyQualified(entries, { total: 18, awarded: 1 })).toEqual(entries);
+  it("returns the reward this check-in's point reaches", () => {
+    const entries = [entry({ kind: "progress", remaining: 1 })];
+    expect(newlyQualified(entries, 1)).toEqual([COLORS]);
+  });
+
+  it("returns nothing while the point leaves them short", () => {
+    const entries = [entry({ kind: "progress", remaining: 2 })];
+    expect(newlyQualified(entries, 1)).toEqual([]);
   });
 
   it("returns nothing when they already qualified before this check-in", () => {
-    const entries = [entry({ kind: "qualified" })];
-    expect(newlyQualified(entries, { total: 19, awarded: 1 })).toEqual([]);
-  });
-
-  it("returns nothing while still short", () => {
-    const entries = [entry({ kind: "progress", remaining: 2 })];
-    expect(newlyQualified(entries, { total: 16, awarded: 1 })).toEqual([]);
+    expect(newlyQualified([entry({ kind: "qualified" })], 1)).toEqual([]);
   });
 
   it("returns nothing when colors are already issued", () => {
-    const entries = [entry({ kind: "issued" })];
-    expect(newlyQualified(entries, { total: 18, awarded: 1 })).toEqual([]);
+    expect(newlyQualified([entry({ kind: "issued" })], 1)).toEqual([]);
+  });
+});
+
+describe("rewardEntries", () => {
+  const contact = (issued: string) => ({
+    custom_fields: {
+      [COLORS_ISSUED_FIELD_ID]: {
+        id: COLORS_ISSUED_FIELD_ID,
+        title: "Club colors issued",
+        type: "string" as const,
+        value: issued,
+      },
+    },
+  });
+
+  it("uses the points total it's given", () => {
+    expect(rewardEntries(contact(""), 18)).toEqual([
+      { reward: COLORS, status: { kind: "qualified" } },
+    ]);
+  });
+
+  it("leaves out a reward it can't read", () => {
+    expect(rewardEntries(contact("maybe"), 18)).toEqual([]);
+    expect(rewardEntries(contact(""), null)).toEqual([]);
   });
 });

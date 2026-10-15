@@ -109,6 +109,7 @@ export async function getMemberSummary(
       points: readPoints(contact),
     };
   }
+  const points = readPoints(contact);
   const shown = standing.membership;
   const level = await levelName(client, shown.membership_level_id);
 
@@ -136,8 +137,8 @@ export async function getMemberSummary(
     membershipEndsOn: standing.endsOn,
     membership,
     notice: membershipNotice(standing),
-    points: readPoints(contact),
-    rewards: rewardEntries(contact).map(({ reward, status }) => ({
+    points,
+    rewards: rewardEntries(contact, points).map(({ reward, status }) => ({
       reward,
       status,
       message: rewardMessage(reward, status, rewardStanding(standing)),

@@ -294,28 +294,33 @@ Steps (test-first):
 - `customFields.ts`: `COLORS_ISSUED_FIELD_ID` and `readRewardIssued(contact,
 rewardId): boolean | null`. It's the only place that knows the field's
   format, which is unknown until live access. For the mock, the field is a
-  string where `"yes"` means issued and blank or missing means not issued.
+  string where `"yes"` (any capitalization) means issued and blank or missing means not issued.
   Anything else is `null` (unreadable).
 - Unreadable issued field or unreadable points: show nothing for that
   reward rather than guess. Telling someone colors are coming when they
   already have them, or the reverse, is worse than saying nothing.
-- Seed: add the issued field to contacts, plus two new members: one with
-  18 points and colors not issued (qualified), and one with 25 points and
-  colors issued.
+- Seed: add the issued field to contacts, plus three new members, all
+  current: Riley Frost (17 points, not issued; the next check-in qualifies),
+  Taylor Brandt (18 points, not issued) and Morgan Hale (25 points, issued).
 - `getMemberSummary` gains `rewards: { reward, status, message }[]`. The
   message depends on membership standing (`rewardStanding`): colors need a
   current, fully paid membership. Qualified and current: "You qualify for club
   colors! A Board member will connect with you to distribute your club
   colors." Grace or lapsed: renew first. Balance due: complete payment first.
   Under 18: "X more points until you qualify for club colors." Issued: "Club
-  colors issued."
-- Check-in: `already_checked_in` carries `rewards`. The confirmation shows the
-  qualified message only when that tap's point brought the member to 18
-  (`newlyQualified`); the standing comes from the tap notice (none = current).
+  colors received ✓".
+- Check-in: `checkIn` decides which rewards this check-in reached
+  (`newlyQualified`, from the read before the write) and the standing from
+  `membershipStanding`, returned as `qualified: { rewardId, standing }[]`.
+  The tap notice carries them to the confirmation, which shows the qualified
+  message. Nothing is worked out again from a later read, so a slow read or
+  an admin adjustment can't move the message to the wrong tap.
 - `CLAUDE.md`: "Rewards" and "colors need a current, fully paid membership"
   key decisions.
 - Tests: 0, 17, 18 and 30 points not issued; issued at 25 and at 10; an
-  unreadable issued field; unreadable points.
+  unreadable issued field; unreadable points. Playwright: Riley checks in,
+  reaches 18 and sees "You qualify for club colors!"; a reload doesn't
+  repeat it.
 
 ### PR 10: Recent events
 

@@ -97,6 +97,7 @@ function tapOutcome(
         ...(result.membershipNotice && {
           membershipNotice: result.membershipNotice,
         }),
+        ...(result.qualified.length > 0 && { qualified: result.qualified }),
       };
     case "already_checked_in":
       return { kind: "repeat" };

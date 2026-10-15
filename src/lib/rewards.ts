@@ -1,6 +1,6 @@
-import type { MembershipNotice, MembershipStanding } from "./membership";
+import type { MembershipStanding } from "./membership";
 import { REWARDS, type Reward } from "./points";
-import { readPoints, readRewardIssued } from "./tidyhq/customFields";
+import { readRewardIssued } from "./tidyhq/customFields";
 import type { Contact } from "./tidyhq/types";
 
 /** Where a member stands on one reward. Display only; nothing here is written. */
@@ -47,16 +47,12 @@ export function rewardStanding(standing: MembershipStanding): RewardStanding {
   }
 }
 
-/**
- * The standing at check-in time, from the notice that came with the check-in:
- * only current (no notice), balance due and grace can check in.
- */
-export function standingFromNotice(
-  notice: MembershipNotice | null | undefined,
-): RewardStanding {
-  if (!notice) return "current";
-  return notice.kind === "balance_due" ? "balance_due" : "grace";
-}
+export const REWARD_STANDINGS: readonly RewardStanding[] = [
+  "current",
+  "balance_due",
+  "grace",
+  "lapsed",
+];
 
 export function rewardMessage(
   reward: Reward,
@@ -65,7 +61,7 @@ export function rewardMessage(
 ): string {
   switch (status.kind) {
     case "issued":
-      return `${reward.name.charAt(0).toUpperCase()}${reward.name.slice(1)} issued.`;
+      return `${reward.name.charAt(0).toUpperCase()}${reward.name.slice(1)} received ✓`;
     case "progress":
       return `${status.remaining} more ${status.remaining === 1 ? "point" : "points"} until you qualify for ${reward.name}.`;
     case "qualified":
@@ -86,9 +82,14 @@ export interface RewardEntry {
   status: RewardStatus;
 }
 
-/** Every reward whose status can be read from the contact. */
-export function rewardEntries(contact: Contact): RewardEntry[] {
-  const points = readPoints(contact);
+/**
+ * Every reward whose status can be read from the contact. `points` is the
+ * caller's own read of the stored total, so both come from the same read.
+ */
+export function rewardEntries(
+  contact: Pick<Contact, "custom_fields">,
+  points: number | null,
+): RewardEntry[] {
   const entries: RewardEntry[] = [];
   for (const reward of REWARDS) {
     const status = rewardStatus(
@@ -102,16 +103,26 @@ export function rewardEntries(contact: Contact): RewardEntry[] {
 }
 
 /**
- * The qualified rewards this check-in's points just earned: qualified now,
- * but not before `awarded` was added to `total`.
+ * The rewards `awarded` points will reach, from where the member stood before
+ * them: short by no more than `awarded`, and not yet issued.
  */
 export function newlyQualified(
   entries: readonly RewardEntry[],
-  { total, awarded }: { total: number; awarded: number },
-): RewardEntry[] {
-  return entries.filter(
-    (e) =>
-      e.status.kind === "qualified" &&
-      total - awarded < e.reward.pointsRequired,
-  );
+  awarded: number,
+): Reward[] {
+  return entries
+    .filter(
+      (e) => e.status.kind === "progress" && e.status.remaining <= awarded,
+    )
+    .map((e) => e.reward);
+}
+
+/** A reward a check-in just reached, and how the member stood when it did. */
+export interface QualifiedReward {
+  rewardId: Reward["id"];
+  standing: RewardStanding;
+}
+
+export function findReward(id: string): Reward | undefined {
+  return REWARDS.find((r) => r.id === id);
 }

@@ -674,7 +674,7 @@ describe("getMemberSummary", () => {
 
     it("says colors are issued, even above the threshold", async () => {
       expect(await rewardsFor("c_morgan")).toMatchObject([
-        { status: { kind: "issued" }, message: "Club colors issued." },
+        { status: { kind: "issued" }, message: "Club colors received ✓" },
       ]);
     });
 

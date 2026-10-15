@@ -85,6 +85,31 @@ test("a member with a balance due checks in and is told to pay in TidyHQ", async
   await expect(page.getByText(/expired on/)).toHaveCount(0);
 });
 
+test("a member whose check-in brings them to 18 points is told they qualify for club colors", async ({
+  page,
+}) => {
+  await signInAs(page, "Riley Frost", "/checkin/ev_tonight");
+  await page.getByRole("button", { name: "Check in" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "You're checked in, Riley Frost!" }),
+  ).toBeVisible();
+  await expect(page.getByText("+1 point")).toBeVisible();
+  await expect(page.getByText("Total: 18")).toBeVisible();
+  await expect(
+    page.getByText(
+      "You qualify for club colors! A Board member will connect with you to distribute your club colors.",
+    ),
+  ).toBeVisible();
+
+  // Only on the tap that reached 18, not on a reload.
+  await page.goto("/checkin/ev_tonight");
+  await expect(
+    page.getByRole("heading", { name: "You're already checked in" }),
+  ).toBeVisible();
+  await expect(page.getByText(/club colors/)).toHaveCount(0);
+});
+
 test("an unknown event shows the unknown-event screen", async ({ page }) => {
   await signInAs(page, "Dante Ruiz", "/checkin/nope");
   await expect(

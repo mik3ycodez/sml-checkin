@@ -230,6 +230,9 @@ export function createSeed(now: Date = new Date()): MockSeed {
       // Partial (invoice part-paid) with a future end date: check-in works,
       // with a balance-due message.
       contact("c_avery", "Avery", "Quinn", 0),
+      // 17 points, colors not issued: the next check-in qualifies them for
+      // club colors.
+      contact("c_riley", "Riley", "Frost", 17),
       // Exactly 18 points, colors not issued: qualified for club colors.
       contact("c_taylor", "Taylor", "Brandt", 18),
       // 25 points, colors issued.
@@ -243,6 +246,7 @@ export function createSeed(now: Date = new Date()): MockSeed {
       membership("m_lee", "c_lee", "lvl_full", -455, -90),
       membership("m_robin", "c_robin", "lvl_full", -385, -20),
       membership("m_avery", "c_avery", "lvl_full", -100, 265, "partial"),
+      membership("m_riley", "c_riley", "lvl_full", -90, 275),
       membership("m_taylor", "c_taylor", "lvl_full", -150, 215),
       membership("m_morgan", "c_morgan", "lvl_full", -200, 165),
     ],

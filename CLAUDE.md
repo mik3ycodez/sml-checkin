@@ -66,7 +66,8 @@ system of record; this app is a thin layer on top of it.
   `membershipStanding`: current says a Board member will connect with them;
   grace or lapsed says renew first; balance due says complete payment first.
   The check-in confirmation shows it only when that check-in's point brought
-  them to 18; `/me` shows it whenever it applies.
+  them to 18 (decided in `checkIn`, from the read before the write); `/me`
+  shows it whenever it applies.
 - Check-ins record who, which event, when, and method (`self` or `staff`).
 - Membership standing (check-in and `/me` use one rule, `membershipStanding`).
   Pending and cancelled memberships never count. Use the counted membership

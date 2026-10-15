@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { addDays } from "../dates";
-import { REWARDS } from "../points";
 import {
   COLORS_ISSUED_FIELD_ID,
   POINTS_FIELD_ID,
@@ -48,6 +47,7 @@ describe("checkIn", () => {
       pointsAwarded: 1,
       total: 1,
       membershipNotice: null,
+      qualified: [],
     });
     expect(await groupIds(client, "grp_social_night")).toContain("c_dante");
     expect(await storedPoints(client, "c_dante")).toBe(1);
@@ -76,9 +76,6 @@ describe("checkIn", () => {
       name: "Marcus Bell",
       eventName: "Pub Night",
       total: 1,
-      rewards: [
-        { reward: REWARDS[0], status: { kind: "progress", remaining: 17 } },
-      ],
     });
     expect(await storedPoints(client, "c_marcus")).toBe(1);
   });
@@ -95,9 +92,6 @@ describe("checkIn", () => {
       name: "Marcus Bell",
       eventName: "Pub Night",
       total: 1,
-      rewards: [
-        { reward: REWARDS[0], status: { kind: "progress", remaining: 17 } },
-      ],
     });
   });
 
@@ -115,9 +109,6 @@ describe("checkIn", () => {
       name: "Lee Hart",
       eventName: "Social Night",
       total: 0,
-      rewards: [
-        { reward: REWARDS[0], status: { kind: "progress", remaining: 18 } },
-      ],
     });
   });
 
@@ -307,6 +298,7 @@ describe("checkIn", () => {
       const result = await tap(client, "c_robin");
       expect(result).toEqual({
         status: "checked_in",
+        qualified: [],
         name: "Robin Vale",
         eventName: "Social Night",
         pointsAwarded: 1,
@@ -671,9 +663,6 @@ describe("assessCheckIn", () => {
       name: "Dante Ruiz",
       eventName: "Social Night",
       total: 1,
-      rewards: [
-        { reward: REWARDS[0], status: { kind: "progress", remaining: 17 } },
-      ],
     });
   });
 
@@ -763,7 +752,7 @@ describe("assessCheckIn", () => {
   });
 });
 
-describe("rewards after check-in", () => {
+describe("rewards reached by a check-in", () => {
   function setField(
     seed: ReturnType<typeof createSeed>,
     contactId: string,
@@ -781,40 +770,66 @@ describe("rewards after check-in", () => {
 
   const input = { eventId: "ev_tonight", contactId: "c_dante", now: NOW };
 
-  it("shows qualified once the point brings the member to 18", async () => {
+  it("reports club colors when the point brings a current member to 18", async () => {
     const client = seededClient((seed) =>
       setField(seed, "c_dante", POINTS_FIELD_ID, "17"),
     );
-    const result = await checkIn(client, input);
-    expect(result).toMatchObject({ status: "checked_in", total: 18 });
-    expect(await assessCheckIn(client, input)).toMatchObject({
-      status: "already_checked_in",
+    expect(await checkIn(client, input)).toMatchObject({
+      status: "checked_in",
       total: 18,
-      rewards: [{ reward: REWARDS[0], status: { kind: "qualified" } }],
+      qualified: [{ rewardId: "club_colors", standing: "current" }],
     });
   });
 
-  it("shows issued over qualified", async () => {
+  it("carries the standing from membershipStanding, not the notice", async () => {
+    const client = seededClient((seed) =>
+      setField(seed, "c_avery", POINTS_FIELD_ID, "17"),
+    );
+    expect(
+      await checkIn(client, { ...input, contactId: "c_avery" }),
+    ).toMatchObject({
+      qualified: [{ rewardId: "club_colors", standing: "balance_due" }],
+    });
+  });
+
+  it("reports grace for a member in the grace period", async () => {
+    const client = seededClient((seed) =>
+      setField(seed, "c_robin", POINTS_FIELD_ID, "17"),
+    );
+    expect(
+      await checkIn(client, { ...input, contactId: "c_robin" }),
+    ).toMatchObject({
+      qualified: [{ rewardId: "club_colors", standing: "grace" }],
+    });
+  });
+
+  it("reports nothing when they already had 18", async () => {
+    const client = seededClient((seed) =>
+      setField(seed, "c_dante", POINTS_FIELD_ID, "18"),
+    );
+    expect(await checkIn(client, input)).toMatchObject({ qualified: [] });
+  });
+
+  it("reports nothing when they're still short", async () => {
+    expect(await checkIn(seededClient(), input)).toMatchObject({
+      qualified: [],
+    });
+  });
+
+  it("reports nothing when colors are already issued", async () => {
     const client = seededClient((seed) => {
       setField(seed, "c_dante", POINTS_FIELD_ID, "17");
       setField(seed, "c_dante", COLORS_ISSUED_FIELD_ID, "yes");
     });
-    await checkIn(client, input);
-    expect(await assessCheckIn(client, input)).toMatchObject({
-      rewards: [{ status: { kind: "issued" } }],
-    });
+    expect(await checkIn(client, input)).toMatchObject({ qualified: [] });
   });
 
-  it("leaves the reward out when the issued field is unreadable", async () => {
+  it("reports nothing when the issued field is unreadable", async () => {
     const client = seededClient((seed) => {
       setField(seed, "c_dante", POINTS_FIELD_ID, "17");
       setField(seed, "c_dante", COLORS_ISSUED_FIELD_ID, "maybe");
     });
-    await checkIn(client, input);
-    expect(await assessCheckIn(client, input)).toMatchObject({
-      status: "already_checked_in",
-      rewards: [],
-    });
+    expect(await checkIn(client, input)).toMatchObject({ qualified: [] });
   });
 
   it("never writes the issued field", async () => {
