@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { addDays } from "../dates";
-import { readPoints } from "../tidyhq/customFields";
+import { REWARDS } from "../points";
+import {
+  COLORS_ISSUED_FIELD_ID,
+  POINTS_FIELD_ID,
+  readPoints,
+} from "../tidyhq/customFields";
 import { TidyError } from "../tidyhq/errors";
 import { MockTidyClient } from "../tidyhq/mock/MockTidyClient";
 import { createSeed } from "../tidyhq/mock/seed";
@@ -71,6 +76,9 @@ describe("checkIn", () => {
       name: "Marcus Bell",
       eventName: "Pub Night",
       total: 1,
+      rewards: [
+        { reward: REWARDS[0], status: { kind: "progress", remaining: 17 } },
+      ],
     });
     expect(await storedPoints(client, "c_marcus")).toBe(1);
   });
@@ -87,6 +95,9 @@ describe("checkIn", () => {
       name: "Marcus Bell",
       eventName: "Pub Night",
       total: 1,
+      rewards: [
+        { reward: REWARDS[0], status: { kind: "progress", remaining: 17 } },
+      ],
     });
   });
 
@@ -104,6 +115,9 @@ describe("checkIn", () => {
       name: "Lee Hart",
       eventName: "Social Night",
       total: 0,
+      rewards: [
+        { reward: REWARDS[0], status: { kind: "progress", remaining: 18 } },
+      ],
     });
   });
 
@@ -657,6 +671,9 @@ describe("assessCheckIn", () => {
       name: "Dante Ruiz",
       eventName: "Social Night",
       total: 1,
+      rewards: [
+        { reward: REWARDS[0], status: { kind: "progress", remaining: 17 } },
+      ],
     });
   });
 
@@ -743,5 +760,71 @@ describe("assessCheckIn", () => {
       status: "checked_in",
       pointsAwarded: 1,
     });
+  });
+});
+
+describe("rewards after check-in", () => {
+  function setField(
+    seed: ReturnType<typeof createSeed>,
+    contactId: string,
+    fieldId: string,
+    value: string,
+  ) {
+    const contact = seed.contacts.find((c) => c.id === contactId)!;
+    contact.custom_fields[fieldId] = {
+      id: fieldId,
+      title: fieldId,
+      type: "string",
+      value,
+    };
+  }
+
+  const input = { eventId: "ev_tonight", contactId: "c_dante", now: NOW };
+
+  it("shows qualified once the point brings the member to 18", async () => {
+    const client = seededClient((seed) =>
+      setField(seed, "c_dante", POINTS_FIELD_ID, "17"),
+    );
+    const result = await checkIn(client, input);
+    expect(result).toMatchObject({ status: "checked_in", total: 18 });
+    expect(await assessCheckIn(client, input)).toMatchObject({
+      status: "already_checked_in",
+      total: 18,
+      rewards: [{ reward: REWARDS[0], status: { kind: "qualified" } }],
+    });
+  });
+
+  it("shows issued over qualified", async () => {
+    const client = seededClient((seed) => {
+      setField(seed, "c_dante", POINTS_FIELD_ID, "17");
+      setField(seed, "c_dante", COLORS_ISSUED_FIELD_ID, "yes");
+    });
+    await checkIn(client, input);
+    expect(await assessCheckIn(client, input)).toMatchObject({
+      rewards: [{ status: { kind: "issued" } }],
+    });
+  });
+
+  it("leaves the reward out when the issued field is unreadable", async () => {
+    const client = seededClient((seed) => {
+      setField(seed, "c_dante", POINTS_FIELD_ID, "17");
+      setField(seed, "c_dante", COLORS_ISSUED_FIELD_ID, "maybe");
+    });
+    await checkIn(client, input);
+    expect(await assessCheckIn(client, input)).toMatchObject({
+      status: "already_checked_in",
+      rewards: [],
+    });
+  });
+
+  it("never writes the issued field", async () => {
+    const client = seededClient((seed) =>
+      setField(seed, "c_dante", POINTS_FIELD_ID, "17"),
+    );
+    const update = vi.spyOn(client, "updateContact");
+    await checkIn(client, input);
+    for (const [, patch] of update.mock.calls) {
+      expect(Object.keys(patch.custom_fields ?? {})).toEqual([POINTS_FIELD_ID]);
+    }
   });
 });

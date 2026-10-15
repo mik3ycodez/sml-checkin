@@ -1,5 +1,5 @@
 import { addDays, seattleDate } from "../../dates";
-import { POINTS_FIELD_ID } from "../customFields";
+import { COLORS_ISSUED_FIELD_ID, POINTS_FIELD_ID } from "../customFields";
 import type {
   Contact,
   Event,
@@ -58,6 +58,7 @@ export function createSeed(now: Date = new Date()): MockSeed {
     first: string,
     last: string,
     points: number,
+    colorsIssued = false,
   ): Contact => ({
     id,
     display_name: `${first} ${last}`,
@@ -75,6 +76,12 @@ export function createSeed(now: Date = new Date()): MockSeed {
         title: "SML Points",
         type: "string",
         value: String(points),
+      },
+      [COLORS_ISSUED_FIELD_ID]: {
+        id: COLORS_ISSUED_FIELD_ID,
+        title: "Club colors issued",
+        type: "string",
+        value: colorsIssued ? "yes" : "",
       },
     },
     notes: [],
@@ -223,6 +230,10 @@ export function createSeed(now: Date = new Date()): MockSeed {
       // Partial (invoice part-paid) with a future end date: check-in works,
       // with a balance-due message.
       contact("c_avery", "Avery", "Quinn", 0),
+      // Exactly 18 points, colors not issued: qualified for club colors.
+      contact("c_taylor", "Taylor", "Brandt", 18),
+      // 25 points, colors issued.
+      contact("c_morgan", "Morgan", "Hale", 25, true),
     ],
     memberships: [
       membership("m_marcus", "c_marcus", "lvl_full", -120, 245),
@@ -232,6 +243,8 @@ export function createSeed(now: Date = new Date()): MockSeed {
       membership("m_lee", "c_lee", "lvl_full", -455, -90),
       membership("m_robin", "c_robin", "lvl_full", -385, -20),
       membership("m_avery", "c_avery", "lvl_full", -100, 265, "partial"),
+      membership("m_taylor", "c_taylor", "lvl_full", -150, 215),
+      membership("m_morgan", "c_morgan", "lvl_full", -200, 165),
     ],
     membershipLevels: [
       { id: "lvl_full", name: "Full Member", description: null },

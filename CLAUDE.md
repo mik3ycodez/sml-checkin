@@ -56,6 +56,17 @@ system of record; this app is a thin layer on top of it.
   commas (`1,234`), but treats decimals, negatives, or other text as an
   unreadable total: check-in is refused (`points_unreadable`) and the field is
   never overwritten. A blank field counts as 0.
+- **Rewards (display-only).** Club colors at 18 points (`REWARDS` in
+  `points.ts`). The Board hands them out and marks them issued in a TidyHQ
+  custom field (`readRewardIssued`); this app only reads it. Issued wins over
+  everything, even under 18 points. Unreadable points or issued field: say
+  nothing about the reward rather than guess.
+- **Colors need a current, fully paid membership.** A member at 18+ points
+  who isn't issued still sees "You qualify", but the message depends on
+  `membershipStanding`: current says a Board member will connect with them;
+  grace or lapsed says renew first; balance due says complete payment first.
+  The check-in confirmation shows it only when that check-in's point brought
+  them to 18; `/me` shows it whenever it applies.
 - Check-ins record who, which event, when, and method (`self` or `staff`).
 - Membership standing (check-in and `/me` use one rule, `membershipStanding`).
   Pending and cancelled memberships never count. Use the counted membership

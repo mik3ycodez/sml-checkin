@@ -1,3 +1,4 @@
+import type { Reward } from "../points";
 import type { Contact, ContactPatch } from "./types";
 
 // The only place that knows the custom-field request format.
@@ -31,4 +32,33 @@ export function readPoints(
   if (!/^\d+$/.test(digits)) return null;
   const points = Number(digits);
   return Number.isSafeInteger(points) ? points : null;
+}
+
+/**
+ * Custom field id of the "club colors issued" flag. Set by the Board in
+ * TidyHQ; this app only reads it.
+ */
+export const COLORS_ISSUED_FIELD_ID = "cf_sml_colors_issued";
+
+const ISSUED_FIELD_IDS: Record<Reward["id"], string> = {
+  club_colors: COLORS_ISSUED_FIELD_ID,
+};
+
+/**
+ * Whether the reward has been handed over. The only place that knows the
+ * field's format, which is unknown until live access. For now: the text
+ * "yes" means issued, blank or missing means not issued. Anything else is
+ * null (unreadable), because guessing wrong in either direction tells the
+ * member something false.
+ */
+export function readRewardIssued(
+  contact: Pick<Contact, "custom_fields">,
+  rewardId: Reward["id"],
+): boolean | null {
+  const value = contact.custom_fields[ISSUED_FIELD_IDS[rewardId]]?.value;
+  if (value === undefined || value === null) return false;
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (text === "") return false;
+  return text === "yes" ? true : null;
 }

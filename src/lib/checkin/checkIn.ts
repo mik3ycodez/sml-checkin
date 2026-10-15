@@ -5,6 +5,7 @@ import {
   type MembershipNotice,
 } from "../membership";
 import { POINTS_PER_CHECKIN, type CheckInMethod } from "../points";
+import { rewardEntries, type RewardEntry } from "../rewards";
 import { getCheckinWindow, isCheckinOpen } from "../tidyhq/checkinWindow";
 import type { TidyClient } from "../tidyhq/client";
 import { findContact } from "../tidyhq/contacts";
@@ -53,6 +54,8 @@ export type CheckInResult =
       eventName: string | null;
       /** Null if the stored total is unreadable. */
       total: number | null;
+      /** Where the member stands on rewards; ones we can't read are left out. */
+      rewards: RewardEntry[];
     }
   | CheckInRefusal;
 
@@ -143,6 +146,7 @@ export type CheckInAssessment =
       name: string;
       eventName: string | null;
       total: number | null;
+      rewards: RewardEntry[];
     }
   | {
       status: "ready";
@@ -187,7 +191,8 @@ export async function assessCheckIn(
   const name = contact.display_name;
   if (attendance.checkedIn) {
     const total = readPoints(contact);
-    return { status: "already_checked_in", name, eventName, total };
+    const rewards = rewardEntries(contact);
+    return { status: "already_checked_in", name, eventName, total, rewards };
   }
 
   const open = isCheckinOpen(window, now);

@@ -5,6 +5,13 @@ import {
   membershipStanding,
   type MembershipNotice,
 } from "../membership";
+import type { Reward } from "../points";
+import {
+  rewardEntries,
+  rewardMessage,
+  rewardStanding,
+  type RewardStatus,
+} from "../rewards";
 import type { TidyClient } from "../tidyhq/client";
 import { findContact } from "../tidyhq/contacts";
 import { readPoints } from "../tidyhq/customFields";
@@ -32,6 +39,8 @@ export type MemberSummary =
       notice: MembershipNotice | null;
       /** Null if the stored total is unreadable; the page explains. */
       points: number | null;
+      /** Rewards we can read; one that can't be read is left out. */
+      rewards: MemberReward[];
     }
   /**
    * TidyHQ has no real membership on record for them: none at all, or only
@@ -41,6 +50,13 @@ export type MemberSummary =
   | { status: "not_member"; name: string; points: number | null }
   /** The session names a contact TidyHQ no longer has; sign in again. */
   | { status: "unknown_contact" };
+
+export interface MemberReward {
+  reward: Reward;
+  status: RewardStatus;
+  /** What the page says about it, given the member's membership standing. */
+  message: string;
+}
 
 /** Shown when TidyHQ no longer has the membership's level. */
 export const UNKNOWN_LEVEL_NAME = "Member";
@@ -121,5 +137,10 @@ export async function getMemberSummary(
     membership,
     notice: membershipNotice(standing),
     points: readPoints(contact),
+    rewards: rewardEntries(contact).map(({ reward, status }) => ({
+      reward,
+      status,
+      message: rewardMessage(reward, status, rewardStanding(standing)),
+    })),
   };
 }

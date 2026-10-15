@@ -2,6 +2,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { MembershipNotice } from "@/lib/membership";
+import { REWARDS } from "@/lib/points";
+import type { RewardEntry } from "@/lib/rewards";
 import type { TapOutcome } from "@/lib/checkin/tapNotice";
 import {
   CheckinProblem,
@@ -54,6 +56,7 @@ describe("StatusScreen", () => {
     status: "already_checked_in",
     ...DANTE,
     total: 5,
+    rewards: [] as RewardEntry[],
   } as const;
 
   describe("checked in by this tap", () => {
@@ -140,6 +143,90 @@ describe("StatusScreen", () => {
 
     it("shows no notice on a plain page load", () => {
       expect(render(CHECKED_IN).text).not.toContain("balance due");
+    });
+  });
+
+  describe("club colors", () => {
+    const COLORS = REWARDS[0];
+    const qualified: RewardEntry = {
+      reward: COLORS,
+      status: { kind: "qualified" },
+    };
+    const at18 = { ...CHECKED_IN, total: 18, rewards: [qualified] };
+    const CURRENT_MESSAGE =
+      "You qualify for club colors! A Board member will connect with you to distribute your club colors.";
+
+    it("tells a member this point qualified them", () => {
+      const { text } = render(at18, { kind: "awarded", points: 1 });
+      expect(text).toContain("+1 point");
+      expect(text).toContain(CURRENT_MESSAGE);
+    });
+
+    it("asks a member with a balance due to complete payment first", () => {
+      const { text } = render(at18, {
+        kind: "awarded",
+        points: 1,
+        membershipNotice: { kind: "balance_due" },
+      });
+      expect(text).toContain(
+        "You qualify for club colors. You will need to complete payment before receiving club colors.",
+      );
+      expect(text).not.toContain(CURRENT_MESSAGE);
+    });
+
+    it("asks a member in the grace period to renew first", () => {
+      const { text } = render(at18, {
+        kind: "awarded",
+        points: 1,
+        membershipNotice: {
+          kind: "grace",
+          expiredOn: "2026-09-22",
+          renewBy: "2026-11-21",
+        },
+      });
+      expect(text).toContain(
+        "You qualify for club colors. You will need to renew before receiving club colors.",
+      );
+    });
+
+    it("says nothing when they already qualified before this point", () => {
+      const { text } = render(
+        { ...at18, total: 19 },
+        { kind: "awarded", points: 1 },
+      );
+      expect(text).not.toContain("club colors");
+    });
+
+    it("says nothing while still short of 18", () => {
+      const { text } = render(
+        {
+          ...CHECKED_IN,
+          total: 10,
+          rewards: [
+            { reward: COLORS, status: { kind: "progress", remaining: 8 } },
+          ],
+        },
+        { kind: "awarded", points: 1 },
+      );
+      expect(text).not.toContain("club colors");
+    });
+
+    it("says nothing when colors are already issued", () => {
+      const { text } = render(
+        {
+          ...at18,
+          rewards: [{ reward: COLORS, status: { kind: "issued" } }],
+        },
+        { kind: "awarded", points: 1 },
+      );
+      expect(text).not.toContain("lub colors");
+    });
+
+    it("says nothing on a repeat tap or a plain reload", () => {
+      expect(render(at18, { kind: "repeat" }).text).not.toContain(
+        "club colors",
+      );
+      expect(render(at18, null).text).not.toContain("club colors");
     });
   });
 

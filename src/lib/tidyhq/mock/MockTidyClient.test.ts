@@ -53,6 +53,8 @@ describe("MockTidyClient", () => {
         "c_lee",
         "c_robin",
         "c_avery",
+        "c_taylor",
+        "c_morgan",
       ]);
     });
   });
