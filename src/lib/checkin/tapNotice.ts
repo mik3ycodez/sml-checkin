@@ -10,6 +10,12 @@
 
 import { addDays, isCalendarDate } from "../dates";
 import { GRACE_PERIOD_DAYS, type MembershipNotice } from "../membership";
+import {
+  findReward,
+  REWARD_STANDINGS,
+  type QualifiedReward,
+  type RewardStanding,
+} from "../rewards";
 
 export const TAP_NOTICE_COOKIE = "sml_tap";
 /** Long enough for the redirect, short enough not to linger. */
@@ -22,6 +28,8 @@ export type TapOutcome =
       points: number;
       /** Balance due or grace period, shown with the confirmation. Left out, never null, when there's none. */
       membershipNotice?: MembershipNotice;
+      /** Rewards this point reached. Left out, never empty, when there are none. */
+      qualified?: readonly QualifiedReward[];
     }
   /** Already checked in, so no point. */
   | { kind: "repeat" }
@@ -40,7 +48,15 @@ export function encodeTapNotice({
     c: contactId,
     o: outcome.kind,
   });
-  if (outcome.kind === "awarded") params.set("p", String(outcome.points));
+  if (outcome.kind === "awarded") {
+    params.set("p", String(outcome.points));
+    if (outcome.qualified?.length) {
+      params.set(
+        "q",
+        outcome.qualified.map((q) => `${q.rewardId}:${q.standing}`).join(","),
+      );
+    }
+  }
   if (outcome.kind === "awarded" || outcome.kind === "point_not_saved") {
     const notice = outcome.membershipNotice;
     if (notice) {
@@ -68,10 +84,12 @@ export function readTapNotice(
       const points = params.get("p") ?? "";
       if (!/^[1-9]\d*$/.test(points)) return null;
       const membershipNotice = readMembershipNotice(params);
+      const qualified = readQualified(params);
       return {
         kind: "awarded",
         points: Number(points),
         ...(membershipNotice && { membershipNotice }),
+        ...(qualified.length > 0 && { qualified }),
       };
     }
     case "repeat":
@@ -106,4 +124,17 @@ function readMembershipNotice(
     default:
       return null;
   }
+}
+
+/** Rewards reached, as `id:standing` pairs; anything unrecognized is dropped. */
+function readQualified(params: URLSearchParams): QualifiedReward[] {
+  const found: QualifiedReward[] = [];
+  for (const pair of (params.get("q") ?? "").split(",")) {
+    const [id, standing] = pair.split(":");
+    const reward = findReward(id);
+    if (reward && REWARD_STANDINGS.includes(standing as RewardStanding)) {
+      found.push({ rewardId: reward.id, standing: standing as RewardStanding });
+    }
+  }
+  return found;
 }

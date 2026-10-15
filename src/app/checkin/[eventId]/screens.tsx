@@ -3,6 +3,7 @@ import type { CheckInAssessment } from "@/lib/checkin/checkIn";
 import type { TapOutcome } from "@/lib/checkin/tapNotice";
 import { seattleTimeLabel } from "@/lib/dates";
 import { membershipNoticeText, type MembershipNotice } from "@/lib/membership";
+import { findReward, rewardMessage, type QualifiedReward } from "@/lib/rewards";
 import { tidyhqSiteUrl } from "@/lib/tidyhq/site";
 
 // Shared pieces of the check-in pages: one small screen per outcome, chosen
@@ -179,6 +180,9 @@ function CheckedIn({
           {notice.membershipNotice && (
             <MembershipNoticeBlock notice={notice.membershipNotice} now={now} />
           )}
+          {notice.qualified?.map((q) => (
+            <QualifiedMessage key={q.rewardId} qualified={q} />
+          ))}
           {signedInAs}
         </Screen>
       );
@@ -230,6 +234,17 @@ function MembershipNoticeBlock({
         {notice.kind === "grace" ? "Renew on TidyHQ" : "Pay on TidyHQ"}
       </a>
     </div>
+  );
+}
+
+/** "You qualify for…", for a reward this check-in's point just reached. */
+function QualifiedMessage({ qualified }: { qualified: QualifiedReward }) {
+  const reward = findReward(qualified.rewardId);
+  if (!reward) return null;
+  return (
+    <p className="text-lg font-semibold">
+      {rewardMessage(reward, { kind: "qualified" }, qualified.standing)}
+    </p>
   );
 }
 

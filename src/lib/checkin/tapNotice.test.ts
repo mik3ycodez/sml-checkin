@@ -73,6 +73,33 @@ describe("tap notice", () => {
     });
   });
 
+  it("round-trips the rewards this point reached, with the standing", () => {
+    const outcome = {
+      kind: "awarded",
+      points: 1,
+      qualified: [{ rewardId: "club_colors", standing: "balance_due" }],
+    } as const;
+    const value = encodeTapNotice({ ...FOR_DANTE, outcome });
+    expect(readTapNotice(value, FOR_DANTE)).toEqual(outcome);
+  });
+
+  it.each(["club_colors:vip", "hat:current", "club_colors", ""])(
+    "drops an unknown reward entry %j",
+    (q) => {
+      const params = new URLSearchParams(
+        encodeTapNotice({
+          ...FOR_DANTE,
+          outcome: { kind: "awarded", points: 1 },
+        }),
+      );
+      params.set("q", q);
+      expect(readTapNotice(params.toString(), FOR_DANTE)).toEqual({
+        kind: "awarded",
+        points: 1,
+      });
+    },
+  );
+
   it("round-trips a repeat tap", () => {
     const value = encodeTapNotice({
       ...FOR_DANTE,

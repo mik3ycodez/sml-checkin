@@ -5,6 +5,14 @@ import {
   type MembershipNotice,
 } from "../membership";
 import { POINTS_PER_CHECKIN, type CheckInMethod } from "../points";
+import {
+  newlyQualified,
+  rewardEntries,
+  rewardStanding,
+  type QualifiedReward,
+  type RewardEntry,
+  type RewardStanding,
+} from "../rewards";
 import { getCheckinWindow, isCheckinOpen } from "../tidyhq/checkinWindow";
 import type { TidyClient } from "../tidyhq/client";
 import { findContact } from "../tidyhq/contacts";
@@ -46,6 +54,8 @@ export type CheckInResult =
       total: number;
       /** A balance due or grace-period message to show with the confirmation. */
       membershipNotice: MembershipNotice | null;
+      /** Rewards this check-in's points just reached. */
+      qualified: QualifiedReward[];
     }
   | {
       status: "already_checked_in";
@@ -152,6 +162,9 @@ export type CheckInAssessment =
       /** The stored points total, readable. */
       stored: number;
       membershipNotice: MembershipNotice | null;
+      /** Rewards as of the stored total, before this check-in. */
+      rewards: RewardEntry[];
+      rewardStanding: RewardStanding;
     };
 
 /**
@@ -213,6 +226,8 @@ export async function assessCheckIn(
     groupId,
     stored,
     membershipNotice: membershipNotice(standing),
+    rewards: rewardEntries(contact, stored),
+    rewardStanding: rewardStanding(standing),
   };
 }
 
@@ -237,7 +252,7 @@ export async function checkIn(
   );
   if (assessment.status !== "ready") return assessment;
   const { name, eventName, groupId, stored } = assessment;
-  const { membershipNotice: notice } = assessment;
+  const { membershipNotice: notice, rewards } = assessment;
 
   await step("group_add", () => client.addContactToGroup(groupId, contactId));
   const pointsAwarded = POINTS_PER_CHECKIN;
@@ -254,5 +269,11 @@ export async function checkIn(
     pointsAwarded,
     total,
     membershipNotice: notice,
+    // Worked out from the read before the write, with the standing check-in
+    // itself used, so the confirmation can't disagree with this check-in.
+    qualified: newlyQualified(rewards, pointsAwarded).map((reward) => ({
+      rewardId: reward.id,
+      standing: assessment.rewardStanding,
+    })),
   };
 }

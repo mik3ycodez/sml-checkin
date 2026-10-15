@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { POINTS_FIELD_ID, readPoints } from "./customFields";
+import {
+  COLORS_ISSUED_FIELD_ID,
+  POINTS_FIELD_ID,
+  readPoints,
+  readRewardIssued,
+} from "./customFields";
 import type { CustomField } from "./types";
 
 function withPoints(value: CustomField["value"]) {
@@ -40,5 +45,45 @@ describe("readPoints", () => {
 
   it("treats a non-text value as unreadable", () => {
     expect(readPoints(withPoints(true))).toBeNull();
+  });
+});
+
+describe("readRewardIssued", () => {
+  const withIssued = (value: CustomField["value"]) => ({
+    custom_fields: {
+      [COLORS_ISSUED_FIELD_ID]: {
+        id: COLORS_ISSUED_FIELD_ID,
+        title: "Club colors issued",
+        type: "string" as const,
+        value,
+      },
+    },
+  });
+
+  it("reads yes as issued", () => {
+    expect(readRewardIssued(withIssued("yes"), "club_colors")).toBe(true);
+    expect(readRewardIssued(withIssued(" yes "), "club_colors")).toBe(true);
+  });
+
+  it("reads yes in any capitalization", () => {
+    expect(readRewardIssued(withIssued("Yes"), "club_colors")).toBe(true);
+    expect(readRewardIssued(withIssued("YES"), "club_colors")).toBe(true);
+  });
+
+  it("reads a missing or blank field as not issued", () => {
+    expect(readRewardIssued({ custom_fields: {} }, "club_colors")).toBe(false);
+    expect(readRewardIssued(withIssued(""), "club_colors")).toBe(false);
+    expect(readRewardIssued(withIssued("  "), "club_colors")).toBe(false);
+  });
+
+  it.each(["no", "true", "1", "issued", "yes!"])(
+    "treats %j as unreadable",
+    (value) => {
+      expect(readRewardIssued(withIssued(value), "club_colors")).toBeNull();
+    },
+  );
+
+  it("treats a non-text value as unreadable", () => {
+    expect(readRewardIssued(withIssued(true), "club_colors")).toBeNull();
   });
 });

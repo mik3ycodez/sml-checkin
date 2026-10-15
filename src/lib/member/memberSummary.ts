@@ -4,12 +4,20 @@ import {
   membershipNotice,
   membershipStanding,
   type MembershipNotice,
+  type MembershipStanding,
 } from "../membership";
+import type { Reward } from "../points";
+import {
+  rewardEntries,
+  rewardMessage,
+  rewardStanding,
+  type RewardStatus,
+} from "../rewards";
 import type { TidyClient } from "../tidyhq/client";
 import { findContact } from "../tidyhq/contacts";
 import { readPoints } from "../tidyhq/customFields";
 import { isTidyError } from "../tidyhq/errors";
-import type { Membership } from "../tidyhq/types";
+import type { Contact, Membership } from "../tidyhq/types";
 
 /** How the status page describes a member's membership. */
 export type MembershipStatus =
@@ -32,15 +40,30 @@ export type MemberSummary =
       notice: MembershipNotice | null;
       /** Null if the stored total is unreadable; the page explains. */
       points: number | null;
+      /** Rewards we can read; one that can't be read is left out. */
+      rewards: MemberReward[];
     }
   /**
    * TidyHQ has no real membership on record for them: none at all, or only
    * pending or cancelled ones. The page shows
    * a "become a member" message linking to SML's TidyHQ.
    */
-  | { status: "not_member"; name: string; points: number | null }
+  | {
+      status: "not_member";
+      name: string;
+      points: number | null;
+      /** Worded for a non-member: colors need a membership first. */
+      rewards: MemberReward[];
+    }
   /** The session names a contact TidyHQ no longer has; sign in again. */
   | { status: "unknown_contact" };
+
+export interface MemberReward {
+  reward: Reward;
+  status: RewardStatus;
+  /** What the page says about it, given the member's membership standing. */
+  message: string;
+}
 
 /** Shown when TidyHQ no longer has the membership's level. */
 export const UNKNOWN_LEVEL_NAME = "Member";
@@ -86,11 +109,14 @@ export async function getMemberSummary(
 
   logInconsistentMemberships(contactId, memberships, now);
   const standing = membershipStanding(memberships, now);
+  const points = readPoints(contact);
+  const rewards = memberRewards(contact, points, standing);
   if (standing.kind === "none") {
     return {
       status: "not_member",
       name: contact.display_name,
-      points: readPoints(contact),
+      points,
+      rewards,
     };
   }
   const shown = standing.membership;
@@ -120,6 +146,20 @@ export async function getMemberSummary(
     membershipEndsOn: standing.endsOn,
     membership,
     notice: membershipNotice(standing),
-    points: readPoints(contact),
+    points,
+    rewards,
   };
+}
+
+/** Rewards we can read, with the message for the member's standing. */
+function memberRewards(
+  contact: Contact,
+  points: number | null,
+  standing: MembershipStanding,
+): MemberReward[] {
+  return rewardEntries(contact, points).map(({ reward, status }) => ({
+    reward,
+    status,
+    message: rewardMessage(reward, status, rewardStanding(standing)),
+  }));
 }

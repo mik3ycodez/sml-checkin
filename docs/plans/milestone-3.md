@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 7 done (#12 to #18); PR 8 (grace period and Partial status) in review (#19).
+**Status:** In progress. PRs 1 to 8 done (#12 to #19); PR 9 (club colors reward) in review (#20).
 
 ## Context
 
@@ -233,7 +233,7 @@ Steps (test-first):
   `expired`, now come from `membershipStanding`, with a 60-day grace
   period.)_
 
-### PR 8: Membership grace period and Partial status 🔍 In review (#19)
+### PR 8: Membership grace period and Partial status ✅ Done (#19)
 
 SML policy, for check-in and `/me` alike. Pending and cancelled memberships
 never count. Use the counted membership with the **latest end date**, then:
@@ -282,7 +282,7 @@ Steps (test-first):
   mid-check-in.
 - Playwright: grace and balance-due check-ins.
 
-### PR 9: Rewards: club colors (test-first)
+### PR 9: Rewards: club colors (test-first) 🔍 In review (#20)
 
 - `src/lib/points.ts`, next to `POINTS_PER_CHECKIN`: `REWARDS`, a list of
   `{ id: "club_colors", name: "club colors", pointsRequired: 18 }`. Only
@@ -294,19 +294,37 @@ Steps (test-first):
 - `customFields.ts`: `COLORS_ISSUED_FIELD_ID` and `readRewardIssued(contact,
 rewardId): boolean | null`. It's the only place that knows the field's
   format, which is unknown until live access. For the mock, the field is a
-  string where `"yes"` means issued and blank or missing means not issued.
+  string where `"yes"` (any capitalization) means issued and blank or missing means not issued.
   Anything else is `null` (unreadable).
 - Unreadable issued field or unreadable points: show nothing for that
   reward rather than guess. Telling someone colors are coming when they
   already have them, or the reverse, is worse than saying nothing.
-- Seed: add the issued field to contacts, plus two new members: one with
-  18 points and colors not issued (qualified), and one with 25 points and
-  colors issued.
-- `getMemberSummary` gains `rewards: { reward, status }[]`.
-- `CLAUDE.md`: add a "Rewards" key decision covering club colors at 18
-  points, display-only, and the issued field read from TidyHQ.
+- Seed: add the issued field to contacts, plus three new members, all
+  current: Riley Frost (17 points, not issued; the next check-in qualifies),
+  Taylor Brandt (18 points, not issued) and Morgan Hale (25 points, issued).
+- `getMemberSummary` gains `rewards: { reward, status, message }[]`. The
+  message depends on membership standing (`rewardStanding`): colors need a
+  current, fully paid membership. Qualified and current: "You qualify for club
+  colors! A Board member will connect with you to distribute your club
+  colors." Grace, lapsed, or no counted membership (`not_member`, which also gains
+  `rewards`): renew first. Balance due: complete payment first.
+  Under 18, current, grace or balance due: "X more points until you qualify
+  for club colors." Lapsed: "Renew your membership to keep earning points
+  toward club colors. X more points needed." Non-member: "Members earn club
+  colors at 18 points. Become a member to start earning." Issued: "Club
+  colors received ✓".
+- Check-in: `checkIn` decides which rewards this check-in reached
+  (`newlyQualified`, from the read before the write) and the standing from
+  `membershipStanding`, returned as `qualified: { rewardId, standing }[]`.
+  The tap notice carries them to the confirmation, which shows the qualified
+  message. Nothing is worked out again from a later read, so a slow read or
+  an admin adjustment can't move the message to the wrong tap.
+- `CLAUDE.md`: "Rewards" and "colors need a current, fully paid membership"
+  key decisions.
 - Tests: 0, 17, 18 and 30 points not issued; issued at 25 and at 10; an
-  unreadable issued field; unreadable points.
+  unreadable issued field; unreadable points. Playwright: Riley checks in,
+  reaches 18 and sees "You qualify for club colors!"; a reload doesn't
+  repeat it.
 
 ### PR 10: Recent events
 

@@ -113,6 +113,16 @@ describe("checkInAction", () => {
     );
   });
 
+  it("tells the result page when this point qualified them for club colors", async () => {
+    signInAs("c_riley");
+    await submit("ev_tonight");
+    expect(tapNotice("ev_tonight", "c_riley")).toEqual({
+      kind: "awarded",
+      points: 1,
+      qualified: [{ rewardId: "club_colors", standing: "current" }],
+    });
+  });
+
   it("tells the result page about a repeat tap, with no point", async () => {
     signInAs("c_dante");
     await submit("ev_tonight");

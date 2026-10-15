@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { POINTS_FIELD_ID } from "../tidyhq/customFields";
+import { REWARDS } from "../points";
+import {
+  COLORS_ISSUED_FIELD_ID,
+  POINTS_FIELD_ID,
+} from "../tidyhq/customFields";
 import { TidyError } from "../tidyhq/errors";
 import { MockTidyClient } from "../tidyhq/mock/MockTidyClient";
 import { createSeed, type MockSeed } from "../tidyhq/mock/seed";
@@ -44,6 +48,13 @@ describe("getMemberSummary", () => {
       membership: "active",
       notice: null,
       points: 0,
+      rewards: [
+        {
+          reward: REWARDS[0],
+          status: { kind: "progress", remaining: 18 },
+          message: "18 more points until you qualify for club colors.",
+        },
+      ],
     });
   });
 
@@ -400,6 +411,14 @@ describe("getMemberSummary", () => {
       status: "not_member",
       name: "Dante Ruiz",
       points: 0,
+      rewards: [
+        {
+          reward: REWARDS[0],
+          status: { kind: "progress", remaining: 18 },
+          message:
+            "Members earn club colors at 18 points. Become a member to start earning.",
+        },
+      ],
     });
   });
 
@@ -540,6 +559,14 @@ describe("getMemberSummary", () => {
       status: "not_member",
       name: "Dante Ruiz",
       points: 0,
+      rewards: [
+        {
+          reward: REWARDS[0],
+          status: { kind: "progress", remaining: 18 },
+          message:
+            "Members earn club colors at 18 points. Become a member to start earning.",
+        },
+      ],
     });
   });
 
@@ -612,5 +639,170 @@ describe("getMemberSummary", () => {
     await getMemberSummary(client, { contactId: "c_sam", now: NOW });
     expect(JSON.stringify(await client.getContact("c_sam"))).toBe(before);
     for (const write of writes) expect(write).not.toHaveBeenCalled();
+  });
+
+  describe("rewards", () => {
+    const rewardsFor = async (
+      contactId: string,
+      edit?: (seed: MockSeed) => void,
+    ) => {
+      const result = await getMemberSummary(seededClient(edit), {
+        contactId,
+        now: NOW,
+      });
+      return result.status === "unknown_contact" ? undefined : result.rewards;
+    };
+
+    const setField = (
+      seed: MockSeed,
+      contactId: string,
+      fieldId: string,
+      value: string,
+    ) => {
+      seed.contacts.find((c) => c.id === contactId)!.custom_fields[fieldId] = {
+        id: fieldId,
+        title: fieldId,
+        type: "string",
+        value,
+      };
+    };
+
+    it("counts down to club colors", async () => {
+      expect(await rewardsFor("c_marcus")).toEqual([
+        {
+          reward: REWARDS[0],
+          status: { kind: "progress", remaining: 17 },
+          message: "17 more points until you qualify for club colors.",
+        },
+      ]);
+    });
+
+    it("tells a current member at 18 points that a Board member will connect", async () => {
+      expect(await rewardsFor("c_taylor")).toEqual([
+        {
+          reward: REWARDS[0],
+          status: { kind: "qualified" },
+          message:
+            "You qualify for club colors! A Board member will connect with you to distribute your club colors.",
+        },
+      ]);
+    });
+
+    it("says colors are issued, even above the threshold", async () => {
+      expect(await rewardsFor("c_morgan")).toMatchObject([
+        { status: { kind: "issued" }, message: "Club colors received ✓" },
+      ]);
+    });
+
+    it("says colors are issued even under 18 points", async () => {
+      const rewards = await rewardsFor("c_dante", (seed) =>
+        setField(seed, "c_dante", COLORS_ISSUED_FIELD_ID, "yes"),
+      );
+      expect(rewards).toMatchObject([{ status: { kind: "issued" } }]);
+    });
+
+    it("asks a member with a balance due to complete payment", async () => {
+      const rewards = await rewardsFor("c_avery", (seed) =>
+        setField(seed, "c_avery", POINTS_FIELD_ID, "18"),
+      );
+      expect(rewards).toMatchObject([
+        {
+          status: { kind: "qualified" },
+          message:
+            "You qualify for club colors. You will need to complete payment before receiving club colors.",
+        },
+      ]);
+    });
+
+    it("asks a member in the grace period to renew", async () => {
+      const rewards = await rewardsFor("c_robin", (seed) =>
+        setField(seed, "c_robin", POINTS_FIELD_ID, "20"),
+      );
+      expect(rewards).toMatchObject([
+        {
+          message:
+            "You qualify for club colors. You will need to renew before receiving club colors.",
+        },
+      ]);
+    });
+
+    it("asks a lapsed member to renew", async () => {
+      const rewards = await rewardsFor("c_lee", (seed) =>
+        setField(seed, "c_lee", POINTS_FIELD_ID, "20"),
+      );
+      expect(rewards).toMatchObject([
+        {
+          message:
+            "You qualify for club colors. You will need to renew before receiving club colors.",
+        },
+      ]);
+    });
+
+    it("asks a non-member at 18+ points to renew, like a lapsed member", async () => {
+      const rewards = await rewardsFor("c_dante", (seed) => {
+        seed.memberships = [];
+        setField(seed, "c_dante", POINTS_FIELD_ID, "20");
+      });
+      expect(rewards).toEqual([
+        {
+          reward: REWARDS[0],
+          status: { kind: "qualified" },
+          message:
+            "You qualify for club colors. You will need to renew before receiving club colors.",
+        },
+      ]);
+    });
+
+    it("tells a non-member with colors issued that they received them", async () => {
+      const rewards = await rewardsFor("c_morgan", (seed) => {
+        seed.memberships = [];
+      });
+      expect(rewards).toMatchObject([
+        { status: { kind: "issued" }, message: "Club colors received ✓" },
+      ]);
+    });
+
+    it("shows a non-member nothing when the issued field is unreadable", async () => {
+      const rewards = await rewardsFor("c_dante", (seed) => {
+        seed.memberships = [];
+        setField(seed, "c_dante", POINTS_FIELD_ID, "20");
+        setField(seed, "c_dante", COLORS_ISSUED_FIELD_ID, "maybe");
+      });
+      expect(rewards).toEqual([]);
+    });
+
+    it("asks a lapsed member under 18 points to renew to keep earning", async () => {
+      expect(await rewardsFor("c_lee")).toEqual([
+        {
+          reward: REWARDS[0],
+          status: { kind: "progress", remaining: 18 },
+          message:
+            "Renew your membership to keep earning points toward club colors. 18 more points needed.",
+        },
+      ]);
+    });
+
+    it("counts down for a member in the grace period, who can still earn", async () => {
+      const rewards = await rewardsFor("c_robin", (seed) =>
+        setField(seed, "c_robin", POINTS_FIELD_ID, "15"),
+      );
+      expect(rewards).toMatchObject([
+        { message: "3 more points until you qualify for club colors." },
+      ]);
+    });
+
+    it("shows nothing when the issued field is unreadable", async () => {
+      const rewards = await rewardsFor("c_taylor", (seed) =>
+        setField(seed, "c_taylor", COLORS_ISSUED_FIELD_ID, "maybe"),
+      );
+      expect(rewards).toEqual([]);
+    });
+
+    it("shows nothing when the points total is unreadable", async () => {
+      const rewards = await rewardsFor("c_taylor", (seed) =>
+        setField(seed, "c_taylor", POINTS_FIELD_ID, "12.5"),
+      );
+      expect(rewards).toEqual([]);
+    });
   });
 });

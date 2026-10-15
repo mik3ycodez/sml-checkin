@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { addDays } from "../dates";
-import { readPoints } from "../tidyhq/customFields";
+import {
+  COLORS_ISSUED_FIELD_ID,
+  POINTS_FIELD_ID,
+  readPoints,
+} from "../tidyhq/customFields";
 import { TidyError } from "../tidyhq/errors";
 import { MockTidyClient } from "../tidyhq/mock/MockTidyClient";
 import { createSeed } from "../tidyhq/mock/seed";
@@ -43,6 +47,7 @@ describe("checkIn", () => {
       pointsAwarded: 1,
       total: 1,
       membershipNotice: null,
+      qualified: [],
     });
     expect(await groupIds(client, "grp_social_night")).toContain("c_dante");
     expect(await storedPoints(client, "c_dante")).toBe(1);
@@ -293,6 +298,7 @@ describe("checkIn", () => {
       const result = await tap(client, "c_robin");
       expect(result).toEqual({
         status: "checked_in",
+        qualified: [],
         name: "Robin Vale",
         eventName: "Social Night",
         pointsAwarded: 1,
@@ -743,5 +749,97 @@ describe("assessCheckIn", () => {
       status: "checked_in",
       pointsAwarded: 1,
     });
+  });
+});
+
+describe("rewards reached by a check-in", () => {
+  function setField(
+    seed: ReturnType<typeof createSeed>,
+    contactId: string,
+    fieldId: string,
+    value: string,
+  ) {
+    const contact = seed.contacts.find((c) => c.id === contactId)!;
+    contact.custom_fields[fieldId] = {
+      id: fieldId,
+      title: fieldId,
+      type: "string",
+      value,
+    };
+  }
+
+  const input = { eventId: "ev_tonight", contactId: "c_dante", now: NOW };
+
+  it("reports club colors when the point brings a current member to 18", async () => {
+    const client = seededClient((seed) =>
+      setField(seed, "c_dante", POINTS_FIELD_ID, "17"),
+    );
+    expect(await checkIn(client, input)).toMatchObject({
+      status: "checked_in",
+      total: 18,
+      qualified: [{ rewardId: "club_colors", standing: "current" }],
+    });
+  });
+
+  it("carries the standing from membershipStanding, not the notice", async () => {
+    const client = seededClient((seed) =>
+      setField(seed, "c_avery", POINTS_FIELD_ID, "17"),
+    );
+    expect(
+      await checkIn(client, { ...input, contactId: "c_avery" }),
+    ).toMatchObject({
+      qualified: [{ rewardId: "club_colors", standing: "balance_due" }],
+    });
+  });
+
+  it("reports grace for a member in the grace period", async () => {
+    const client = seededClient((seed) =>
+      setField(seed, "c_robin", POINTS_FIELD_ID, "17"),
+    );
+    expect(
+      await checkIn(client, { ...input, contactId: "c_robin" }),
+    ).toMatchObject({
+      qualified: [{ rewardId: "club_colors", standing: "grace" }],
+    });
+  });
+
+  it("reports nothing when they already had 18", async () => {
+    const client = seededClient((seed) =>
+      setField(seed, "c_dante", POINTS_FIELD_ID, "18"),
+    );
+    expect(await checkIn(client, input)).toMatchObject({ qualified: [] });
+  });
+
+  it("reports nothing when they're still short", async () => {
+    expect(await checkIn(seededClient(), input)).toMatchObject({
+      qualified: [],
+    });
+  });
+
+  it("reports nothing when colors are already issued", async () => {
+    const client = seededClient((seed) => {
+      setField(seed, "c_dante", POINTS_FIELD_ID, "17");
+      setField(seed, "c_dante", COLORS_ISSUED_FIELD_ID, "yes");
+    });
+    expect(await checkIn(client, input)).toMatchObject({ qualified: [] });
+  });
+
+  it("reports nothing when the issued field is unreadable", async () => {
+    const client = seededClient((seed) => {
+      setField(seed, "c_dante", POINTS_FIELD_ID, "17");
+      setField(seed, "c_dante", COLORS_ISSUED_FIELD_ID, "maybe");
+    });
+    expect(await checkIn(client, input)).toMatchObject({ qualified: [] });
+  });
+
+  it("never writes the issued field", async () => {
+    const client = seededClient((seed) =>
+      setField(seed, "c_dante", POINTS_FIELD_ID, "17"),
+    );
+    const update = vi.spyOn(client, "updateContact");
+    await checkIn(client, input);
+    for (const [, patch] of update.mock.calls) {
+      expect(Object.keys(patch.custom_fields ?? {})).toEqual([POINTS_FIELD_ID]);
+    }
   });
 });

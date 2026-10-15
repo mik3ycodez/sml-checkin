@@ -143,6 +143,49 @@ describe("StatusScreen", () => {
     });
   });
 
+  describe("club colors", () => {
+    const at18 = { ...CHECKED_IN, total: 18 };
+    const qualifiedAs = (
+      standing: "current" | "balance_due" | "grace" | "lapsed",
+    ): TapOutcome => ({
+      kind: "awarded",
+      points: 1,
+      qualified: [{ rewardId: "club_colors", standing }],
+    });
+
+    it("tells a current member this point qualified them", () => {
+      const { text } = render(at18, qualifiedAs("current"));
+      expect(text).toContain("+1 point");
+      expect(text).toContain(
+        "You qualify for club colors! A Board member will connect with you to distribute your club colors.",
+      );
+    });
+
+    it("asks a member with a balance due to complete payment first", () => {
+      expect(render(at18, qualifiedAs("balance_due")).text).toContain(
+        "You qualify for club colors. You will need to complete payment before receiving club colors.",
+      );
+    });
+
+    it("asks a member in the grace period to renew first", () => {
+      expect(render(at18, qualifiedAs("grace")).text).toContain(
+        "You qualify for club colors. You will need to renew before receiving club colors.",
+      );
+    });
+
+    it("says nothing when this point didn't qualify them", () => {
+      const { text } = render(at18, { kind: "awarded", points: 1 });
+      expect(text).not.toContain("club colors");
+    });
+
+    it("says nothing on a repeat tap or a plain reload", () => {
+      expect(render(at18, { kind: "repeat" }).text).not.toContain(
+        "club colors",
+      );
+      expect(render(at18, null).text).not.toContain("club colors");
+    });
+  });
+
   describe("tapped again after checking in", () => {
     const { text } = render(CHECKED_IN, { kind: "repeat" });
 
