@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** In progress. PRs 1 to 7 done (#12 to #18); PR 8 (grace period and Partial status) in review.
+**Status:** In progress. PRs 1 to 7 done (#12 to #18); PR 8 (grace period and Partial status) in review (#19).
 
 ## Context
 
@@ -233,7 +233,7 @@ Steps (test-first):
   `expired`, now come from `membershipStanding`, with a 60-day grace
   period.)_
 
-### PR 8: Membership grace period and Partial status 🔍 In review
+### PR 8: Membership grace period and Partial status 🔍 In review (#19)
 
 SML policy, for check-in and `/me` alike. Pending and cancelled memberships
 never count. Use the counted membership with the **latest end date**, then:
