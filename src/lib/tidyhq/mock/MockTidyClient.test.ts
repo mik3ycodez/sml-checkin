@@ -249,6 +249,33 @@ describe("MockTidyClient", () => {
       expect(contacts).toHaveLength(1);
     });
 
+    it("lists a contact's groups, archived and current, event or not", async () => {
+      const groups = await client.listContactGroups("c_marcus");
+      const byId = Object.fromEntries(groups.map((g) => [g.id, g]));
+      // Pub Night was last month, so its group is archived but still listed.
+      expect(byId.grp_pub_night.archived).toBe(true);
+      // Non-event groups come back too; callers must filter.
+      expect(byId.grp_members).toBeDefined();
+      expect(byId.grp_members.archived).toBe(false);
+    });
+
+    it("lists a group for the current event once the contact checks in", async () => {
+      await client.addContactToGroup("grp_social_night", "c_dante");
+      const groups = await client.listContactGroups("c_dante");
+      expect(groups.find((g) => g.id === "grp_social_night")?.archived).toBe(
+        false,
+      );
+    });
+
+    it("lists no groups a contact isn't in", async () => {
+      const groups = await client.listContactGroups("c_dante");
+      expect(groups.map((g) => g.id)).not.toContain("grp_pub_night");
+    });
+
+    it("404s on listing the groups of an unknown contact", async () => {
+      await expectTidyError(client.listContactGroups("c_nobody"), 404);
+    });
+
     it("404s on an unknown group or contact", async () => {
       await expectTidyError(client.listGroupContacts("grp_nope"), 404);
       await expectTidyError(

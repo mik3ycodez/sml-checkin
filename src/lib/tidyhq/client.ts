@@ -3,6 +3,7 @@ import type {
   ContactPatch,
   Event,
   EventCheckinWindow,
+  Group,
   Membership,
   MembershipLevel,
   Note,
@@ -61,6 +62,14 @@ export interface TidyClient {
    * is already checked in, so a missing page would award points again.
    */
   listGroupContacts(groupId: string): Promise<Contact[]>;
+
+  /**
+   * `GET /v1/contacts/{contactID}/groups`: every group the contact belongs to,
+   * event or not. Must include archived groups (past events' attendance
+   * groups are archived) and follow all pages. Unverified against live
+   * TidyHQ: see the plan's open questions. Throws 404 for an unknown contact.
+   */
+  listContactGroups(contactId: string): Promise<Group[]>;
 
   /** `PUT /v1/groups/{groupID}/contacts/{contactID}`. Idempotent. */
   addContactToGroup(groupId: string, contactId: string): Promise<void>;

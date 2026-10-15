@@ -128,6 +128,15 @@ describe("getRecentEvents", () => {
       seed.events = Array.from({ length: 6 }, (_, i) =>
         pastEvent(`ev_extra_${i}`, 10 + i),
       );
+      seed.groups.push({
+        id: "grp_extra",
+        label: "Attendees: Extra",
+        description: "",
+        size: 1,
+        archived: true,
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      });
       seed.groupMembers.grp_extra = ["c_dante"];
     });
     const result = await getRecentEvents(client, {
@@ -155,9 +164,43 @@ describe("getRecentEvents", () => {
     expect(result.map((e) => e.id)).toEqual(["ev_pub_night"]);
   });
 
-  it("fails when a group read fails", async () => {
+  it("includes today's event, whose group isn't archived", async () => {
+    const client = seededClient((seed) => {
+      seed.groupMembers.grp_social_night = ["c_dante"];
+    });
+    const result = await getRecentEvents(client, {
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(result.map((e) => e.id)).toEqual(["ev_tonight"]);
+  });
+
+  it("never lists non-event groups", async () => {
+    // Marcus is in Members and Volunteers as well as Pub Night's group.
     const client = seededClient();
-    vi.spyOn(client, "listGroupContacts").mockRejectedValue(
+    const groups = await client.listContactGroups("c_marcus");
+    expect(groups.map((g) => g.id)).toContain("grp_volunteers");
+    const result = await getRecentEvents(client, {
+      contactId: "c_marcus",
+      now: NOW,
+    });
+    expect(result.map((e) => e.id)).toEqual(["ev_pub_night"]);
+  });
+
+  it("makes one groups request and one events request, no group reads", async () => {
+    const client = seededClient();
+    const listEvents = vi.spyOn(client, "listEvents");
+    const listContactGroups = vi.spyOn(client, "listContactGroups");
+    const listGroupContacts = vi.spyOn(client, "listGroupContacts");
+    await getRecentEvents(client, { contactId: "c_marcus", now: NOW });
+    expect(listEvents).toHaveBeenCalledTimes(1);
+    expect(listContactGroups).toHaveBeenCalledTimes(1);
+    expect(listGroupContacts).not.toHaveBeenCalled();
+  });
+
+  it("fails when the groups read fails", async () => {
+    const client = seededClient();
+    vi.spyOn(client, "listContactGroups").mockRejectedValue(
       new TidyError(500, "boom"),
     );
     await expect(

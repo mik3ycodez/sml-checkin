@@ -134,11 +134,17 @@ export function createSeed(now: Date = new Date()): MockSeed {
     };
   };
 
-  const group = (id: string, label: string): Group => ({
+  const group = (
+    id: string,
+    label: string,
+    archived = false,
+    description = "Event attendance (managed by SML Check-in)",
+  ): Group => ({
     id,
     label,
-    description: "Event attendance (managed by SML Check-in)",
+    description,
     size: 0,
+    archived,
     created_at: created,
     updated_at: created,
   });
@@ -146,6 +152,9 @@ export function createSeed(now: Date = new Date()): MockSeed {
   const groupMembers: Record<string, string[]> = {
     // Marcus and Jordan attended last month's pub night.
     grp_pub_night: ["c_marcus", "c_jordan"],
+    // Non-event groups, which /me must never show as events.
+    grp_members: ["c_marcus", "c_jordan", "c_dante"],
+    grp_volunteers: ["c_marcus"],
     grp_social_night: [],
     grp_bootblack_social: [],
     grp_bar_night: [],
@@ -153,11 +162,14 @@ export function createSeed(now: Date = new Date()): MockSeed {
   };
 
   const groups = [
-    group("grp_pub_night", "Attendees: Pub Night"),
+    // Past events' groups are archived, as in the TidyHQ admin screens.
+    group("grp_pub_night", "Attendees: Pub Night", true),
     group("grp_social_night", "Attendees: Social Night"),
     group("grp_bootblack_social", "Attendees: Bootblack Social"),
     group("grp_bar_night", "Attendees: Monthly Bar Night"),
     group("grp_leather_brunch", "Attendees: Leather Brunch"),
+    group("grp_members", "Members", false, "All current members"),
+    group("grp_volunteers", "Volunteers", false, "Event volunteers"),
   ].map((g) => ({ ...g, size: groupMembers[g.id].length }));
 
   const events = [

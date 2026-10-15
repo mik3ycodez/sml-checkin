@@ -100,6 +100,11 @@ export interface Group {
   description: string;
   /** How many contacts are in this group. */
   size: number;
+  /**
+   * Archived groups (past events' attendance groups, in the admin screens)
+   * still list the contact's membership.
+   */
+  archived: boolean;
   created_at: string;
   updated_at: string;
 }

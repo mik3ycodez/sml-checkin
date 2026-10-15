@@ -122,6 +122,8 @@ so the app is built against a **mock TidyHQ**.
   - `PATCH /v2/contacts/{id}` (points custom field)
   - `POST /v2/contacts/{id}/notes` (optional audit note)
   - `PUT /v1/groups/{groupID}/contacts/{contactID}` (attendance; v2 can't write groups)
+  - `GET /v1/contacts/{contactID}/groups` (a member's groups, archived ones
+    included, for recent events)
 - Unknown until live access: how an event links to its contact group, and the
   exact request format for custom fields. Keep both isolated so they're easy to
   change.

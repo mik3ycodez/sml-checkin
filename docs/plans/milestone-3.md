@@ -328,19 +328,27 @@ rewardId): boolean | null`. It's the only place that knows the field's
 
 ### PR 10: Recent events 🔍 In review (#21)
 
+- `TidyClient.listContactGroups(contactId)` (`GET /v1/contacts/{id}/groups`):
+  every group the contact is in, event or not, **archived ones included**
+  (past events' attendance groups are archived in the TidyHQ admin screens
+  but still appear on the contact). `Group` gains `archived`. The mock seed
+  archives Pub Night's group and adds non-event groups (Members,
+  Volunteers).
 - `src/lib/member/recentEvents.ts`: `getRecentEvents(client, { contactId,
-now })` lists events from the last `RECENT_EVENTS_DAYS` (90) with
-  `listEvents({ after, before: now })`. For each one it calls
-  `findEventGroup` and reads the group in parallel, keeps the events the
-  member is in, newest first, and returns at most 5 (`{ id, name, startAt
-}`).
-- Shares `readAttendance`'s "is this contact in the group" check (now the
-  exported `isInGroup`), so
-  check-in and `/me` agree.
-- Unmapped events are skipped. A failed group read fails the whole
-  section, not the page: the page shows "Couldn't load recent events".
-- Tests: attended / not attended, outside the window, more than 5, an
-  unmapped event, and a group read failing.
+now })` makes two requests in parallel: `listEvents({ after, before: now })`
+  for the last `RECENT_EVENTS_DAYS` (90), and `listContactGroups`. An event
+  counts when `findEventGroup(event)` is one of the member's group ids. It
+  returns them newest first, at most 5 (`{ id, name, startAt }`). Matching
+  from events outward means non-event groups can never appear, and today's
+  event shows up because current groups are included too.
+- `isInGroup` moves out of `checkIn.ts` into `src/lib/tidyhq/groups.ts`
+  (like `findContact`). Check-in's "already checked in" still uses it, on the
+  event's group.
+- Unmapped events are skipped. A failed read fails the whole section, not
+  the page: the page shows "Couldn't load recent events".
+- Tests: attended / not attended, today's event, outside the window, future
+  event, more than 5, an unmapped event, non-event groups, the request count
+  (one events read, one groups read, no group reads), and a read failing.
 
 ### PR 11: `/me` page
 
@@ -389,7 +397,12 @@ track. PR 11's spec needs PR 3. The suggested order is 1–11, one PR at a time.
   unpaid subscription with a future end date, the unpaid renewal would look
   current, and the grace period would never start. If live data shows this,
   measure grace from the end of the last fully paid period instead.
-- Verify both during live integration.
+- **Does `GET /v1/contacts/{id}/groups` include archived groups?** `/me`'s
+  recent events (PR 10) depend on it: past events' groups are archived. The
+  mock includes them. If live TidyHQ leaves them out, past events vanish
+  from `/me`; fall back to reading each event's group (the earlier design,
+  `isInGroup` per event). Also check that it follows all pages.
+- Verify all of these during live integration.
 
 ## Deferred
 
@@ -406,9 +419,8 @@ track. PR 11's spec needs PR 3. The suggested order is 1–11, one PR at a time.
   - Fetch memberships alongside the group read.
   - A short cache in `getCheckinWindow` and one membership helper.
   - A "this contact's groups" endpoint in place of downloading the whole
-    group.
-
-  `/me`'s recent events (PR 10) belong in that measurement too.
+    group (`/me`'s recent events already use `listContactGroups`; see
+    milestone 4 for check-in).
 
 - **Later: more rewards** (merchandise, vendor discounts). Add them to
   `REWARDS`, each with its own issued field.
@@ -416,6 +428,7 @@ track. PR 11's spec needs PR 3. The suggested order is 1–11, one PR at a time.
 ## Files reused
 
 - `assessCheckIn`, `readAttendance`, `findEvent`: `src/lib/checkin/checkIn.ts`
+- `isInGroup`: `src/lib/tidyhq/groups.ts`
 - `hasActiveMembership`, Seattle date helpers: `src/lib/membership.ts`,
   `src/lib/dates.ts`
 - `readPoints`, `POINTS_FIELD_ID`: `src/lib/tidyhq/customFields.ts`

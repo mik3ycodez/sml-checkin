@@ -19,6 +19,7 @@ import { findContact } from "../tidyhq/contacts";
 import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
 import { isTidyError, type TidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
+import { isInGroup } from "../tidyhq/groups";
 import type { Contact, Event } from "../tidyhq/types";
 
 export interface CheckInInput {
@@ -119,19 +120,6 @@ export async function findEvent(
   }
   const groupId = findEventGroup(event);
   return groupId ? { event, groupId } : null;
-}
-
-/**
- * Whether the contact is in the event's attendance group. The one place that
- * decides "already checked in"; `/me`'s recent events use it too.
- */
-export async function isInGroup(
-  client: TidyClient,
-  groupId: string,
-  contactId: string,
-): Promise<boolean> {
-  const attendees = await client.listGroupContacts(groupId);
-  return attendees.some((c) => c.id === contactId);
 }
 
 /**
