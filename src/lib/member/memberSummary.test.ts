@@ -235,7 +235,7 @@ describe("getMemberSummary", () => {
     });
   });
 
-  it("has no level and counts as expired with no memberships at all", async () => {
+  it("returns not_member when TidyHQ has no membership on record", async () => {
     const client = seededClient((seed) => {
       seed.memberships = [];
     });
@@ -244,13 +244,24 @@ describe("getMemberSummary", () => {
       now: NOW,
     });
     expect(result).toEqual({
-      status: "ok",
+      status: "not_member",
       name: "Dante Ruiz",
-      level: null,
-      membershipEndsOn: null,
-      membership: "expired",
       points: 0,
     });
+  });
+
+  it("keeps a non-member's points, null if unreadable", async () => {
+    const client = seededClient((seed) => {
+      seed.memberships = [];
+      seed.contacts.find((c) => c.id === "c_dante")!.custom_fields[
+        POINTS_FIELD_ID
+      ].value = "abc";
+    });
+    const result = await getMemberSummary(client, {
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(result).toMatchObject({ status: "not_member", points: null });
   });
 
   it("passes unreadable points through as null", async () => {

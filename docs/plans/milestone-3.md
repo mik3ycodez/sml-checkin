@@ -212,6 +212,8 @@ Steps (test-first):
   returns one of:
   - `ok { name, level, membershipEndsOn, membership: "active" |
 "renew_soon" | "expired", points: number | null }`
+  - `not_member { name, points }` (no membership of any kind on record; `/me`
+    shows a "become a member" message linking to SML's TidyHQ)
   - `unknown_contact` (the session's contact is gone; sign in again, as on
     the check-in page)
 - Level: the active membership with the latest end date, then
@@ -222,8 +224,8 @@ Steps (test-first):
 - Points: `readPoints`. `null` (unreadable) is passed through for the page
   to explain.
 - Tests: Dante (active), Sam (ends in two weeks → `renew_soon`), Lee
-  (expired), several memberships, an unreadable points field, and an
-  unknown contact.
+  (expired), several memberships, no memberships (`not_member`), an
+  unreadable points field, and an unknown contact.
 
 ### PR 8: Rewards: club colors (test-first)
 
