@@ -307,6 +307,37 @@ describe("checkIn", () => {
       expect(await storedPoints(client, "c_robin")).toBe(1);
     });
 
+    it("allows an expired-state member whose membership ends today, with the grace message", async () => {
+      const client = seededClient();
+      expiredDaysAgo(0)(client);
+      expect(await tap(client)).toMatchObject({
+        status: "checked_in",
+        membershipNotice: {
+          kind: "grace",
+          expiredOn: "2026-10-12",
+          renewBy: "2026-12-11",
+        },
+      });
+    });
+
+    it("allows an expired-state member whose membership ended yesterday", async () => {
+      const client = seededClient();
+      expiredDaysAgo(1)(client);
+      expect(await tap(client)).toMatchObject({
+        status: "checked_in",
+        membershipNotice: { kind: "grace", expiredOn: "2026-10-11" },
+      });
+    });
+
+    it("doesn't log an expired-state membership ending today as bad data", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const client = seededClient();
+      expiredDaysAgo(0)(client);
+      await tap(client);
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
     it("allows a member exactly 60 days past their end date", async () => {
       const client = seededClient();
       expiredDaysAgo(60)(client);

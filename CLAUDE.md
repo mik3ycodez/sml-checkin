@@ -63,7 +63,8 @@ system of record; this app is a thin layer on top of it.
   partial: can check in and earn points. End date passed by up to
   `GRACE_PERIOD_DAYS` (60, next to `RENEWAL_REMINDER_DAYS`) in any counted
   status, including expired: grace period, can still check in and earn
-  points. Passed by more: refused. All dates are Seattle time. Messages: a
+  points. An `expired` membership ending today counts as grace too (TidyHQ
+  may flip the state before Seattle's end of day). Passed by more: refused. All dates are Seattle time. Messages: a
   partial membership with a future end date says "You have a balance due.
   Complete payment in TidyHQ." (it beats the renewal reminder); the grace
   period says when it expired and the date to renew by.

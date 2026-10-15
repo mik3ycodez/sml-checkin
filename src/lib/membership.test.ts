@@ -157,6 +157,42 @@ describe("membershipStanding", () => {
     });
   });
 
+  it("treats an expired-state membership ending today as in grace, not refused", () => {
+    // TidyHQ may flip the state before Seattle's end of day; the member would
+    // be allowed tomorrow, so they're allowed today.
+    expect(standing(membership("expired", "2026-10-12"))).toMatchObject({
+      kind: "grace",
+      endsOn: "2026-10-12",
+      renewBy: "2026-12-11",
+    });
+  });
+
+  it("treats an expired-state membership that ended yesterday as in grace", () => {
+    expect(standing(membership("expired", "2026-10-11"))).toMatchObject({
+      kind: "grace",
+      endsOn: "2026-10-11",
+      renewBy: "2026-12-10",
+    });
+  });
+
+  it("uses the Seattle date for an expired-state membership ending today", () => {
+    // 03:00 UTC on the 13th is still the 12th in Seattle.
+    const lateEvening = new Date("2026-10-13T03:00:00Z");
+    expect(
+      membershipStanding([membership("expired", "2026-10-12")], lateEvening),
+    ).toMatchObject({ kind: "grace" });
+  });
+
+  it("gives the grace message for an expired-state membership ending today", () => {
+    expect(
+      membershipNotice(standing(membership("expired", "2026-10-12"))),
+    ).toEqual({
+      kind: "grace",
+      expiredOn: "2026-10-12",
+      renewBy: "2026-12-11",
+    });
+  });
+
   it("is still in grace exactly 60 days past the end date", () => {
     expect(standing(membership("expired", "2026-08-13"))).toMatchObject({
       kind: "grace",

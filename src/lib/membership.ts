@@ -46,7 +46,7 @@ export function countsAsMembership(m: Membership, today: string): boolean {
  *
  * - `current`: active state, end date today or later. `balanceDue` if partial.
  * - `grace`: end date passed by `GRACE_PERIOD_DAYS` or fewer, in any counted
- *   state. Check-in still works; `renewBy` is the last day that's true.
+ *   state; also an `expired`-state membership ending today. Check-in still works; `renewBy` is the last day that's true.
  * - `lapsed`: past the grace period, or a bad record on its own (`expired`
  *   yet still dated ahead, or an unreadable end date; see
  *   `findInconsistentMemberships`), refused rather than guessed at. A bad
@@ -146,7 +146,11 @@ export function membershipStanding(
   if (problemWith(best, today) !== null) {
     return { kind: "lapsed", membership: best, endsOn };
   }
-  if (endsOn === null || endsOn >= today) {
+  // TidyHQ may flip the state to expired before Seattle's end of day. Ending
+  // today in that state is treated as the grace period, which the member
+  // would be in tomorrow, not refused until then.
+  const endsToday = endsOn === today && best.state === "expired";
+  if (endsOn === null || (endsOn >= today && !endsToday)) {
     return ACTIVE_STATES.has(best.state)
       ? {
           kind: "current",

@@ -280,6 +280,16 @@ describe("getMemberSummary", () => {
       expect(at61).toMatchObject({ membership: "expired", notice: null });
     });
 
+    it("is grace for an expired-state membership ending today", async () => {
+      const result = await summary(
+        withMembership({ state: "expired", end_date: "2026-10-12" }),
+      );
+      expect(result).toMatchObject({
+        membership: "grace",
+        notice: { kind: "grace", expiredOn: "2026-10-12" },
+      });
+    });
+
     it("is grace for a still-activated membership past its end date", async () => {
       const result = await summary(
         withMembership({ state: "activated", end_date: "2026-10-01" }),
