@@ -5,6 +5,7 @@ import type {
   ContactPatch,
   Event,
   EventCheckinWindow,
+  Group,
   Membership,
   MembershipLevel,
   Note,
@@ -137,6 +138,14 @@ export class MockTidyClient implements TidyClient {
     return structuredClone(
       this.state.contacts.filter((c) => memberIds.includes(c.id)),
     );
+  }
+
+  async listContactGroups(contactId: string): Promise<Group[]> {
+    this.findContact(contactId);
+    const groups = this.state.groups.filter((g) =>
+      this.state.groupMembers[g.id]?.includes(contactId),
+    );
+    return structuredClone(groups);
   }
 
   async addContactToGroup(groupId: string, contactId: string): Promise<void> {

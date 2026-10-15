@@ -27,6 +27,23 @@ export function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * The moment a Seattle calendar day begins (midnight), for turning a
+ * `YYYY-MM-DD` date into a time bound. Seattle's clocks change at 2am, never
+ * at midnight, so the offset is always -7 or -8 hours.
+ */
+export function seattleStartOfDay(date: string): Date {
+  assertCalendarDate(date);
+  for (const offsetHours of [7, 8]) {
+    const candidate = new Date(`${date}T0${offsetHours}:00:00Z`);
+    const justBefore = new Date(candidate.getTime() - 1);
+    if (seattleDate(candidate) === date && seattleDate(justBefore) !== date) {
+      return candidate;
+    }
+  }
+  throw new Error(`No Seattle midnight found for ${date}`);
+}
+
 const seattleTimeParts = new Intl.DateTimeFormat("en-US", {
   timeZone: SML_TIME_ZONE,
   weekday: "long",

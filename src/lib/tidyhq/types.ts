@@ -100,6 +100,12 @@ export interface Group {
   description: string;
   /** How many contacts are in this group. */
   size: number;
+  /**
+   * Past events' attendance groups are archived in the TidyHQ admin screens
+   * but still list the contact's membership. Optional: no app code reads it,
+   * and the v1 response's exact shape is unconfirmed. Only the mock sets it.
+   */
+  archived?: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -5,6 +5,7 @@ import {
   dateLabel,
   isCalendarDate,
   seattleDate,
+  seattleStartOfDay,
   seattleTimeLabel,
 } from "./dates";
 
@@ -111,5 +112,32 @@ describe("date helpers given something that isn't YYYY-MM-DD", () => {
   it("addDays and dateLabel throw a clear error instead of returning garbage", () => {
     expect(() => addDays("2026-09-22T00:00:00Z", 1)).toThrow(/YYYY-MM-DD/);
     expect(() => dateLabel("soon")).toThrow(/YYYY-MM-DD/);
+  });
+});
+
+describe("seattleStartOfDay", () => {
+  it("is midnight Seattle time as a moment, in summer (UTC-7)", () => {
+    expect(seattleStartOfDay("2026-10-12").toISOString()).toBe(
+      "2026-10-12T07:00:00.000Z",
+    );
+  });
+
+  it("is midnight Seattle time in winter (UTC-8)", () => {
+    expect(seattleStartOfDay("2026-12-20").toISOString()).toBe(
+      "2026-12-20T08:00:00.000Z",
+    );
+  });
+
+  it("is right on the days the clocks change", () => {
+    expect(seattleStartOfDay("2026-03-08").toISOString()).toBe(
+      "2026-03-08T08:00:00.000Z",
+    );
+    expect(seattleStartOfDay("2026-11-01").toISOString()).toBe(
+      "2026-11-01T07:00:00.000Z",
+    );
+  });
+
+  it("throws for something that isn't YYYY-MM-DD", () => {
+    expect(() => seattleStartOfDay("soon")).toThrow(/YYYY-MM-DD/);
   });
 });

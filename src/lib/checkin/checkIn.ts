@@ -19,6 +19,7 @@ import { findContact } from "../tidyhq/contacts";
 import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
 import { isTidyError, type TidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
+import { isInGroup } from "../tidyhq/groups";
 import type { Contact, Event } from "../tidyhq/types";
 
 export interface CheckInInput {
@@ -123,8 +124,7 @@ export async function findEvent(
 
 /**
  * The member's contact (with their stored points) and whether they're in the
- * event's attendance group, or null if the contact is gone. The one place
- * that decides "already checked in".
+ * event's attendance group (`isInGroup`), or null if the contact is gone.
  *
  * The contact is read before the group, never alongside it. Otherwise an
  * overlapping check-in could land between the two reads: this request would
@@ -137,8 +137,7 @@ export async function readAttendance(
 ): Promise<{ contact: Contact; checkedIn: boolean } | null> {
   const contact = await findContact(client, contactId);
   if (!contact) return null;
-  const attendees = await client.listGroupContacts(groupId);
-  return { contact, checkedIn: attendees.some((c) => c.id === contactId) };
+  return { contact, checkedIn: await isInGroup(client, groupId, contactId) };
 }
 
 /**

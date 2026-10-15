@@ -45,6 +45,18 @@ the member TidyHQ OAuth flow?
 - This is a supplemental cross-check. The Board's own auditing in TidyHQ
   remains the official record, and the app never marks colors as issued.
 
+### Cheaper "already checked in" check
+
+- `readAttendance` downloads the event's whole attendee list
+  (`listGroupContacts`) to see whether one member is in it. For a big event
+  that means paging through every attendee on each check-in page load and tap.
+  `listContactGroups` (added for `/me`'s recent events in milestone 3 / PR 10)
+  returns one member's groups, so the check could test the event's group id
+  against that instead.
+- Keep the contact-before-group read order (it prevents double awards), and
+  confirm with live TidyHQ that the endpoint includes current and archived
+  groups and is as fresh as the group list right after a group add.
+
 ### Warnings for invalid check-in windows
 
 - On admin event pages, flag a window that's half-filled, unparseable, or
