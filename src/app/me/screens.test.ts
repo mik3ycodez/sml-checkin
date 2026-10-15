@@ -129,6 +129,29 @@ describe("MeScreen", () => {
       expect(text).not.toContain("expired on");
     });
 
+    it("doesn't claim a future date has expired (an inconsistent record)", () => {
+      const { html, text } = render({
+        ...OK,
+        membership: "expired",
+        membershipEndsOn: "2026-12-01",
+      });
+      expect(text).toContain("Your membership isn't active");
+      expect(text).not.toContain("expired on");
+      expect(text).not.toContain("December 1, 2026");
+      expect(html).toMatch(
+        /<a[^>]*href="https:\/\/sml\.tidyhq\.com"[^>]*>Renew/,
+      );
+    });
+
+    it("says the membership isn't active when it has no end date", () => {
+      const { text } = render({
+        ...OK,
+        membership: "expired",
+        membershipEndsOn: null,
+      });
+      expect(text).toContain("Your membership isn't active");
+    });
+
     it("tells a lapsed member it expired, with a renew link", () => {
       const { html, text } = render({
         ...OK,

@@ -1,19 +1,15 @@
-import type { ReactNode } from "react";
 import { dateLabel, seattleDate } from "@/lib/dates";
 import {
   RECENT_EVENTS_DAYS,
   type RecentEvent,
 } from "@/lib/member/recentEvents";
 import type { MemberSummary } from "@/lib/member/memberSummary";
-import { membershipNoticeText } from "@/lib/membership";
-import { tidyhqSiteUrl } from "@/lib/tidyhq/site";
-import { SignedInAs } from "../checkin/[eventId]/screens";
+import { ME_PATH } from "../memberPaths";
+import { MembershipNoticeBlock, SignedInAs, TidyHqNotice } from "../memberUi";
 
 // The member status page: plain server-rendered HTML with no client
 // JavaScript, so it reads the same on older phones and when scripts fail.
 // View only: renewals and payments happen in TidyHQ, so the page links there.
-
-export const ME_PATH = "/me";
 
 type Shown = Exclude<MemberSummary, { status: "unknown_contact" }>;
 
@@ -41,13 +37,13 @@ export function MeScreen({
       <Membership summary={summary} now={now} />
 
       {summary.rewards.length > 0 && (
-        <Section>
+        <div className="border-foreground/20 flex flex-col gap-3 rounded-lg border p-4">
           {summary.rewards.map((r) => (
             <p key={r.reward.id} className="text-lg">
               {r.message}
             </p>
           ))}
-        </Section>
+        </div>
       )}
 
       <RecentEvents events={recentEvents} />
@@ -74,14 +70,13 @@ function Points({ points }: { points: number | null }) {
 function Membership({ summary, now }: { summary: Shown; now: Date }) {
   if (summary.status === "not_member") {
     return (
-      <Section>
-        <p className="text-lg">You&apos;re not a member yet.</p>
-        <TidyLink>Become a member on TidyHQ</TidyLink>
-      </Section>
+      <TidyHqNotice linkLabel="Become a member on TidyHQ">
+        You&apos;re not a member yet.
+      </TidyHqNotice>
     );
   }
-  const { membership, membershipEndsOn: endsOn, notice } = summary;
-  switch (membership) {
+  const endsOn = summary.membershipEndsOn;
+  switch (summary.membership) {
     case "active":
       return (
         <p className="text-lg">
@@ -90,35 +85,22 @@ function Membership({ summary, now }: { summary: Shown; now: Date }) {
       );
     case "renew_soon":
       return (
-        <Section>
-          <p className="text-lg">
-            Your membership ends on {endsOn ? dateLabel(endsOn) : "soon"}.
-          </p>
-          <TidyLink>Renew on TidyHQ</TidyLink>
-        </Section>
+        <TidyHqNotice linkLabel="Renew on TidyHQ">
+          Your membership ends on {endsOn ? dateLabel(endsOn) : "soon"}.
+        </TidyHqNotice>
       );
     case "balance_due":
     case "grace":
-      return (
-        <Section>
-          <p className="text-lg">
-            {notice ? membershipNoticeText(notice, now) : ""}
-          </p>
-          <TidyLink>
-            {membership === "grace" ? "Renew on TidyHQ" : "Pay on TidyHQ"}
-          </TidyLink>
-        </Section>
-      );
+      return <MembershipNoticeBlock notice={summary.notice} now={now} />;
     case "expired":
+      // An end date still ahead (a record TidyHQ marked expired early) must
+      // not read as "expired on" a day that hasn't come.
       return (
-        <Section>
-          <p className="text-lg">
-            {endsOn === seattleDate(now)
-              ? "Your membership ends today."
-              : `Your membership expired on ${endsOn ? dateLabel(endsOn) : "a past date"}.`}
-          </p>
-          <TidyLink>Renew on TidyHQ</TidyLink>
-        </Section>
+        <TidyHqNotice linkLabel="Renew on TidyHQ">
+          {endsOn && endsOn < seattleDate(now)
+            ? `Your membership expired on ${dateLabel(endsOn)}.`
+            : "Your membership isn't active."}
+        </TidyHqNotice>
       );
   }
 }
@@ -148,24 +130,5 @@ function RecentEvents({ events }: { events: RecentEvent[] | null }) {
         </ul>
       )}
     </section>
-  );
-}
-
-function Section({ children }: { children: ReactNode }) {
-  return (
-    <div className="border-foreground/20 flex flex-col gap-3 rounded-lg border p-4">
-      {children}
-    </div>
-  );
-}
-
-function TidyLink({ children }: { children: ReactNode }) {
-  return (
-    <a
-      href={tidyhqSiteUrl()}
-      className="border-foreground/20 rounded-lg border px-4 py-3 text-center text-lg"
-    >
-      {children}
-    </a>
   );
 }

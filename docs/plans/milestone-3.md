@@ -389,6 +389,11 @@ now })` makes two requests in parallel: `listEvents` and
   qualified and issued seed members' colors lines; Lee's expired message.
 - Unit tests for the colors and membership message text, like
   `screens.test.ts`.
+- _(Built, after review: `/me` and check-in share `memberUi.tsx`
+  (`SignedInAs`, the notice block, button styles), `memberPaths.ts`
+  (`ME_PATH`, `signInPath`) and `MemberError`, which both `error.tsx` pages
+  use. A lapsed membership with a future end date reads "isn't active", and
+  `getRecentEvents` skips events whose start can't be parsed.)_
 
 **Dependencies:** PR 1 goes first, then PR 2. PRs 3→4→5 are one track
 (tests and CI). PR 6 (member pages without JavaScript) follows PR 5 and comes before the

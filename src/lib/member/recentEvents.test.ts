@@ -278,6 +278,25 @@ describe("getRecentEvents", () => {
     expect(listGroupContacts).not.toHaveBeenCalled();
   });
 
+  it("skips an event whose start time can't be parsed", async () => {
+    const client = seededClient();
+    const events = await client.listEvents();
+    vi.spyOn(client, "listEvents").mockResolvedValue([
+      ...events,
+      eventAt("ev_extra_bad_date", "not-a-date", "2026-10-12T18:00:00Z"),
+    ]);
+    vi.spyOn(client, "listContactGroups").mockResolvedValue([
+      { id: "grp_pub_night" },
+      { id: "grp_extra" },
+    ] as Awaited<ReturnType<typeof client.listContactGroups>>);
+    const result = await getRecentEvents(client, {
+      contactId: "c_marcus",
+      now: NOW,
+    });
+    expect(result.map((e) => e.id)).not.toContain("ev_extra_bad_date");
+    expect(result.map((e) => e.name)).toEqual(["Pub Night"]);
+  });
+
   it("fails when the groups read fails", async () => {
     const client = seededClient();
     vi.spyOn(client, "listContactGroups").mockRejectedValue(

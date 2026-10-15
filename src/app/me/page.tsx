@@ -3,14 +3,15 @@ import { getSession } from "@/lib/auth/session";
 import { getMemberSummary } from "@/lib/member/memberSummary";
 import { getTidyClient } from "@/lib/tidyhq";
 import { loadRecentEvents } from "./loadRecentEvents";
-import { ME_PATH, MeScreen } from "./screens";
+import { ME_PATH, signInPath } from "../memberPaths";
+import { MeScreen } from "./screens";
 
 // The member status page. Read-only. Rendered fully on the server with no
 // Suspense boundary or loading file (see CLAUDE.md): with JavaScript off, streamed
 // content would never appear. The summary and the recent events are read
 // together, and a failed events read only affects its own section.
 
-const SIGN_IN = `/auth/signin?returnTo=${encodeURIComponent(ME_PATH)}`;
+const SIGN_IN = signInPath(ME_PATH);
 
 export default async function MePage() {
   const session = await getSession();

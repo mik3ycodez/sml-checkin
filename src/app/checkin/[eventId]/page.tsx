@@ -1,6 +1,7 @@
 import { checkInAction } from "./actions";
 import { memberStatus } from "./memberStatus";
-import { checkinPath, eventTitle, SignedInAs, StatusScreen } from "./screens";
+import { SignedInAs } from "../../memberUi";
+import { checkinPath, eventTitle, StatusScreen } from "./screens";
 
 // The page a member's phone opens from the event QR code. Visiting it changes
 // nothing: checking in is a POST from the button, so link previews and

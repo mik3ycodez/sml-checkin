@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { REWARDS } from "../points";
 import {
   COLORS_ISSUED_FIELD_ID,
@@ -333,6 +333,23 @@ describe("getMemberSummary", () => {
         membership: "balance_due",
         membershipEndsOn: "2026-10-26",
       });
+    });
+
+    it("carries its notice in the type: balance_due and grace always have one", async () => {
+      const avery = await getMemberSummary(seededClient(), {
+        contactId: "c_avery",
+        now: NOW,
+      });
+      const robin = await getMemberSummary(seededClient(), {
+        contactId: "c_robin",
+        now: NOW,
+      });
+      if (avery.status === "ok" && avery.membership === "balance_due") {
+        expectTypeOf(avery.notice).toEqualTypeOf<{ kind: "balance_due" }>();
+      } else expect.unreachable();
+      if (robin.status === "ok" && robin.membership === "grace") {
+        expectTypeOf(robin.notice.kind).toEqualTypeOf<"grace">();
+      } else expect.unreachable();
     });
 
     it("has no notice for a plain active member or a renewal reminder", async () => {

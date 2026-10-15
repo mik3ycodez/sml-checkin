@@ -2,9 +2,15 @@ import type { ReactNode } from "react";
 import type { CheckInAssessment } from "@/lib/checkin/checkIn";
 import type { TapOutcome } from "@/lib/checkin/tapNotice";
 import { seattleTimeLabel } from "@/lib/dates";
-import { membershipNoticeText, type MembershipNotice } from "@/lib/membership";
 import { findReward, rewardMessage, type QualifiedReward } from "@/lib/rewards";
 import { tidyhqSiteUrl } from "@/lib/tidyhq/site";
+import { ME_PATH, signInPath as memberSignInPath } from "../../memberPaths";
+import {
+  MembershipNoticeBlock,
+  PRIMARY,
+  SECONDARY,
+  SignedInAs,
+} from "../../memberUi";
 
 // Shared pieces of the check-in pages: one small screen per outcome, chosen
 // by `StatusScreen` from what TidyHQ says now. Kept to plain links and forms
@@ -15,7 +21,7 @@ export function checkinPath(eventId: string): string {
 }
 
 export function signInPath(eventId: string): string {
-  return `/auth/signin?returnTo=${encodeURIComponent(checkinPath(eventId))}`;
+  return memberSignInPath(checkinPath(eventId));
 }
 
 export function UnknownEvent() {
@@ -40,33 +46,6 @@ export function resultPath(eventId: string): string {
 
 export function problemPath(eventId: string): string {
   return `${checkinPath(eventId)}/problem`;
-}
-
-/**
- * Who's signed in, with a way to switch members on a shared phone. A plain
- * form post (sign-out refuses GETs), returning to `returnTo`: the page the
- * member was on, which sends the next member straight to sign-in.
- */
-export function SignedInAs({
-  name,
-  returnTo,
-}: {
-  name: string;
-  /** The page to land on after signing out (it sends the next member to sign in). */
-  returnTo: string;
-}) {
-  return (
-    <form method="post" action="/auth/signout" className="text-foreground/70">
-      <input type="hidden" name="returnTo" value={returnTo} />
-      Signed in as {name}.{" "}
-      <span className="whitespace-nowrap">
-        Not you?{" "}
-        <button type="submit" className="underline">
-          Sign out
-        </button>
-      </span>
-    </form>
-  );
 }
 
 /** What the pages show for every status except "ready" (which shows the button). */
@@ -164,7 +143,7 @@ function CheckedIn({
   event,
   notice,
   now,
-  signedInAs: signedInAsOnly,
+  signedInAs,
 }: {
   status: Extract<ShownStatus, { status: "already_checked_in" }>;
   event: string;
@@ -172,12 +151,6 @@ function CheckedIn({
   now: Date;
   signedInAs: ReactNode;
 }) {
-  const signedInAs = (
-    <>
-      <PointsLink />
-      {signedInAsOnly}
-    </>
-  );
   switch (notice?.kind) {
     case "awarded":
       return (
@@ -192,6 +165,7 @@ function CheckedIn({
           {notice.qualified?.map((q) => (
             <QualifiedMessage key={q.rewardId} qualified={q} />
           ))}
+          <PointsLink />
           {signedInAs}
         </Screen>
       );
@@ -207,6 +181,7 @@ function CheckedIn({
           {notice.membershipNotice && (
             <MembershipNoticeBlock notice={notice.membershipNotice} now={now} />
           )}
+          <PointsLink />
           {signedInAs}
         </Screen>
       );
@@ -215,6 +190,7 @@ function CheckedIn({
         <Screen event={event} title="You're already checked in">
           <Note>One check-in per event, so no extra point this time.</Note>
           <Total total={status.total} />
+          <PointsLink />
           {signedInAs}
         </Screen>
       );
@@ -222,6 +198,7 @@ function CheckedIn({
       return (
         <Screen event={event} title="You're already checked in">
           <Total total={status.total} />
+          <PointsLink />
           {signedInAs}
         </Screen>
       );
@@ -231,27 +208,9 @@ function CheckedIn({
 /** From a check-in screen to the member's status page. */
 function PointsLink() {
   return (
-    <a href="/me" className={SECONDARY}>
+    <a href={ME_PATH} className={SECONDARY}>
       See your points
     </a>
-  );
-}
-
-/** A balance-due or grace-period message, linking to SML's TidyHQ to act on it. */
-function MembershipNoticeBlock({
-  notice,
-  now,
-}: {
-  notice: MembershipNotice;
-  now: Date;
-}) {
-  return (
-    <div className="border-foreground/20 flex flex-col gap-3 rounded-lg border p-4">
-      <p className="text-lg">{membershipNoticeText(notice, now)}</p>
-      <a href={tidyhqSiteUrl()} className={SECONDARY}>
-        {notice.kind === "grace" ? "Renew on TidyHQ" : "Pay on TidyHQ"}
-      </a>
-    </div>
   );
 }
 
@@ -280,11 +239,6 @@ export function CheckinProblem({ eventId }: { eventId: string }) {
     </Screen>
   );
 }
-
-const PRIMARY =
-  "rounded-lg bg-foreground px-4 py-3 text-center text-lg font-semibold text-background";
-const SECONDARY =
-  "rounded-lg border border-foreground/20 px-4 py-3 text-center text-lg";
 
 function Screen({
   event,

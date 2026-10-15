@@ -3,12 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { MembershipNotice } from "@/lib/membership";
 import type { TapOutcome } from "@/lib/checkin/tapNotice";
-import {
-  CheckinProblem,
-  SignedInAs,
-  StatusScreen,
-  type ShownStatus,
-} from "./screens";
+import { SignedInAs } from "../../memberUi";
+import { CheckinProblem, StatusScreen, type ShownStatus } from "./screens";
 
 describe("SignedInAs", () => {
   const html = renderToStaticMarkup(
