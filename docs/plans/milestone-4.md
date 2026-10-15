@@ -1,6 +1,6 @@
 # Milestone 4: Admin pages
 
-**Status:** In progress. PR 1 in review.
+**Status:** In progress. PR 1 in review (#23).
 
 ## Context
 
@@ -73,7 +73,7 @@ attendees, staff check-in), then one report.
 
 ## Pull requests (draft order)
 
-### PR 1: Admin access rule (test-first)
+### PR 1: Admin access rule (test-first) 🔍 In review (#23)
 
 - `src/lib/auth/admin.ts`: `adminAccess(client, contactId, groupId)` returns
   `admin` (with the name), `not_admin`, or `unavailable`, plus
