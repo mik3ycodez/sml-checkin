@@ -2,7 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { readTapNotice, TAP_NOTICE_COOKIE } from "@/lib/checkin/tapNotice";
 import { memberStatus } from "../memberStatus";
-import { checkinPath, StatusScreen } from "../screens";
+import { checkinPath } from "../../../memberPaths";
+import { StatusScreen } from "../screens";
 
 // Where the check-in button lands. Whether the member is checked in (and if
 // not, why), and their total, are re-read from TidyHQ rather than taken from

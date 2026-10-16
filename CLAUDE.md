@@ -26,10 +26,6 @@ system of record; this app is a thin layer on top of it.
 - Payments, renewals, profile editing (TidyHQ handles these)
 - Anti-gaming measures (audits instead)
 - Its own database (add later only if reporting needs it)
-- Warnings for invalid check-in windows (later, on admin event pages). A
-  window that's half-filled, unparseable, or closes before it opens is
-  silently ignored, and check-in falls back to the event's start and end.
-  Admins should see a warning so they can fix it in TidyHQ.
 
 ## Key decisions
 
@@ -72,6 +68,16 @@ system of record; this app is a thin layer on top of it.
   The check-in confirmation shows it only when that check-in's point brought
   them to 18 (decided in `checkIn`, from the read before the write); `/me`
   shows it whenever it applies.
+- **An invalid check-in window is ignored, and the admin event page says so.**
+  A window that's half-filled, unparseable, or closes before it opens is
+  dropped, and check-in falls back to the event's start and end, so a typo in
+  TidyHQ never locks members out. The admin event page warns about it. The
+  rule is `rangeProblem` in `timeRange.ts`, shared by check-in, the warning,
+  and the admin event list, so they can't disagree.
+- **Event QR codes** point to `APP_ORIGIN/checkin/<eventId>`, drawn as SVG on
+  the server. An archived event, one with no attendance group, or one whose
+  check-in can never open (no usable window or event times) gets the reason
+  shown instead of a code.
 - What a check-in records: for every check-in, who and which event (the
   member's place in the event's TidyHQ group). A **staff** check-in also
   writes a TidyHQ contact note with the event, which admin did it, and when;

@@ -18,7 +18,8 @@ import {
   type TapOutcome,
 } from "@/lib/checkin/tapNotice";
 import { getTidyClient } from "@/lib/tidyhq";
-import { checkinPath, problemPath, resultPath, signInPath } from "./screens";
+import { checkinPath } from "../../memberPaths";
+import { problemPath, resultPath, signInPath } from "./screens";
 
 /**
  * The check-in button. Bound to the event id on the check-in page; the

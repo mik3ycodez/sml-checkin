@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ME_PATH, signInPath } from "./memberPaths";
+import { checkinPath, ME_PATH, signInPath } from "./memberPaths";
 
 describe("memberPaths", () => {
   it("names the status page", () => {
@@ -11,5 +11,10 @@ describe("memberPaths", () => {
     expect(signInPath("/checkin/ev_tonight")).toBe(
       "/auth/signin?returnTo=%2Fcheckin%2Fev_tonight",
     );
+  });
+
+  it("builds the check-in path, encoding the event id", () => {
+    expect(checkinPath("ev_tonight")).toBe("/checkin/ev_tonight");
+    expect(checkinPath("a/b?c")).toBe("/checkin/a%2Fb%3Fc");
   });
 });
