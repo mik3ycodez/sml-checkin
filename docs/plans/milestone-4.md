@@ -1,6 +1,6 @@
 # Milestone 4: Admin pages
 
-**Status:** In progress. PRs 1–5 done (#23, #24, #25, #26, #27). PR 6a in review.
+**Status:** In progress. PRs 1–5 done (#23, #24, #25, #26, #27). PR 6a done (#28). PR 6b in review.
 
 ## Context
 
@@ -235,22 +235,67 @@ light colors._
 
 PR 6 is large, so it ships in two PRs. The design below covers both.
 
-- **PR 6a 🔍 In review: the volunteer access rule, logic only.** `HELPER_GROUP_ID`
+- **PR 6a ✅ Done (#28): the volunteer access rule, logic only.** `HELPER_GROUP_ID`
   and its placeholder in `.env.example`; the access check (volunteer, or admin);
   the `requireVolunteer` guard; the mock seed's volunteers group and a
   volunteer member. No pages, no UI. Tests: the volunteer rule (volunteer,
   admin-only person, neither, read on every call, failure and unset id fail
   closed) and the guard stopping a non-volunteer itself even if a caller
   ignores its return value.
-- **PR 6b: everything else.** The volunteer view and volunteer mode, the staff
-  check-in page and its action, the `checkIn` audit note, the denied screen's
-  wording for both roles, `CLAUDE.md`, and the end-to-end tests.
-  **Carry over from 6a's review:** `requireVolunteer` sends a denied
-  volunteer to the admin denied screen, which (1) only retries
-  `/admin/events/<id>`, so a door volunteer who hits a one-off TidyHQ failure
-  on `/admin/events/<id>/checkin` isn't retried automatically, and (2) links
-  to `/admin` and tells a non-member to join App Admin. 6b must let the
-  screen retry the staff check-in page and word its guidance for both roles.
+- **PR 6b 🔍 In review: the staff check-in page and its note.** Reached by
+  URL (`/admin/events/<id>/checkin`) and from a "Staff check-in" link on the
+  admin event page. Includes: the `checkIn` staff note; the staff check-in
+  page and action (search, verdict, confirm, result); `staffVerdict` (what
+  each role sees); the admin-only inconsistent-membership warnings; the denied
+  screen fixed for both roles; `CLAUDE.md` (the note's wording and the
+  volunteer role). **Carry over from 6a's review:** `requireVolunteer` sends a
+  denied volunteer to the admin denied screen, which (1) only retried
+  `/admin/events/<id>`, and (2) linked to `/admin` and told a non-member to
+  join App Admin. 6b lets it retry the staff check-in page and word its
+  guidance for volunteers, with a "Back to check-in" link.
+- **PR 6c: the volunteer entry point.** The "Are you a volunteer?" link on
+  event pages (the check-in page, the result and status screens; **not**
+  `/me`, which has no event), "Stop volunteering", the "volunteer mode has
+  ended" screen, and the volunteer entry-point Playwright specs.
+
+**Decisions for 6b/6c:**
+
+- **No mode cookie.** The URL is the volunteer mode: being on the staff
+  check-in URL is being in it. Both the page and the action call
+  `requireVolunteer` on every request.
+- **Volunteers may open the staff page before check-in opens** (to get set
+  up; members show as "opens at 6:30 PM"). A volunteer's access to an event's
+  staff page ends only when check-in has closed, the event is archived, or it
+  can never open (no attendance group, no usable window), never just because
+  it hasn't opened yet. 6b enforces this in the page and the action (a plain
+  "check-in has closed" screen, so a volunteer can't search members after the
+  event); 6c gives it the "volunteer mode has ended" wording and a link back
+  to `/checkin/<id>`. Admins aren't limited this way.
+- **The note names the role:** "by volunteer: Pat Rivera (c_pat)" or "by admin:
+  ...". `CLAUDE.md` says "which staff member".
+- **What each role sees of a member.** Search results are names only for
+  both roles. Both see name, points total and a verdict. **A volunteer sees a
+  specific reason only for event-related outcomes** (already checked in, not
+  open yet with the opening time, closed, event unavailable). **Every
+  membership or points refusal** (lapsed, balance due, inconsistent, points
+  unreadable, not a member, and so on) shows one generic line: "Can't check in
+  here. Please see a Board member." Admins see the specific reason, plus
+  inconsistent-membership warnings (ids only). A test checks that no
+  volunteer verdict contains membership-status or balance wording.
+- **Result notice:** a short-lived httpOnly cookie (like `tapNotice`, same
+  encoding, own cookie name) says what the confirm did ("+1 point", or "added
+  but the point didn't save"). It carries no membership or reward details.
+- **Failures:** TidyHQ failing during search or the verdict shows an inline
+  "couldn't reach TidyHQ" with a "Try again" link; a failure before the group
+  add says nothing was saved and shows the confirm button again; a failed
+  points write says the member is checked in but the point didn't save and to
+  tell a Board member (no retry: it would only say "already checked in").
+
+**Open question (revisit with live data):** search shows names only, so two
+members called "Chris Smith" can't be told apart by a volunteer. Check how
+common duplicate names are in SML's TidyHQ before deciding what extra detail
+(a member number? the last few characters of an email?) is safe to show.
+
 - _(Naming: the guard is `requireVolunteer`, not `requireStaff` as first
   drafted. It returns for a volunteer or an admin and says which, so the
   action can record the role. Wherever the design below says `requireStaff`,

@@ -21,30 +21,39 @@ import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
 import { isTidyError, type TidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
 import { isInGroup } from "../tidyhq/groups";
+import { staffNoteText, type StaffActor } from "./staffNote";
 import type { Contact, Event } from "../tidyhq/types";
 
-export interface CheckInInput {
+/**
+ * A staff check-in must say who did it, so TypeScript rejects one that
+ * doesn't: the note names them.
+ */
+export type CheckInInput = {
   eventId: string;
   contactId: string;
-  /** Not saved yet; there's nowhere to record it until notes or a database. */
-  method?: CheckInMethod;
   now: Date;
+} & (
+  | { method?: Extract<CheckInMethod, "self"> }
+  | { method: Extract<CheckInMethod, "staff">; staff: StaffActor }
+);
+
+/** What a refusal knows about the member: staff see the stored total. */
+interface Known {
+  name: string;
+  eventName: string | null;
+  /** Null if the stored total is unreadable. */
+  total: number | null;
 }
 
 /** Why a member can't check in. The same reasons whether asked before or at the tap. */
 export type CheckInRefusal =
-  | { status: "membership_inactive"; name: string; eventName: string | null }
+  | (Known & { status: "membership_inactive" })
   /** The stored total isn't a plain whole number; a volunteer must fix it. */
-  | { status: "points_unreadable"; name: string; eventName: string | null }
-  | {
-      status: "not_open";
-      name: string;
-      eventName: string | null;
-      opensAt: Date;
-    }
-  | { status: "closed"; name: string; eventName: string | null }
+  | (Known & { status: "points_unreadable" })
+  | (Known & { status: "not_open"; opensAt: Date })
+  | (Known & { status: "closed" })
   /** Archived in TidyHQ: not an event to check in to, whatever its window says. */
-  | { status: "event_unavailable"; name: string; eventName: string | null }
+  | (Known & { status: "event_unavailable" })
   | { status: "unknown_event" }
   /** The session names a contact TidyHQ no longer has (merged or deleted). */
   | { status: "unknown_contact" };
@@ -203,28 +212,43 @@ export async function assessCheckIn(
   const { contact } = attendance;
   const name = contactName(contact);
   if (attendance.checkedIn) {
-    const total = readPoints(contact);
-    return { status: "already_checked_in", name, eventName, total };
+    return {
+      status: "already_checked_in",
+      name,
+      eventName,
+      total: readPoints(contact),
+    };
   }
 
-  if (event.archived) return { status: "event_unavailable", name, eventName };
+  const total = readPoints(contact);
+  if (event.archived) {
+    return { status: "event_unavailable", name, eventName, total };
+  }
 
   const open = isCheckinOpen(window, now);
   if (open === "not_yet") {
-    return { status: "not_open", name, eventName, opensAt: window.opensAt! };
+    return {
+      status: "not_open",
+      name,
+      eventName,
+      total,
+      opensAt: window.opensAt!,
+    };
   }
-  if (open === "closed") return { status: "closed", name, eventName };
+  if (open === "closed") return { status: "closed", name, eventName, total };
 
   const memberships = await client.getMemberships(contactId);
   // Current members and those in the grace period may check in.
   logInconsistentMemberships(contactId, memberships, now);
   const standing = membershipStanding(memberships, now);
   if (standing.kind !== "current" && standing.kind !== "grace") {
-    return { status: "membership_inactive", name, eventName };
+    return { status: "membership_inactive", name, eventName, total };
   }
 
-  const stored = readPoints(contact);
-  if (stored === null) return { status: "points_unreadable", name, eventName };
+  const stored = total;
+  if (stored === null) {
+    return { status: "points_unreadable", name, eventName, total };
+  }
   return {
     status: "ready",
     name,
@@ -251,8 +275,9 @@ export async function assessCheckIn(
  */
 export async function checkIn(
   client: TidyClient,
-  { eventId, contactId, now }: CheckInInput,
+  input: CheckInInput,
 ): Promise<CheckInResult> {
+  const { eventId, contactId, now } = input;
   const assessment = await step("lookup", () =>
     assessCheckIn(client, { eventId, contactId, now }),
   );
@@ -268,6 +293,16 @@ export async function checkIn(
     () => client.updateContact(contactId, buildPointsPatch(total)),
     notice,
   );
+  // Last, so a failed note can't affect the group or the points.
+  if (input.method === "staff") {
+    await writeStaffNote(client, {
+      eventId,
+      contactId,
+      eventName,
+      staff: input.staff,
+      now,
+    });
+  }
   return {
     status: "checked_in",
     name,
@@ -282,4 +317,44 @@ export async function checkIn(
       standing: assessment.rewardStanding,
     })),
   };
+}
+
+/**
+ * Leaves the staff check-in note. By now the member is in the group and has
+ * their point, so any failure is logged and swallowed: surfacing it would show
+ * an error for a check-in that worked. That includes errors that aren't from
+ * TidyHQ. Logs ids and the error, never the note text.
+ */
+async function writeStaffNote(
+  client: TidyClient,
+  {
+    eventId,
+    contactId,
+    eventName,
+    staff,
+    now,
+  }: {
+    eventId: string;
+    contactId: string;
+    eventName: string | null;
+    staff: StaffActor;
+    now: Date;
+  },
+): Promise<void> {
+  try {
+    await client.addNote(
+      contactId,
+      staffNoteText({ eventId, eventName, staff, now }),
+    );
+  } catch (error) {
+    console.error("staff check-in note failed", {
+      eventId,
+      contactId,
+      error: isTidyError(error)
+        ? `TidyError ${error.status}: ${error.message}`
+        : error instanceof Error
+          ? error.name
+          : "unknown",
+    });
+  }
 }

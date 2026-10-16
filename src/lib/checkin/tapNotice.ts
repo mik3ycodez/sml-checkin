@@ -18,6 +18,8 @@ import {
 } from "../rewards";
 
 export const TAP_NOTICE_COOKIE = "sml_tap";
+/** The staff check-in page's own note, under its own name and path. */
+export const STAFF_NOTICE_COOKIE = "sml_staff_tap";
 /** Long enough for the redirect, short enough not to linger. */
 export const TAP_NOTICE_MAX_AGE_SECONDS = 60;
 

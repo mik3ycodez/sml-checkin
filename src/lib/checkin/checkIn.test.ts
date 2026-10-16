@@ -198,6 +198,7 @@ describe("checkIn", () => {
       status: "points_unreadable",
       name: "Marcus Bell",
       eventName: "Social Night",
+      total: null,
     });
     expect(await groupIds(client, "grp_social_night")).not.toContain(
       "c_marcus",
@@ -292,6 +293,7 @@ describe("checkIn", () => {
       status: "membership_inactive",
       name: "Lee Hart",
       eventName: "Social Night",
+      total: 0,
     });
     expect(await groupIds(client, "grp_social_night")).not.toContain("c_lee");
     expect(await storedPoints(client, "c_lee")).toBe(0);
@@ -474,6 +476,7 @@ describe("checkIn", () => {
         status: "event_unavailable",
         name: "Dante Ruiz",
         eventName: "Social Night",
+        total: 0,
       });
       expect(await groupIds(client, "grp_social_night")).toEqual([]);
       expect(await storedPoints(client, "c_dante")).toBe(0);
@@ -514,6 +517,7 @@ describe("checkIn", () => {
       status: "not_open",
       name: "Dante Ruiz",
       eventName: "Bootblack Social",
+      total: 0,
       opensAt: new Date(window!.opens_at),
     });
     expect(await groupIds(client, "grp_bootblack_social")).toEqual([]);
@@ -530,6 +534,7 @@ describe("checkIn", () => {
       status: "closed",
       name: "Dante Ruiz",
       eventName: "Pub Night",
+      total: 0,
     });
     expect(await groupIds(client, "grp_pub_night")).not.toContain("c_dante");
   });
@@ -912,5 +917,151 @@ describe("rewards reached by a check-in", () => {
     for (const [, patch] of update.mock.calls) {
       expect(Object.keys(patch.custom_fields ?? {})).toEqual([POINTS_FIELD_ID]);
     }
+  });
+});
+
+describe("a staff check-in", () => {
+  const staff = {
+    contactId: "c_pat",
+    name: "Pat Rivera",
+    role: "volunteer",
+  } as const;
+  const input = {
+    eventId: "ev_tonight",
+    contactId: "c_dante",
+    method: "staff",
+    staff,
+    now: NOW,
+  } as const;
+  const notesOf = async (client: MockTidyClient, id: string) =>
+    (await client.getContact(id)).notes.map((n) => n.text);
+
+  it("awards the point like a self check-in, and writes a note saying who did it", async () => {
+    const client = seededClient();
+    const result = await checkIn(client, input);
+    expect(result).toMatchObject({
+      status: "checked_in",
+      pointsAwarded: 1,
+      total: 1,
+    });
+    expect(await groupIds(client, "grp_social_night")).toContain("c_dante");
+    expect(await storedPoints(client, "c_dante")).toBe(1);
+    expect(await notesOf(client, "c_dante")).toEqual([
+      "Checked in to Social Night (ev_tonight) by volunteer: Pat Rivera (c_pat), 2026-10-12 11:00 AM",
+    ]);
+  });
+
+  it("writes no note for a self check-in", async () => {
+    const client = seededClient();
+    await checkIn(client, {
+      eventId: "ev_tonight",
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(await notesOf(client, "c_dante")).toEqual([]);
+  });
+
+  it("writes no note when the member was already checked in", async () => {
+    const client = seededClient();
+    await checkIn(client, input);
+    const again = await checkIn(client, input);
+    expect(again.status).toBe("already_checked_in");
+    expect(await notesOf(client, "c_dante")).toHaveLength(1);
+    expect(await storedPoints(client, "c_dante")).toBe(1);
+  });
+
+  it("writes no note for a refused member", async () => {
+    const client = seededClient();
+    const result = await checkIn(client, { ...input, contactId: "c_lee" });
+    expect(result.status).toBe("membership_inactive");
+    expect(await notesOf(client, "c_lee")).toEqual([]);
+  });
+
+  it("writes the note after the group add and the points write", async () => {
+    const client = seededClient();
+    const order: string[] = [];
+    for (const method of [
+      "addContactToGroup",
+      "updateContact",
+      "addNote",
+    ] as const) {
+      const original = client[method].bind(client) as (
+        ...a: unknown[]
+      ) => Promise<unknown>;
+      vi.spyOn(client, method).mockImplementation(
+        async (...args: unknown[]) => {
+          order.push(method);
+          return original(...args) as never;
+        },
+      );
+    }
+    await checkIn(client, input);
+    expect(order).toEqual(["addContactToGroup", "updateContact", "addNote"]);
+  });
+
+  it("still succeeds, with the same total, if the note fails", async () => {
+    const client = seededClient();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const update = vi.spyOn(client, "updateContact");
+    vi.spyOn(client, "addNote").mockRejectedValue(new TidyError(500, "boom"));
+    const result = await checkIn(client, input);
+    expect(result).toMatchObject({ status: "checked_in", total: 1 });
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(await storedPoints(client, "c_dante")).toBe(1);
+  });
+
+  it("swallows a failure that isn't from TidyHQ too, since the points are already written", async () => {
+    const client = seededClient();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(client, "addNote").mockRejectedValue(new TypeError("bug"));
+    const result = await checkIn(client, input);
+    expect(result).toMatchObject({ status: "checked_in", total: 1 });
+  });
+
+  it("logs a failed note with ids and the error, not the note text or a token", async () => {
+    const client = seededClient();
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(client, "addNote").mockRejectedValue(new TidyError(500, "boom"));
+    await checkIn(client, input);
+    expect(log).toHaveBeenCalledWith("staff check-in note failed", {
+      eventId: "ev_tonight",
+      contactId: "c_dante",
+      error: "TidyError 500: boom",
+    });
+  });
+});
+
+describe("assessCheckIn carries the points total on refusals", () => {
+  it("includes the stored total where the member is known", async () => {
+    const client = seededClient();
+    const at = (eventId: string, contactId: string) =>
+      assessCheckIn(client, { eventId, contactId, now: NOW });
+    expect(await at("ev_tonight", "c_lee")).toMatchObject({
+      status: "membership_inactive",
+      total: 0,
+    });
+    expect(await at("ev_pub_night", "c_riley")).toMatchObject({
+      status: "closed",
+      total: 17,
+    });
+    expect(await at("ev_bootblack_social", "c_riley")).toMatchObject({
+      status: "not_open",
+      total: 17,
+    });
+  });
+
+  it("reports an unreadable total as null", async () => {
+    const client = seededClient((seed) => {
+      seed.contacts.find((c) => c.id === "c_dante")!.custom_fields[
+        POINTS_FIELD_ID
+      ].value = "lots";
+    });
+    expect(
+      await assessCheckIn(client, {
+        eventId: "ev_tonight",
+        contactId: "c_dante",
+        now: NOW,
+      }),
+    ).toMatchObject({ status: "points_unreadable", total: null });
   });
 });

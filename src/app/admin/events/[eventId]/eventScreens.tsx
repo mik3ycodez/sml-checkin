@@ -4,8 +4,8 @@ import type { AdminEventPage, NoQrReason } from "@/lib/admin/eventPage";
 import { seattleTimeLabel } from "@/lib/dates";
 import type { IgnoredWindowReason } from "@/lib/tidyhq/checkinWindow";
 import { parseTime } from "@/lib/tidyhq/timeRange";
-import { SignedInAs } from "../../../memberUi";
-import { ADMIN_PATH, adminEventPath } from "../../paths";
+import { SECONDARY, SignedInAs } from "../../../memberUi";
+import { ADMIN_PATH, adminEventPath, staffCheckinPath } from "../../paths";
 
 // Plain server-rendered markup, like the member pages: no client JavaScript.
 // Controls carry `print:hidden`, so printing the page gives a sheet with the
@@ -196,6 +196,14 @@ export function AdminEventScreen({
       </div>
       <WindowWarning event={event} />
       <CheckinStatus event={event} />
+      {event.checkin !== "unavailable" && (
+        <a
+          href={staffCheckinPath(event.id)}
+          className={`${SECONDARY} print:hidden`}
+        >
+          Staff check-in
+        </a>
+      )}
       <QrBlock event={event} qr={qr} />
       <AttendeeList attendees={attendees} refreshSeconds={refreshSeconds} />
       <div className="print:hidden">

@@ -3,7 +3,12 @@ import { getSession } from "@/lib/auth/session";
 import { getTidyClient } from "@/lib/tidyhq";
 import { signInPath } from "../../memberPaths";
 import { lookupContact } from "../lookupContact";
-import { ADMIN_PATH, deniedReason, deniedRetryPath } from "../paths";
+import {
+  ADMIN_PATH,
+  deniedReason,
+  deniedRetryPath,
+  staffCheckinEventId,
+} from "../paths";
 import { AdminDeniedScreen } from "../screens";
 
 // Where `requireAdmin` sends anyone it turns away. Rendered fully on the
@@ -25,6 +30,7 @@ export default async function AdminDeniedPage({
       reason={deniedReason(reason)}
       name={contact.status === "known" ? contact.name : null}
       retryPath={deniedRetryPath(returnTo)}
+      staffEventId={staffCheckinEventId(returnTo)}
     />
   );
 }

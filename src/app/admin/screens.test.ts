@@ -231,3 +231,49 @@ describe("AdminHomeScreen", () => {
     expect(shown).toContain("Signed in as Casey");
   });
 });
+
+describe("AdminDeniedScreen on the staff check-in page", () => {
+  it("tells a non-volunteer how to get access, and links back to check-in", () => {
+    const html = renderToStaticMarkup(
+      createElement(AdminDeniedScreen, {
+        reason: "not_admin",
+        name: "Dante",
+        staffEventId: "ev_one",
+      }),
+    );
+    const shown = text(
+      createElement(AdminDeniedScreen, {
+        reason: "not_admin",
+        name: "Dante",
+        staffEventId: "ev_one",
+      }),
+    );
+    expect(shown).toContain("App Check-In Volunteers");
+    expect(shown).not.toContain("admin pages");
+    expect(html).toContain('href="/checkin/ev_one"');
+    expect(html).toContain("Back to check-in");
+    expect(html).not.toContain('href="/admin"');
+  });
+
+  it("says check-in access couldn't be checked, and retries by itself", () => {
+    const element = createElement(AdminDeniedScreen, {
+      reason: "unavailable",
+      name: "Pat",
+      staffEventId: "ev_one",
+      retryPath: "/admin/events/ev_one/checkin",
+    });
+    expect(text(element)).toContain("couldn't check check-in access");
+    expect(text(element)).toContain("try again in 30 seconds");
+    expect(renderToStaticMarkup(element)).toContain(
+      'content="30;url=/admin/events/ev_one/checkin"',
+    );
+  });
+
+  it("keeps the admin wording elsewhere", () => {
+    expect(
+      text(
+        createElement(AdminDeniedScreen, { reason: "not_admin", name: null }),
+      ),
+    ).toContain("You don't have access to the admin pages");
+  });
+});
