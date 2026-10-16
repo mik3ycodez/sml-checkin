@@ -1,13 +1,73 @@
 import type { AdminDeniedReason } from "@/lib/auth/admin";
 import { SignedInAs } from "../memberUi";
-import { ADMIN_PATH } from "./paths";
+import type { AdminEvent, AdminEvents } from "@/lib/admin/events";
+import { seattleTimeLabel } from "@/lib/dates";
+import { ADMIN_PATH, adminEventPath } from "./paths";
 
 // Plain server-rendered markup, like the member pages: no client JavaScript.
 
-export function AdminHomeScreen({ name }: { name: string }) {
+function EventList({ events }: { events: AdminEvent[] }) {
+  return (
+    <ul className="flex flex-col gap-3">
+      {events.map((event) => (
+        <li key={event.id}>
+          <a
+            href={adminEventPath(event.id)}
+            className="border-foreground/20 flex flex-col gap-1 rounded-lg border p-4"
+          >
+            <span className="text-lg font-semibold">
+              {event.name ?? "Untitled event"}
+            </span>
+            <span className="text-foreground/70">
+              {seattleTimeLabel(new Date(event.startAt))}
+              {event.location !== null && <> · {event.location}</>}
+            </span>
+            {!event.hasGroup && (
+              <span className="font-semibold">
+                No attendance group: check-in won&apos;t work for this event.
+              </span>
+            )}
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** `events` is null if TidyHQ couldn't list them. */
+export function AdminHomeScreen({
+  name,
+  events,
+}: {
+  name: string;
+  events: AdminEvents | null;
+}) {
   return (
     <div className="flex flex-1 flex-col gap-6">
       <h1 className="text-2xl font-bold tracking-tight">Admin</h1>
+      {events === null ? (
+        <p className="text-lg">
+          We couldn&apos;t load the events from TidyHQ just now. Please try
+          again in a minute.
+        </p>
+      ) : (
+        <>
+          <section className="flex flex-col gap-3">
+            <h2 className="text-xl font-semibold">Upcoming</h2>
+            {events.upcoming.length === 0 ? (
+              <p className="text-foreground/70">No upcoming events.</p>
+            ) : (
+              <EventList events={events.upcoming} />
+            )}
+          </section>
+          {events.recent.length > 0 && (
+            <section className="flex flex-col gap-3">
+              <h2 className="text-xl font-semibold">Recent</h2>
+              <EventList events={events.recent} />
+            </section>
+          )}
+        </>
+      )}
       <SignedInAs name={name} returnTo={ADMIN_PATH} />
     </div>
   );

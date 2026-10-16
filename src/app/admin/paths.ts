@@ -17,3 +17,8 @@ export function adminDeniedPath(reason: AdminDeniedReason): string {
 export function deniedReason(value: unknown): AdminDeniedReason {
   return value === "unavailable" ? "unavailable" : "not_admin";
 }
+
+/** An event's admin page. The id is encoded so it can't alter the path. */
+export function adminEventPath(eventId: string): string {
+  return `/admin/events/${encodeURIComponent(eventId)}`;
+}

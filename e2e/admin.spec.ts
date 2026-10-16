@@ -32,3 +32,31 @@ test("the denied page itself sends a signed-out visitor to sign in", async ({
   await page.goto("/admin/denied?reason=not_admin");
   await expect(page).toHaveURL(/\/mock-tidyhq\/oauth\/authorize/);
 });
+
+test("an admin sees the upcoming events, each linking to its admin page", async ({
+  page,
+}) => {
+  await signInAs(page, "Casey Moreno", "/admin");
+  await expect(page.getByRole("heading", { name: "Upcoming" })).toBeVisible();
+  for (const name of [
+    "Social Night",
+    "Bootblack Social",
+    "Monthly Bar Night",
+  ]) {
+    await expect(page.getByRole("link", { name })).toBeVisible();
+  }
+  await expect(
+    page.getByRole("link", { name: "Social Night" }),
+  ).toHaveAttribute("href", "/admin/events/ev_tonight");
+  await expect(page.getByText("No attendance group")).toHaveCount(0);
+});
+
+test("a member never sees the event list, even by asking for it directly", async ({
+  page,
+}) => {
+  await signInAs(page, "Dante Ruiz");
+  await page.goto("/admin");
+  await expect(page).toHaveURL(/\/admin\/denied\?reason=not_admin$/);
+  await expect(page.getByText("Social Night")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Upcoming" })).toHaveCount(0);
+});

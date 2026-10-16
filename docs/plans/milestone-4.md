@@ -1,6 +1,6 @@
 # Milestone 4: Admin pages
 
-**Status:** In progress. PR 1 in review (#23).
+**Status:** In progress. PR 1 done (#23). PR 2 in review.
 
 ## Context
 
@@ -74,7 +74,7 @@ attendees, staff check-in), then one report.
 
 ## Pull requests (draft order)
 
-### PR 1: Admin access rule (test-first) 🔍 In review (#23)
+### PR 1: Admin access rule (test-first) ✅ Done (#23)
 
 - `src/lib/auth/admin.ts`: `adminAccess(client, contactId, group)` returns
   `admin` (with the name), `not_admin`, or `unavailable`, plus
@@ -111,10 +111,16 @@ attendees, staff check-in), then one report.
 - `CLAUDE.md`: the "Check-ins record" bullet now says what's recorded (see
   Decisions), and the admin decision is added.
 
-### PR 2: `/admin` event list
+### PR 2: `/admin` event list 🔍 In review
 
 - `/admin`: upcoming and recent events from `listEvents`, each linking to
   `/admin/events/<id>`. Events with no attendance group are listed but marked.
+  _(Built: `getAdminEvents` in `src/lib/admin/events.ts`. Upcoming means not
+  yet ended (so one in progress is listed), soonest first; recent means ended
+  within the last 30 days (`ADMIN_RECENT_DAYS`), newest first. Events whose
+  start or end can't be read are left out. If TidyHQ can't list events, the
+  page says so instead of failing, as `/me` does for its sections. The
+  event links 404 until PR 3 adds the page.)_
 - Playwright: the admin sees the list; a member gets the denied screen; signed out
   goes to sign-in and comes back.
 
