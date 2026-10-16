@@ -217,8 +217,19 @@ light colors._
   inactive ones. TidyHQ's matching is its own; the mock approximates it:
   case-insensitive, every word must appear in the name, nickname or email, in
   any order. A blank query returns nothing rather than everyone, so staff
-  check-in can't dump the member list. Check against live data: how TidyHQ
-  matches partial words and accents.)_
+  check-in can't dump the member list. Review changes: a substring match plus
+  a shared email domain meant "e" returned everyone, so the limits moved into
+  one shared helper, `searchMembers` in `contacts.ts` (the only way staff
+  check-in should search): queries under 2 characters (`MIN_SEARCH_LENGTH`)
+  never reach TidyHQ, and more than 20 matches (`MAX_SEARCH_RESULTS`) returns
+  "too many", with no names, so the page says "too many matches, type more".
+  The limits hold for any client, mock or live.
+  **Accepted:** a volunteer could still list many members by trying different
+  searches. Volunteers are trusted, and they see only names and points.
+  Check against live data: how TidyHQ matches partial words and accents (the
+  mock doesn't fold accents, so "jose" wouldn't find "José"; don't add that to
+  the mock until TidyHQ's behavior is known). The mock has no pages, so the
+  live client's tests must cover "follows all pages".)_
 
 ### PR 6: Staff check-in (and the check-in volunteer role)
 

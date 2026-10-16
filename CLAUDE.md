@@ -163,6 +163,8 @@ so the app is built against a **mock TidyHQ**.
   - `GET /v2/contacts/me` (identity)
   - `GET /v2/contacts/{id}/memberships` (active membership check)
   - `GET /v2/events`, `GET /v2/events/{id}` (events)
+  - `GET /v2/contacts?search_terms=` (staff check-in member search, via
+    `searchMembers`: 2-character minimum, 20-result cap)
   - `PATCH /v2/contacts/{id}` (points custom field)
   - `POST /v2/contacts/{id}/notes` (optional audit note)
   - `PUT /v1/groups/{groupID}/contacts/{contactID}` (attendance; v2 can't write groups)
