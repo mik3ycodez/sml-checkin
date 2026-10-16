@@ -245,6 +245,42 @@ so the app is built against a **mock TidyHQ**.
 - Small, focused commits with clear messages.
 - Do small tasks inline rather than spawning subagents, to conserve usage.
 
+## Workflow rules
+
+Stop points (wait for me at each):
+
+- After a plan: present it with open questions, and don't write code until I
+  approve.
+- After opening a PR: summarize, lead with anything that needs my decision, and
+  never merge. I merge.
+- After a code review: list each finding as fix or leave-as-is with a one-line
+  reason, and wait for my go-ahead.
+
+Fixing review findings:
+
+- Fix test-first. Evaluate each finding instead of applying it blindly; push
+  back with a reason when the reviewer is wrong.
+- Reply to every inline review comment with "Fixed in <commit>" or "Left as is:
+  <reason>".
+- After fixes, rerun the full e2e suite, not just the changed spec.
+
+Before opening any PR, check:
+
+- **Volunteer privacy:** volunteers see only name, points, and event-related
+  verdicts, never membership standing, balances, dates, email, or rewards.
+- **No dead ends:** no screen sends a member to someone (a volunteer, a Board
+  member) who can't actually do what it says.
+- **Navigation:** every member-facing page is reachable from the interface, not
+  only by URL.
+- **E2E cost:** keep new specs lean; specs that wait on real time run in one
+  project only.
+- **Docs:** update `docs/plans` status and CLAUDE.md when behavior changes.
+
+Changing an existing test: say which test and why in both the summary and the
+PR description.
+
+Run the format check (`npm run format:check`) before opening the PR.
+
 ## Versioning
 
 - We use semantic versioning. Each completed milestone bumps the minor version
