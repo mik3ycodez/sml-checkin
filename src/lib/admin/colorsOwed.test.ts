@@ -89,20 +89,58 @@ describe("getColorsOwed", () => {
     ]);
   });
 
-  it("puts unreadable points or issued fields under needs checking, never guessed", async () => {
+  it("puts unreadable points, or an unreadable issued field that matters, under needs checking", async () => {
     const client = clientWith((seed) => {
       setField(seed, "c_jordan", POINTS_FIELD_ID, "1.5");
-      setField(seed, "c_dante", COLORS_ISSUED_FIELD_ID, "maybe");
       setField(seed, "c_sam", POINTS_FIELD_ID, "-4");
       setField(seed, "c_sam", COLORS_ISSUED_FIELD_ID, "?");
+      // 18 points, issued field unreadable: could be owed, can't tell.
+      setField(seed, "c_taylor", COLORS_ISSUED_FIELD_ID, "maybe");
+      // Unreadable issued field and points readable but just under 18.
+      setField(seed, "c_riley", COLORS_ISSUED_FIELD_ID, "Y");
     });
     const report = await getColorsOwed(client, { now: NOW });
     expect(report.needsChecking.map((m) => [m.name, m.problem])).toEqual([
-      ["Dante Ruiz", "issued"],
       ["Jordan Park", "points"],
       ["Sam Okafor", "both"],
+      ["Taylor Brandt", "issued"],
     ]);
-    expect(names(report.ready)).toEqual(["Taylor Brandt"]);
+    expect(report.ready).toEqual([]);
+  });
+
+  it("doesn't flag an unreadable issued field when points are under 18", async () => {
+    const client = clientWith((seed) => {
+      setField(seed, "c_dante", COLORS_ISSUED_FIELD_ID, "maybe");
+    });
+    const report = await getColorsOwed(client, { now: NOW });
+    expect(names(report.needsChecking)).toEqual([]);
+  });
+
+  it("leaves out a contact whose memberships TidyHQ 404s, and logs only the id", async () => {
+    const client = clientWith();
+    const real = client.getMemberships.bind(client);
+    vi.spyOn(client, "getMemberships").mockImplementation(async (id) => {
+      if (id === "c_taylor") throw new TidyError(404, "Taylor Brandt gone");
+      return real(id);
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const report = await getColorsOwed(client, { now: NOW });
+    expect(report.ready).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(warn.mock.calls)).toContain("c_taylor");
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("Taylor");
+    warn.mockRestore();
+  });
+
+  it("carries each person's email, or null, so rows can be told apart", async () => {
+    const client = clientWith((seed) => {
+      setField(seed, "c_jordan", POINTS_FIELD_ID, "x");
+      seed.contacts.find((c) => c.id === "c_jordan")!.email_address =
+        null as unknown as string;
+    });
+    const report = await getColorsOwed(client, { now: NOW });
+    expect(report.ready[0].email).toBe("taylor@example.com");
+    expect(report.needsChecking[0].email).toBeNull();
   });
 
   it("sorts by name within groups and names contacts with contactName", async () => {

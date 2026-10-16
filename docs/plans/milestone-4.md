@@ -463,6 +463,16 @@ one file on purpose):
   check-in); `listContactGroups` includes archived groups, and
   how renewal invoices look (see CLAUDE.md, "Unverified assumptions").
 
+Also at go-live (client and data checks):
+
+1. When `HttpTidyClient` is built, test that `listAllContacts` follows every
+   page (`limit`/`offset`) against the real API. The mock can't page, so no
+   current test can catch a client that stops at the first page.
+2. Check against live data that `GET /v2/contacts` without `all=true` still
+   includes lapsed members (that "inactive" means an archived contact record,
+   not a lapsed membership). If it doesn't, the colors owed report would miss
+   them.
+
 ### Ideas to evaluate (not decisions)
 
 - **A short-lived cache of group membership** (for example 60 seconds), if live

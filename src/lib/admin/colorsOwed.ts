@@ -1,16 +1,23 @@
 import { logInconsistentMemberships } from "../logInconsistentMemberships";
 import { membershipStanding } from "../membership";
-import { REWARDS } from "../points";
-import { rewardStanding, rewardStatus, type RewardStanding } from "../rewards";
+import {
+  findReward,
+  rewardStanding,
+  rewardStatus,
+  type RewardStanding,
+} from "../rewards";
 import type { TidyClient } from "../tidyhq/client";
 import { contactName } from "../tidyhq/contactName";
+import { isTidyError } from "../tidyhq/errors";
 import { readPoints, readRewardIssued } from "../tidyhq/customFields";
-import type { Contact } from "../tidyhq/types";
+import type { Contact, Membership } from "../tidyhq/types";
 
 /** A member who qualifies for colors and hasn't been marked issued. */
 export interface OwedMember {
   contactId: string;
   name: string;
+  /** Null if TidyHQ has none; the page then shows the contact id. */
+  email: string | null;
   points: number;
   standing: RewardStanding;
 }
@@ -19,6 +26,7 @@ export interface OwedMember {
 export interface UncheckedMember {
   contactId: string;
   name: string;
+  email: string | null;
   problem: "points" | "issued" | "both";
 }
 
@@ -31,10 +39,16 @@ export interface ColorsOwed {
 }
 
 /** Colors are the only reward with a points threshold for now. */
-const COLORS = REWARDS.find((r) => r.id === "club_colors")!;
+const COLORS = findReward("club_colors")!;
 
 /** Memberships read at once, so a big club doesn't fire hundreds together. */
 const BATCH_SIZE = 10;
+
+/** The contact's email, or null if blank or missing (live data may have nulls). */
+function emailOf(contact: Contact): string | null {
+  const email: unknown = contact.email_address;
+  return typeof email === "string" && email.trim() ? email.trim() : null;
+}
 
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name);
@@ -59,9 +73,13 @@ export async function getColorsOwed(
     const issued = readRewardIssued(contact, COLORS.id);
     const status = rewardStatus(COLORS, points, issued);
     if (status === null) {
+      // An unreadable issued field only matters if they could be owed colors:
+      // unreadable points, or enough points.
+      if (points !== null && points < COLORS.pointsRequired) continue;
       needsChecking.push({
         contactId: contact.id,
         name: contactName(contact),
+        email: emailOf(contact),
         problem:
           points === null && issued === null
             ? "both"
@@ -77,20 +95,21 @@ export async function getColorsOwed(
   const owed: OwedMember[] = [];
   for (let i = 0; i < qualified.length; i += BATCH_SIZE) {
     const batch = qualified.slice(i, i + BATCH_SIZE);
-    owed.push(
-      ...(await Promise.all(
-        batch.map(async ({ contact, points }) => {
-          const memberships = await client.getMemberships(contact.id);
-          logInconsistentMemberships(contact.id, memberships, now);
-          return {
-            contactId: contact.id,
-            name: contactName(contact),
-            points,
-            standing: rewardStanding(membershipStanding(memberships, now)),
-          };
-        }),
-      )),
+    const members = await Promise.all(
+      batch.map(async ({ contact, points }) => {
+        const memberships = await findMemberships(client, contact.id);
+        if (!memberships) return null;
+        logInconsistentMemberships(contact.id, memberships, now);
+        return {
+          contactId: contact.id,
+          name: contactName(contact),
+          email: emailOf(contact),
+          points,
+          standing: rewardStanding(membershipStanding(memberships, now)),
+        };
+      }),
     );
+    for (const m of members) if (m) owed.push(m);
   }
 
   return {
@@ -98,4 +117,24 @@ export async function getColorsOwed(
     renewFirst: owed.filter((m) => m.standing !== "current").sort(byName),
     needsChecking: needsChecking.sort(byName),
   };
+}
+
+/**
+ * The contact's memberships, or null if TidyHQ no longer has the contact
+ * (deleted or merged since the list was read), as `/me` does: they're left out
+ * and the id is logged. Other errors throw, so no partial list is shown.
+ */
+async function findMemberships(
+  client: TidyClient,
+  contactId: string,
+): Promise<Membership[] | null> {
+  try {
+    return await client.getMemberships(contactId);
+  } catch (error) {
+    if (!isTidyError(error, 404)) throw error;
+    console.warn("colors report: contact not found reading memberships", {
+      contactId,
+    });
+    return null;
+  }
 }

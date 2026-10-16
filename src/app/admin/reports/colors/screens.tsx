@@ -50,6 +50,19 @@ function Group({
   );
 }
 
+/** Email, or the TidyHQ contact id, so same-named people can be told apart. */
+function Identity({
+  member,
+}: {
+  member: { contactId: string; email: string | null };
+}) {
+  return (
+    <span className="text-foreground/70">
+      {member.email ?? `TidyHQ contact ${member.contactId}`}
+    </span>
+  );
+}
+
 function OwedRow({ member }: { member: OwedMember }) {
   return (
     <li className={ROW}>
@@ -57,6 +70,7 @@ function OwedRow({ member }: { member: OwedMember }) {
       <span className="text-foreground/70">
         {member.points} points · {STANDING_LABEL[member.standing]}
       </span>
+      <Identity member={member} />
     </li>
   );
 }
@@ -118,6 +132,7 @@ export function ColorsReportScreen({
                 <span className="text-foreground/70">
                   {PROBLEM_LABEL[m.problem]}. Check it in TidyHQ.
                 </span>
+                <Identity member={m} />
               </li>
             ))}
           </Group>

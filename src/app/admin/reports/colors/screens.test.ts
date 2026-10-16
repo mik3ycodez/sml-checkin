@@ -19,14 +19,40 @@ function text(report: ColorsOwed | null) {
 
 const report: ColorsOwed = {
   ready: [
-    { contactId: "a", name: "Ann Ready", points: 18, standing: "current" },
-    { contactId: "b", name: "Bo Ready", points: 20, standing: "current" },
+    {
+      contactId: "a",
+      name: "Ann Ready",
+      points: 18,
+      standing: "current",
+      email: "ann@example.com",
+    },
+    {
+      contactId: "b",
+      name: "Bo Ready",
+      points: 20,
+      standing: "current",
+      email: null,
+    },
   ],
   renewFirst: [
-    { contactId: "c", name: "Cy Grace", points: 19, standing: "grace" },
-    { contactId: "d", name: "Di Due", points: 18, standing: "balance_due" },
+    {
+      contactId: "c",
+      name: "Cy Grace",
+      points: 19,
+      standing: "grace",
+      email: null,
+    },
+    {
+      contactId: "d",
+      name: "Di Due",
+      points: 18,
+      standing: "balance_due",
+      email: "di@example.com",
+    },
   ],
-  needsChecking: [{ contactId: "e", name: "Ed Odd", problem: "points" }],
+  needsChecking: [
+    { contactId: "e", name: "Ed Odd", problem: "points", email: null },
+  ],
 };
 
 describe("ColorsReportScreen", () => {
@@ -46,6 +72,14 @@ describe("ColorsReportScreen", () => {
     expect(shown).toContain("18 points");
     expect(shown).toMatch(/Cy Grace.*19 points.*grace period/);
     expect(shown).toMatch(/Di Due.*balance due/i);
+  });
+
+  it("shows the email, or the TidyHQ contact id when there is none", () => {
+    const shown = text(report);
+    expect(shown).toContain("ann@example.com");
+    expect(shown).toMatch(/Bo Ready.*TidyHQ contact b/);
+    expect(shown).toMatch(/Cy Grace.*TidyHQ contact c/);
+    expect(shown).toMatch(/Ed Odd.*TidyHQ contact e/);
   });
 
   it("says why a member needs checking", () => {
