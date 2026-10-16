@@ -42,6 +42,8 @@ export type CheckInRefusal =
       opensAt: Date;
     }
   | { status: "closed"; name: string; eventName: string | null }
+  /** Archived in TidyHQ: not an event to check in to, whatever its window says. */
+  | { status: "event_unavailable"; name: string; eventName: string | null }
   | { status: "unknown_event" }
   /** The session names a contact TidyHQ no longer has (merged or deleted). */
   | { status: "unknown_contact" };
@@ -171,9 +173,11 @@ export type CheckInAssessment =
  * not, why. `checkIn` acts on it, and the pages show it before the tap, so the
  * two can never disagree. Unexpected TidyHQ failures throw.
  *
- * Order: event → existing check-in → check-in window → membership → points.
- * An existing check-in comes first so a member who reloads the page after the
- * window closes, or after their membership lapses, still sees it.
+ * Order: event → existing check-in → archived → check-in window → membership
+ * → points. An existing check-in comes first so a member who reloads the page
+ * after the window closes, after their membership lapses, or after the event
+ * is archived, still sees it. An archived event refuses new check-ins even
+ * with an open window, so a QR code printed earlier stops working.
  */
 export async function assessCheckIn(
   client: TidyClient,
@@ -201,6 +205,8 @@ export async function assessCheckIn(
     const total = readPoints(contact);
     return { status: "already_checked_in", name, eventName, total };
   }
+
+  if (event.archived) return { status: "event_unavailable", name, eventName };
 
   const open = isCheckinOpen(window, now);
   if (open === "not_yet") {

@@ -2,10 +2,26 @@
 // event list, and recent events agree on what counts as a readable time and a
 // valid range.
 
-/** A timestamp as a Date, or null if it's missing, empty, or unreadable. */
+import { isCalendarDate } from "../dates";
+
+// ISO 8601 date and time with an explicit offset: `Z` or `+hh:mm` / `+hhmm`.
+// Anything looser is refused rather than guessed at: the engine's own parser
+// reads "Oct 17 18:30" as the year 2001 and a time with no offset as the
+// server's clock, so a typo in a TidyHQ field would pass as a real time.
+const ISO_WITH_OFFSET =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})$/;
+
+/**
+ * A timestamp as a Date, or null if it's missing, blank, or isn't ISO 8601
+ * with an explicit offset or Z (spaces around it are ignored).
+ */
 export function parseTime(value: string | null): Date | null {
-  if (!value) return null;
-  const date = new Date(value);
+  const text = value?.trim();
+  if (!text || !ISO_WITH_OFFSET.test(text)) return null;
+  // The engine rolls "02-30" over to March 2nd; a date that doesn't exist is
+  // a typo, not a time.
+  if (!isCalendarDate(text.slice(0, 10))) return null;
+  const date = new Date(text);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
@@ -27,10 +43,12 @@ export function rangeProblem(
   opens: string | null,
   closes: string | null,
 ): RangeProblem | null {
-  if (!opens && !closes) return "not_set";
-  if (!opens || !closes) return "half_filled";
-  const opensAt = parseTime(opens);
-  const closesAt = parseTime(closes);
+  // Spaces alone count as blank: a cleared field that kept a space is unset.
+  const given = [opens, closes].map((time) => time?.trim() ?? "");
+  if (!given[0] && !given[1]) return "not_set";
+  if (!given[0] || !given[1]) return "half_filled";
+  const opensAt = parseTime(given[0]);
+  const closesAt = parseTime(given[1]);
   if (!opensAt || !closesAt) return "unparseable";
   return closesAt <= opensAt ? "backwards" : null;
 }

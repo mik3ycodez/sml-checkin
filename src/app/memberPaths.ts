@@ -6,7 +6,4 @@ export function signInPath(returnTo: string): string {
   return `/auth/signin?returnTo=${encodeURIComponent(returnTo)}`;
 }
 
-/** The page a member's phone opens from an event's QR code. */
-export function checkinPath(eventId: string): string {
-  return `/checkin/${encodeURIComponent(eventId)}`;
-}
+export { checkinPath } from "@/lib/checkin/paths";

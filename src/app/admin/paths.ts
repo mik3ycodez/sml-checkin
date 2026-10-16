@@ -1,5 +1,4 @@
 import type { AdminDeniedReason } from "@/lib/auth/admin";
-import { checkinPath } from "../memberPaths";
 
 /** The admin home page. */
 export const ADMIN_PATH = "/admin";
@@ -22,9 +21,4 @@ export function deniedReason(value: unknown): AdminDeniedReason {
 /** An event's admin page. The id is encoded so it can't alter the path. */
 export function adminEventPath(eventId: string): string {
   return `/admin/events/${encodeURIComponent(eventId)}`;
-}
-
-/** What an event's QR code opens: the member check-in page on this site. */
-export function checkinUrl(origin: string, eventId: string): string {
-  return `${origin}${checkinPath(eventId)}`;
 }

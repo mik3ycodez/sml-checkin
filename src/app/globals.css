@@ -14,6 +14,16 @@
   }
 }
 
+/* Paper is white, and browsers drop backgrounds when printing: force the light
+   colors so dark mode's pale text can't print faint. After the dark block. */
+@media print {
+  :root {
+    --background: #ffffff;
+    --foreground: #171717;
+    color-scheme: light;
+  }
+}
+
 /* Expose the color variables as Tailwind colors: bg-background, text-foreground. */
 @theme inline {
   --color-background: var(--background);

@@ -8,6 +8,46 @@ describe("parseTime", () => {
     );
   });
 
+  it("accepts ISO 8601 with Z or an explicit offset, with or without fractions", () => {
+    for (const ok of [
+      "2026-10-12T18:00:00Z",
+      "2026-10-12T11:00:00-07:00",
+      "2026-10-12T11:00:00-0700",
+      "2026-10-12T18:00:00+00:00",
+      "2026-10-12T18:00Z",
+    ]) {
+      expect(parseTime(ok), ok).toEqual(new Date("2026-10-12T18:00:00Z"));
+    }
+    expect(parseTime("2026-10-12T18:00:00.250Z")!.getTime()).toBe(
+      new Date("2026-10-12T18:00:00Z").getTime() + 250,
+    );
+  });
+
+  it("ignores spaces around a time", () => {
+    expect(parseTime("  2026-10-12T18:00:00Z ")).toEqual(
+      new Date("2026-10-12T18:00:00Z"),
+    );
+  });
+
+  it("rejects anything that isn't ISO 8601 with an explicit offset, so a typo can't pass as another time", () => {
+    for (const bad of [
+      "Oct 17 18:30", // the engine would read this as the year 2001
+      "October 17, 2026 6:30 PM",
+      "10/17/2026",
+      "2026-10-17", // a date, not a moment
+      "2026-10-17T18:30:00", // no offset: whose clock?
+      "2026-10-17 18:30:00Z", // space, not T
+      "2026-10-17T18:30:00 PM",
+      "2026-13-17T18:30:00Z", // no 13th month
+      "2026-02-30T18:30:00Z", // no Feb 30th
+      "2026-10-17T25:00:00Z",
+      "1760725800000",
+      "7pm",
+    ]) {
+      expect(parseTime(bad), bad).toBeNull();
+    }
+  });
+
   it("returns null for missing, empty, or unreadable values", () => {
     expect(parseTime(null)).toBeNull();
     expect(parseTime("")).toBeNull();
@@ -49,6 +89,19 @@ describe("rangeProblem", () => {
     expect(rangeProblem("", null)).toBe("not_set");
   });
 
+  it("counts a time that's only spaces as blank", () => {
+    expect(rangeProblem(" ", "")).toBe("not_set");
+    expect(rangeProblem("  ", " ")).toBe("not_set");
+    expect(rangeProblem(" ", CLOSE)).toBe("half_filled");
+    expect(rangeProblem(OPEN, "   ")).toBe("half_filled");
+    expect(rangeProblem(` ${OPEN} `, ` ${CLOSE} `)).toBeNull();
+  });
+
+  it("calls a time typed without a year or offset unparseable", () => {
+    expect(rangeProblem("Oct 17 18:30", "Oct 17 21:00")).toBe("unparseable");
+    expect(rangeProblem("2026-10-17T18:30:00", CLOSE)).toBe("unparseable");
+  });
+
   it("calls a range with only one time given half-filled", () => {
     expect(rangeProblem(OPEN, "")).toBe("half_filled");
     expect(rangeProblem(null, CLOSE)).toBe("half_filled");
@@ -67,7 +120,7 @@ describe("rangeProblem", () => {
   });
 
   it("agrees with validRange: a problem exactly when the range isn't valid", () => {
-    const times = [null, "", " ", "x", OPEN, CLOSE];
+    const times = [null, "", " ", "x", "Oct 17 18:30", OPEN, CLOSE];
     for (const a of times) {
       for (const b of times) {
         expect(rangeProblem(a, b) === null).toBe(validRange(a, b) !== null);

@@ -29,11 +29,15 @@ const EVENT: AdminEventPage = {
   },
   windowWarning: null,
   checkin: "not_yet",
-  qr: { kind: "qr", url: URL },
+  qr: { kind: "qr", path: "/checkin/ev_one" },
 };
 
-const render = (event: AdminEventPage, qrSvg: string | null = SVG) =>
-  createElement(AdminEventScreen, { name: "Casey", event, qrSvg });
+const CODE = { svg: SVG, url: URL };
+
+const render = (
+  event: AdminEventPage,
+  qr: { svg: string; url: string } | null = CODE,
+) => createElement(AdminEventScreen, { name: "Casey", event, qr });
 
 describe("AdminEventScreen", () => {
   it("shows the event, its time in Seattle time, and where", () => {
@@ -55,6 +59,19 @@ describe("AdminEventScreen", () => {
       render({ ...EVENT, window: { ...EVENT.window, source: "fallback" } }),
     );
     expect(shown).toContain("the event's start and end");
+  });
+
+  it("says nothing about being open when members can't check in", () => {
+    for (const reason of ["archived", "no_group", "never_opens"] as const) {
+      const shown = text(
+        render(
+          { ...EVENT, checkin: "unavailable", qr: { kind: "none", reason } },
+          null,
+        ),
+      );
+      expect(shown, reason).not.toMatch(/Check-in (is|isn't) (open|closed)/);
+      expect(shown, reason).not.toContain("Opens ");
+    }
   });
 
   it.each([
@@ -106,6 +123,7 @@ describe("AdminEventScreen", () => {
       const event: AdminEventPage = {
         ...EVENT,
         archived: reason === "archived",
+        checkin: "unavailable",
         qr: { kind: "none", reason },
       };
       const html = renderToStaticMarkup(render(event, null));
@@ -148,12 +166,24 @@ describe("AdminEventScreen", () => {
       expect(warned(null)).not.toContain("Check the check-in window");
     });
 
-    it("doesn't claim check-in is using the event's times when those can't open it either", () => {
-      const shown = warned("backwards", {
-        qr: { kind: "none", reason: "never_opens" },
-      });
-      expect(shown).toContain("Check the check-in window in TidyHQ");
-      expect(shown).not.toContain("is using the event's start and end");
+    it.each(["archived", "no_group", "never_opens"] as const)(
+      "doesn't claim check-in is using the event's times when members can't check in at all (%s)",
+      (reason) => {
+        const shown = warned("backwards", {
+          checkin: "unavailable",
+          // The window may even have usable times: it's still not in use.
+          qr: { kind: "none", reason },
+        });
+        expect(shown).toContain("Check the check-in window in TidyHQ");
+        expect(shown).not.toContain("is using the event's start and end");
+        expect(shown).toContain("ignored");
+      },
+    );
+
+    it("says check-in is using the event's times when it really is, even if the window has closed", () => {
+      expect(warned("backwards", { checkin: "closed" })).toContain(
+        "Check-in is using the event's start and end instead.",
+      );
     });
   });
 });

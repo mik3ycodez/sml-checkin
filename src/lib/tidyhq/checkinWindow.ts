@@ -1,6 +1,6 @@
 import type { TidyClient } from "./client";
 import { rangeProblem, validRange, type RangeProblem } from "./timeRange";
-import type { Event } from "./types";
+import type { Event, EventCheckinWindow } from "./types";
 
 export interface CheckinWindow {
   /** Null when no open time is known; check-in is then closed. */
@@ -34,7 +34,20 @@ export async function getCheckinWindowDetails(
   client: TidyClient,
   event: Pick<Event, "id" | "start_at" | "end_at">,
 ): Promise<CheckinWindowDetails> {
-  const set = await client.getEventCheckinWindow(event.id);
+  return resolveCheckinWindow(
+    await client.getEventCheckinWindow(event.id),
+    event,
+  );
+}
+
+/**
+ * `getCheckinWindowDetails` for a caller that has already read the admin-set
+ * window (so it can read that and the event together). Pure: the rule itself.
+ */
+export function resolveCheckinWindow(
+  set: EventCheckinWindow | null,
+  event: Pick<Event, "start_at" | "end_at">,
+): CheckinWindowDetails {
   const adminSet = set && validRange(set.opens_at, set.closes_at);
   if (adminSet) {
     return { window: { ...adminSet, source: "event" }, ignored: null };

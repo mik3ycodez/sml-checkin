@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getCheckinWindow,
   getCheckinWindowDetails,
+  resolveCheckinWindow,
   isCheckinOpen,
   type CheckinWindow,
 } from "./checkinWindow";
@@ -155,6 +156,55 @@ describe("getCheckinWindowDetails", () => {
     // The same window getCheckinWindow gives, so the page and check-in agree.
     expect(details.window).toEqual(await getCheckinWindow(client, event));
     expect(details.window.source).toBe("fallback");
+  });
+});
+
+describe("resolveCheckinWindow", () => {
+  const EVENT = {
+    start_at: "2026-10-12T19:00:00Z",
+    end_at: "2026-10-12T22:00:00Z",
+  };
+
+  it("is the same rule getCheckinWindowDetails applies, given the window it read", () => {
+    expect(
+      resolveCheckinWindow(
+        { opens_at: "2026-10-12T18:00:00Z", closes_at: "2026-10-12T21:00:00Z" },
+        EVENT,
+      ),
+    ).toEqual({
+      window: {
+        opensAt: new Date("2026-10-12T18:00:00Z"),
+        closesAt: new Date("2026-10-12T21:00:00Z"),
+        source: "event",
+      },
+      ignored: null,
+    });
+    expect(
+      resolveCheckinWindow({ opens_at: "6pm", closes_at: "" }, EVENT),
+    ).toEqual({
+      window: {
+        opensAt: new Date(EVENT.start_at),
+        closesAt: new Date(EVENT.end_at),
+        source: "fallback",
+      },
+      ignored: "half_filled",
+    });
+    expect(resolveCheckinWindow(null, EVENT).ignored).toBeNull();
+  });
+
+  it("ignores a window whose times are only spaces, without a warning", () => {
+    expect(
+      resolveCheckinWindow({ opens_at: " ", closes_at: " " }, EVENT).ignored,
+    ).toBeNull();
+  });
+
+  it("ignores a window typed without a year or offset, and says it's unparseable", () => {
+    const resolved = resolveCheckinWindow(
+      { opens_at: "Oct 12 18:00", closes_at: "Oct 12 21:00" },
+      EVENT,
+    );
+    expect(resolved.ignored).toBe("unparseable");
+    expect(resolved.window.source).toBe("fallback");
   });
 });
 

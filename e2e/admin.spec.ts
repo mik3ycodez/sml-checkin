@@ -112,6 +112,22 @@ test("the event page prints as the QR code and its details, without the controls
   await expect(page.getByRole("link", { name: "All events" })).toBeHidden();
 });
 
+test("printing from a dark-mode phone gives dark text on white, not faint gray", async ({
+  page,
+}) => {
+  await signInAs(page, "Casey Moreno", EVENT_PATH);
+  await page.emulateMedia({ media: "print", colorScheme: "dark" });
+  const heading = page.getByRole("heading", { name: "Social Night" });
+  await expect(heading).toHaveCSS("color", "rgb(23, 23, 23)");
+  await expect(page.locator("body")).toHaveCSS(
+    "background-color",
+    "rgb(255, 255, 255)",
+  );
+  // On screen in dark mode, the same page is light on dark.
+  await page.emulateMedia({ media: "screen", colorScheme: "dark" });
+  await expect(heading).toHaveCSS("color", "rgb(237, 237, 237)");
+});
+
 test("a signed-out visitor to an event page signs in and comes back to it", async ({
   page,
 }) => {

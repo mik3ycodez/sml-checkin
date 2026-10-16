@@ -20,10 +20,14 @@ export default async function AdminEventRoute({
   const { eventId } = await params;
   const admin = await requireAdmin(adminEventPath(eventId));
   const event = await getAdminEventPage(getTidyClient(), eventId, {
-    origin: appOrigin(await headers()),
     now: new Date(),
   });
   if (!event) return <UnknownAdminEvent name={admin.name} />;
-  const svg = event.qr.kind === "qr" ? await qrSvg(event.qr.url) : null;
-  return <AdminEventScreen name={admin.name} event={event} qrSvg={svg} />;
+  // The lib returns the path; the site's origin is the page's to add.
+  let qr: { url: string; svg: string } | null = null;
+  if (event.qr.kind === "qr") {
+    const url = `${appOrigin(await headers())}${event.qr.path}`;
+    qr = { url, svg: await qrSvg(url) };
+  }
+  return <AdminEventScreen name={admin.name} event={event} qr={qr} />;
 }

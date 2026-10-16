@@ -1,14 +1,15 @@
 import { isTidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
 import {
-  getCheckinWindowDetails,
   isCheckinOpen,
+  resolveCheckinWindow,
   type CheckinStatus,
   type CheckinWindow,
   type IgnoredWindowReason,
 } from "../tidyhq/checkinWindow";
 import type { TidyClient } from "../tidyhq/client";
-import { checkinUrl } from "@/app/admin/paths";
+import { checkinPath } from "../checkin/paths";
+import { blankToNull } from "./events";
 
 /** Why an event gets no QR code. */
 export type NoQrReason =
@@ -33,13 +34,18 @@ export interface AdminEventPage {
   window: CheckinWindow;
   /** Why the admin-set window in TidyHQ was ignored, if it was. */
   windowWarning: IgnoredWindowReason | null;
-  /** Whether check-in is open right now, by `window`. */
-  checkin: CheckinStatus;
-  /** The QR code's link, or why there isn't one. */
-  qr: { kind: "qr"; url: string } | { kind: "none"; reason: NoQrReason };
+  /**
+   * Whether check-in is open right now, by `window`, or `unavailable` when
+   * members can't check in whatever the window says (any reason in `qr`), so
+   * the page never says "open" for an event whose scans all fail.
+   */
+  checkin: CheckinStatus | "unavailable";
+  /**
+   * What the QR code opens, as a path on this site (the page adds the site's
+   * origin), or why there's no code.
+   */
+  qr: { kind: "qr"; path: string } | { kind: "none"; reason: NoQrReason };
 }
-
-const blankToNull = (value: string | null) => value?.trim() || null;
 
 /**
  * What the admin event page shows, or null if TidyHQ has no such event. The
@@ -47,30 +53,39 @@ const blankToNull = (value: string | null) => value?.trim() || null;
  * uses, so what the page warns about is what check-in does. A QR code is only
  * offered for an event that's not archived, has an attendance group, and can
  * open: a code for any other event would send members to a dead end.
- * A closed window still gets its code (the admin can fix the window in
+ * Archived events are refused by check-in too, so the page and the door
+ * agree. A closed window still gets its code (the admin can fix the window in
  * TidyHQ, and a printed code stays valid). Other TidyHQ failures throw.
  */
 export async function getAdminEventPage(
   client: TidyClient,
   eventId: string,
-  { origin, now }: { origin: string; now: Date },
+  { now }: { now: Date },
 ): Promise<AdminEventPage | null> {
-  let event;
+  // Both reads need only the id, so they go out together. An unknown event is
+  // a 404 from either one.
+  let event, set;
   try {
-    event = await client.getEvent(eventId);
+    [event, set] = await Promise.all([
+      client.getEvent(eventId),
+      client.getEventCheckinWindow(eventId),
+    ]);
   } catch (error) {
     if (isTidyError(error, 404)) return null;
     throw error;
   }
-  const { window, ignored } = await getCheckinWindowDetails(client, event);
+  const { window, ignored } = resolveCheckinWindow(set, event);
 
+  // The reasons check-in itself would refuse the event: archived
+  // (`assessCheckIn`), no group (`findEvent`), or a window that can't open
+  // (`isCheckinOpen` is always "closed" without times).
   let qr: AdminEventPage["qr"];
   if (event.archived) qr = { kind: "none", reason: "archived" };
   else if (findEventGroup(event) === null) {
     qr = { kind: "none", reason: "no_group" };
   } else if (!window.opensAt || !window.closesAt) {
     qr = { kind: "none", reason: "never_opens" };
-  } else qr = { kind: "qr", url: checkinUrl(origin, event.id) };
+  } else qr = { kind: "qr", path: checkinPath(event.id) };
 
   return {
     id: event.id,
@@ -81,7 +96,7 @@ export async function getAdminEventPage(
     archived: event.archived,
     window,
     windowWarning: ignored,
-    checkin: isCheckinOpen(window, now),
+    checkin: qr.kind === "qr" ? isCheckinOpen(window, now) : "unavailable",
     qr,
   };
 }

@@ -41,6 +41,9 @@ function timeLabel(iso: string | null): string {
 
 function CheckinStatus({ event }: { event: AdminEventPage }) {
   const { window } = event;
+  // Not when members can't check in at all: the reason is shown instead, and
+  // "open" or a window would be untrue.
+  if (event.checkin === "unavailable") return null;
   if (!window.opensAt || !window.closesAt) return null;
   const state = {
     not_yet: "Check-in isn't open yet.",
@@ -62,9 +65,8 @@ function CheckinStatus({ event }: { event: AdminEventPage }) {
 
 function WindowWarning({ event }: { event: AdminEventPage }) {
   if (!event.windowWarning) return null;
-  const falling = !(
-    event.qr.kind === "none" && event.qr.reason === "never_opens"
-  );
+  // Only say the event's times are in use when check-in can really run.
+  const falling = event.checkin !== "unavailable";
   return (
     <div
       role="alert"
@@ -83,15 +85,15 @@ function WindowWarning({ event }: { event: AdminEventPage }) {
 
 function QrBlock({
   event,
-  qrSvg,
+  qr,
 }: {
   event: AdminEventPage;
-  qrSvg: string | null;
+  qr: { svg: string; url: string } | null;
 }) {
-  if (event.qr.kind === "none") {
+  if (event.qr.kind === "none" || !qr) {
     return (
       <p className="border-foreground/20 rounded-lg border p-4 text-lg">
-        {NO_QR[event.qr.reason]}
+        {event.qr.kind === "none" ? NO_QR[event.qr.reason] : null}
       </p>
     );
   }
@@ -103,9 +105,9 @@ function QrBlock({
         aria-label={`QR code for checking in to ${event.name ?? "this event"}`}
         className="w-full max-w-md rounded-lg bg-white p-2 print:max-w-none"
         // The library's own SVG markup (no event text goes into it).
-        dangerouslySetInnerHTML={{ __html: qrSvg ?? "" }}
+        dangerouslySetInnerHTML={{ __html: qr.svg }}
       />
-      <p className="text-center text-lg break-all">{event.qr.url}</p>
+      <p className="text-center text-lg break-all">{qr.url}</p>
     </div>
   );
 }
@@ -113,13 +115,13 @@ function QrBlock({
 export function AdminEventScreen({
   name,
   event,
-  qrSvg,
+  qr,
 }: {
   /** The signed-in admin. */
   name: string;
   event: AdminEventPage;
-  /** The QR code's SVG markup; null when the event has no QR code. */
-  qrSvg: string | null;
+  /** The QR code's SVG markup and the link it opens; null when there's no code. */
+  qr: { svg: string; url: string } | null;
 }) {
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -135,7 +137,7 @@ export function AdminEventScreen({
       </div>
       <WindowWarning event={event} />
       <CheckinStatus event={event} />
-      <QrBlock event={event} qrSvg={qrSvg} />
+      <QrBlock event={event} qr={qr} />
       <div className="print:hidden">
         <SignedInAs name={name} returnTo={adminEventPath(event.id)} />
       </div>

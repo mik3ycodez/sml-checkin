@@ -132,6 +132,12 @@ attendees, staff check-in), then one report.
 
 ### PR 3: Event page with QR code and window warnings 🔍 In review (#25)
 
+_Review changes: archived events now refuse check-in (`event_unavailable`) so
+the door and the page agree; times must be ISO 8601 with an offset or `Z` and
+are trimmed; the page says "unavailable", not "open", when members can't check
+in; the event and its window are read together; a print stylesheet forces
+light colors._
+
 - `/admin/events/<id>`: name, time, check-in window, the check-in URL
   (`APP_ORIGIN/checkin/<id>`) as text, and its QR code.
 - Warns about an invalid check-in window (half-filled, unparseable, closes
@@ -155,8 +161,9 @@ attendees, staff check-in), then one report.
   `qrcode`'s SVG (black on white, 4-module quiet zone, no fixed size) inside
   a white panel, so dark mode can't wash it out; the back link and sign-out
   are `print:hidden`, so printing gives name, time, code and link.
-  `checkinPath` moved to `memberPaths.ts` so `checkinUrl` could use it
-  without importing a screen. The unit tests cover every warning and every
+  `checkinPath` lives in `src/lib/checkin/paths.ts` (re-exported by
+  `memberPaths.ts`); `lib/admin` returns the path and the page adds the origin,
+  and `noAppImports.test.ts` keeps `src/lib` from importing `src/app`. The unit tests cover every warning and every
   no-QR reason; Playwright covers only what the mock seed can produce (a
   valid window, no window, unknown event, print layout, sign-in return, and a
   member denied), because the seed has no archived or misconfigured event and
@@ -269,5 +276,9 @@ one file on purpose):
 - `EVENT_GROUPS` in `src/lib/tidyhq/eventGroups.ts`: how an event links to its
   attendance group.
 - `getEventCheckinWindow`: where the check-in window lives in TidyHQ.
-- Verify against live data: `listContactGroups` includes archived groups, and
+- Verify against live data: TidyHQ's event times and the check-in window are
+  ISO 8601 with an offset or `Z` (`parseTime` refuses anything else, so a
+  different format would make every event look unreadable, and the admin
+  lists would drop them); how SML uses archiving (archived events now refuse
+  check-in); `listContactGroups` includes archived groups, and
   how renewal invoices look (see CLAUDE.md, "Unverified assumptions").

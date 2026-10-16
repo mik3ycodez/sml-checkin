@@ -273,6 +273,21 @@ describe("StatusScreen", () => {
     });
   });
 
+  describe("event not open for check-in", () => {
+    const { text, html } = render({ status: "event_unavailable", ...DANTE });
+
+    it("says the event isn't open for check-in, with no check-in button or renew link", () => {
+      expect(text).toContain("This event isn't open for check-in");
+      expect(html).not.toContain("tidyhq.com");
+      expect(text).not.toMatch(/Check me in|Check in\b/);
+      expect(text).not.toContain("Renew");
+    });
+
+    it("lets a shared phone switch members", () => {
+      expect(text).toContain("Signed in as Dante Ruiz");
+    });
+  });
+
   describe("membership expired", () => {
     const { html, text } = render({ status: "membership_inactive", ...DANTE });
 

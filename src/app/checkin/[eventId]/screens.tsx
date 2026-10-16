@@ -123,6 +123,16 @@ export function StatusScreen({
           {signedInAs}
         </Screen>
       );
+    case "event_unavailable":
+      return (
+        <Screen event={event} title="This event isn't open for check-in">
+          <Note>
+            Check-in isn&apos;t available for this event. If you were there, a
+            volunteer can check you in.
+          </Note>
+          {signedInAs}
+        </Screen>
+      );
     case "points_unreadable":
       return (
         <Screen event={event} title="Please see a volunteer">
