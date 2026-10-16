@@ -42,9 +42,9 @@ describe("MockTidyClient", () => {
     );
   });
 
-  describe("listContacts (mock only)", () => {
+  describe("listSignInContacts (mock only)", () => {
     it("lists every seed contact, for the fake sign-in page", async () => {
-      const ids = (await client.listContacts()).map((c) => c.id);
+      const ids = (await client.listSignInContacts()).map((c) => c.id);
       expect(ids).toEqual([
         "c_marcus",
         "c_dante",
@@ -64,6 +64,35 @@ describe("MockTidyClient", () => {
     it("has an App Admin group with only Casey Moreno in it", async () => {
       const admins = await client.listGroupContacts("grp_app_admin");
       expect(admins.map((c) => c.display_name)).toEqual(["Casey Moreno"]);
+    });
+  });
+
+  describe("listAllContacts", () => {
+    it("lists every active contact, and no inactive ones", async () => {
+      const seed = createSeed();
+      seed.contacts[1].status = "inactive";
+      const mock = new MockTidyClient(seed);
+      const ids = (await mock.listAllContacts()).map((c) => c.id);
+      expect(ids).toHaveLength(seed.contacts.length - 1);
+      expect(ids).not.toContain(seed.contacts[1].id);
+    });
+
+    it("returns every contact however many there are (the real client follows all pages)", async () => {
+      const seed = createSeed();
+      const template = seed.contacts[0];
+      for (let i = 0; i < 650; i++) {
+        seed.contacts.push({ ...structuredClone(template), id: `c_bulk_${i}` });
+      }
+      const all = await new MockTidyClient(seed).listAllContacts();
+      expect(all).toHaveLength(seed.contacts.length);
+    });
+
+    it("returns copies callers can't use to change the mock", async () => {
+      const first = await client.listAllContacts();
+      first[0].display_name = "Changed";
+      expect((await client.listAllContacts())[0].display_name).not.toBe(
+        "Changed",
+      );
     });
   });
 

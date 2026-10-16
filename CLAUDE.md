@@ -120,6 +120,18 @@ system of record; this app is a thin layer on top of it.
   is one generic line ("Can't check in here. Please see a Board member.").
   Admins see the specific reasons and inconsistent-membership warnings
   (`staffVerdict`).
+- **Club colors owed report** (`/admin/reports/colors`, admins only, not
+  volunteers; linked from the admin home). Lists members at 18+ points not
+  marked issued, using `rewardStatus`, `readRewardIssued` and
+  `membershipStanding` as `/me` does (`getColorsOwed`): "Ready to receive
+  colors" (current) first, then "Needs to renew or pay first" (balance due,
+  grace, lapsed, no counted membership). Unreadable points or issued field go
+  in a separate "Needs checking" list, never guessed. Read-only: TidyHQ is the
+  official record and the app never marks colors issued. A TidyHQ failure
+  shows "temporarily unavailable" with a retry link, never a partial list.
+- **`/me` is reachable from the home page and the member check-in screens via
+  "My points and status".** Don't remove those links (`MyPointsLink`,
+  `MemberFooter`, the home page); tests check them.
 - **A member's name is always `contactName(contact)`** (`src/lib/tidyhq`):
   display name, else first and last name, else "Unnamed member". Never read
   `display_name` directly: live data may have nulls.
@@ -180,6 +192,8 @@ so the app is built against a **mock TidyHQ**.
   - `GET /v2/contacts/me` (identity)
   - `GET /v2/contacts/{id}/memberships` (active membership check)
   - `GET /v2/events`, `GET /v2/events/{id}` (events)
+  - `GET /v2/contacts` (the colors owed report's list of every active
+    contact, via `listAllContacts`; follows every page with `limit`/`offset`)
   - `GET /v2/contacts?search_terms=` (staff check-in member search, via
     `searchMembers`: 2-character minimum, 20-result cap)
   - `PATCH /v2/contacts/{id}` (points custom field)

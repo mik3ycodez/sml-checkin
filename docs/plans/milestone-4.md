@@ -1,6 +1,6 @@
 # Milestone 4: Admin pages
 
-**Status:** In progress. PRs 1–5 done (#23, #24, #25, #26, #27). PR 6a done (#28). PR 6b done (#30). PR 6c in review.
+**Status:** In progress. PRs 1–5 done (#23, #24, #25, #26, #27). PR 6a done (#28). PR 6b done (#30). PR 6c done (#31). PR 7 in review.
 
 ## Context
 
@@ -253,7 +253,7 @@ PR 6 is large, so it ships in two PRs. The design below covers both.
   `/admin/events/<id>`, and (2) linked to `/admin` and told a non-member to
   join App Admin. 6b lets it retry the staff check-in page and word its
   guidance for volunteers, with a "Back to check-in" link.
-- **PR 6c 🔍 In review: the volunteer entry point.** The "Are you a volunteer?" link on
+- **PR 6c ✅ Done (#31): the volunteer entry point.** The "Are you a volunteer?" link on
   event pages (the check-in page, the result and status screens; **not**
   `/me`, which has no event), "Stop volunteering", the "volunteer mode has
   ended" screen, and the volunteer entry-point Playwright specs.
@@ -378,14 +378,14 @@ common duplicate names are in SML's TidyHQ before deciding what extra detail
   alone. A new bullet records the volunteer role. Remove "Not saved yet" from
   `CheckInInput.method`'s comment.
 
-### PR 7: Club colors owed report, and 0.4.0
+### PR 7 🔍 In review: Club colors owed report, and 0.4.0
 
 - `/admin/reports/colors`: members at 18+ points not marked issued, using
   `rewardStatus` and `readRewardIssued` (as `/me` does), with their membership
   standing. Unreadable points or issued fields are listed separately as
   "needs checking". A supplemental cross-check: TidyHQ auditing stays the
   official record, and the app never marks colors issued.
-- Needs a "list all contacts" read (`GET /v2/contacts`, all pages).
+- Needs a "list all contacts" read (`GET /v2/contacts`, all pages): `listAllContacts` on `TidyClient`. Active contacts only (the endpoint's default).
 - `package.json` to 0.4.0.
 
 **Dependencies:** PR 1 goes first, since everything after it needs
@@ -462,6 +462,16 @@ one file on purpose):
   lists would drop them); how SML uses archiving (archived events now refuse
   check-in); `listContactGroups` includes archived groups, and
   how renewal invoices look (see CLAUDE.md, "Unverified assumptions").
+
+Also at go-live (client and data checks):
+
+1. When `HttpTidyClient` is built, test that `listAllContacts` follows every
+   page (`limit`/`offset`) against the real API. The mock can't page, so no
+   current test can catch a client that stops at the first page.
+2. Check against live data that `GET /v2/contacts` without `all=true` still
+   includes lapsed members (that "inactive" means an archived contact record,
+   not a lapsed membership). If it doesn't, the colors owed report would miss
+   them.
 
 ### Ideas to evaluate (not decisions)
 

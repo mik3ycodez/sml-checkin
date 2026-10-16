@@ -61,7 +61,7 @@ export default async function MockAuthorizePage({
         <input type="hidden" name="redirect_uri" value={request.redirectUri} />
         <input type="hidden" name="response_type" value="code" />
         <input type="hidden" name="state" value={request.state} />
-        {(await tidy.client.listContacts()).map((contact) => (
+        {(await tidy.client.listSignInContacts()).map((contact) => (
           <button
             key={contact.id}
             type="submit"

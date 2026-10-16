@@ -54,9 +54,15 @@ export class MockTidyClient implements TidyClient {
     return structuredClone(contact);
   }
 
-  /** Every contact. Mock only (not part of TidyClient): for the fake sign-in page. */
-  async listContacts(): Promise<Contact[]> {
+  /** Every contact, inactive too. Mock only (not part of TidyClient): for the fake sign-in page. */
+  async listSignInContacts(): Promise<Contact[]> {
     return structuredClone(this.state.contacts);
+  }
+
+  async listAllContacts(): Promise<Contact[]> {
+    return structuredClone(
+      this.state.contacts.filter((c) => c.status === "active"),
+    );
   }
 
   async searchContacts(query: string): Promise<Contact[]> {
