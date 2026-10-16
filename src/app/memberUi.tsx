@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { membershipNoticeText, type MembershipNotice } from "@/lib/membership";
 import { tidyhqSiteUrl } from "@/lib/tidyhq/site";
+import { staffCheckinPath } from "./admin/paths";
 
 // Pieces shared by the member pages (check-in and `/me`): plain links and
 // forms, so they work on older phones without JavaScript.
@@ -34,6 +35,23 @@ export function SignedInAs({
         </button>
       </span>
     </form>
+  );
+}
+
+/**
+ * A plain link from a member's event page to that event's staff check-in
+ * page. It's shown to every signed-in member without checking any group:
+ * `requireVolunteer` decides on the tap, so the page leaks nothing about who
+ * volunteers.
+ */
+export function VolunteerLink({ eventId }: { eventId: string }) {
+  return (
+    <a
+      href={staffCheckinPath(eventId)}
+      className="text-foreground/70 underline"
+    >
+      Are you a volunteer?
+    </a>
   );
 }
 

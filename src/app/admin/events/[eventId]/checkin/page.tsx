@@ -19,6 +19,7 @@ import {
   StaffNotice,
   StaffSearchScreen,
   StaffVerdictScreen,
+  VolunteerModeEnded,
 } from "./screens";
 
 // Staff check-in: search by name, see a verdict, confirm. Rendered fully on
@@ -90,11 +91,7 @@ export default async function StaffCheckInPage({
     );
   }
   if (state.status === "ended" && staff.role === "volunteer") {
-    return (
-      <StaffNotice heading="Check-in has closed" {...backToCheckin(eventId)}>
-        Check-in for this event has closed, so staff check-in is over.
-      </StaffNotice>
-    );
+    return <VolunteerModeEnded eventId={eventId} />;
   }
   // An admin is only stopped for an event check-in can never run for; for one
   // that has merely closed they still see each member's verdict.

@@ -367,3 +367,34 @@ describe("CheckinProblem", () => {
     expect(text(html)).toContain("volunteer");
   });
 });
+
+describe("the volunteer link", () => {
+  const STAFF = 'href="/admin/events/ev_tonight/checkin"';
+  const screens: [string, ShownStatus][] = [
+    ["checked in", { status: "already_checked_in", ...DANTE, total: 5 }],
+    ["membership inactive", { status: "membership_inactive", ...DANTE }],
+    ["not open", { status: "not_open", ...DANTE, opensAt: new Date() }],
+    ["closed", { status: "closed", ...DANTE }],
+    ["event unavailable", { status: "event_unavailable", ...DANTE }],
+    ["points unreadable", { status: "points_unreadable", ...DANTE }],
+  ];
+
+  it.each(screens)("is on the %s screen", (_, status) => {
+    const { html, text } = render(status);
+    expect(html).toContain(STAFF);
+    expect(text).toContain("Are you a volunteer?");
+  });
+
+  it("is on the check-in result screens", () => {
+    const { html } = render(
+      { status: "already_checked_in", ...DANTE, total: 5 },
+      { kind: "awarded", points: 1 },
+    );
+    expect(html).toContain(STAFF);
+  });
+
+  it("is not on an unknown event, where nobody is identified", () => {
+    const { html } = render({ status: "unknown_event" });
+    expect(html).not.toContain("/admin/");
+  });
+});

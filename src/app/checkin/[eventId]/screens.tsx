@@ -14,6 +14,7 @@ import {
   PRIMARY,
   SECONDARY,
   SignedInAs,
+  VolunteerLink,
 } from "../../memberUi";
 
 // Shared pieces of the check-in pages: one small screen per outcome, chosen
@@ -74,7 +75,10 @@ export function StatusScreen({
 
   const event = eventTitle(status.eventName);
   const signedInAs = (
-    <SignedInAs name={status.name} returnTo={checkinPath(eventId)} />
+    <>
+      <VolunteerLink eventId={eventId} />
+      <SignedInAs name={status.name} returnTo={checkinPath(eventId)} />
+    </>
   );
   switch (status.status) {
     case "already_checked_in":

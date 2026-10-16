@@ -4,7 +4,6 @@ import { checkinPath } from "../../../../memberPaths";
 import { PRIMARY, SECONDARY, SignedInAs } from "../../../../memberUi";
 import {
   adminEventPath,
-  staffCheckinPath,
   staffMemberPath,
   staffSearchPath,
 } from "../../../paths";
@@ -43,7 +42,10 @@ function Frame({
             Event page
           </a>
         )}
-        <SignedInAs name={staff.name} returnTo={staffCheckinPath(eventId)} />
+        <a href={checkinPath(eventId)} className="underline">
+          Stop volunteering
+        </a>
+        <SignedInAs name={staff.name} returnTo={checkinPath(eventId)} />
       </div>
     </div>
   );
@@ -215,6 +217,23 @@ export function StaffNotice({
         {linkLabel}
       </a>
     </div>
+  );
+}
+
+/**
+ * What a volunteer sees once check-in has closed, the event is archived, or
+ * check-in can never open. There's no cookie to clear: leaving is the link.
+ */
+export function VolunteerModeEnded({ eventId }: { eventId: string }) {
+  return (
+    <StaffNotice
+      heading="Volunteer mode has ended"
+      linkHref={checkinPath(eventId)}
+      linkLabel="Back to check-in"
+    >
+      Check-in for this event is over, so staff check-in is no longer available.
+      Thank you for helping!
+    </StaffNotice>
   );
 }
 
