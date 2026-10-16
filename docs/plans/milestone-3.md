@@ -1,6 +1,6 @@
 # Milestone 3: Safety net and member status page
 
-**Status:** Complete in 0.3.0. PRs 1 to 10 done (#12 to #21); PR 11 (the `/me` page) in review.
+**Status:** Complete in 0.3.0. PRs 1 to 11 done (#12 to #22).
 
 ## Context
 
@@ -358,7 +358,7 @@ now })` makes two requests in parallel: `listEvents` and
   read, one groups read, no group reads), and a read failing. `dates.ts` gets
   `seattleStartOfDay` tests.
 
-### PR 11: `/me` page 🔍 In review
+### PR 11: `/me` page ✅ Done (#22)
 
 - `src/app/me/page.tsx` (Server Component, rendered fully on the server
   like the check-in pages now do: no `<Suspense>` and no `loading.tsx`, per

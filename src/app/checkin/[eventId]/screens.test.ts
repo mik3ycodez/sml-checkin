@@ -26,6 +26,19 @@ describe("SignedInAs", () => {
   });
 });
 
+describe("SignedInAs without a name", () => {
+  const html = renderToStaticMarkup(
+    createElement(SignedInAs, { name: null, returnTo: "/admin" }),
+  );
+
+  it("doesn't claim who's signed in, but still signs out", () => {
+    expect(html).not.toContain("Signed in as");
+    expect(html).toMatch(/<form[^>]*action="\/auth\/signout"[^>]*>/);
+    expect(html).toContain('name="returnTo" value="/admin"');
+    expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Sign out<\/button>/);
+  });
+});
+
 /** Visible text, with tags dropped and React's text separators collapsed. */
 function text(html: string): string {
   return html

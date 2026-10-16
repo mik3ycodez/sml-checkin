@@ -72,7 +72,22 @@ system of record; this app is a thin layer on top of it.
   The check-in confirmation shows it only when that check-in's point brought
   them to 18 (decided in `checkIn`, from the read before the write); `/me`
   shows it whenever it applies.
-- Check-ins record who, which event, when, and method (`self` or `staff`).
+- What a check-in records: for every check-in, who and which event (the
+  member's place in the event's TidyHQ group). A **staff** check-in also
+  writes a TidyHQ contact note with the event, which admin did it, and when;
+  a self check-in writes no note, so a check-in with no note was a self
+  check-in. A self check-in's time isn't recorded (TidyHQ's API documents no
+  timestamp for group membership); that gap is accepted. A failed note is
+  logged and never fails the check-in or touches points.
+- **Admins are the contacts in SML's "App Admin" group in TidyHQ** (id in
+  `ADMIN_GROUP_ID`; the Board manages the group in TidyHQ, the app never
+  writes it). Admins sign in the same way as members. The group is read on
+  every admin request, so a removal takes effect on the person's next page
+  load. It fails closed: if the group can't be read (TidyHQ error, unknown
+  group, unset or invalid id), nobody is let in and it's logged. A missing
+  `ADMIN_GROUP_ID` doesn't stop member check-in or the server starting. Every
+  admin page and server action calls `requireAdmin`; a page check alone
+  doesn't protect an action.
 - Membership standing (check-in and `/me` use one rule, `membershipStanding`).
   Pending and cancelled memberships never count. Use the counted membership
   with the latest end date. End date today or later with status activated or

@@ -13,21 +13,22 @@ export const SECONDARY =
 /**
  * Who's signed in, with a way to switch members on a shared phone. A plain
  * form post (sign-out refuses GETs), returning to `returnTo`: the page the
- * member was on, which sends the next member straight to sign-in.
+ * member was on, which sends the next member straight to sign-in. With no
+ * name (TidyHQ couldn't say who it is) it only offers the sign-out.
  */
 export function SignedInAs({
   name,
   returnTo,
 }: {
-  name: string;
+  name: string | null;
   returnTo: string;
 }) {
   return (
     <form method="post" action="/auth/signout" className="text-foreground/70">
       <input type="hidden" name="returnTo" value={returnTo} />
-      Signed in as {name}.{" "}
+      {name !== null && <>Signed in as {name}. </>}
       <span className="whitespace-nowrap">
-        Not you?{" "}
+        {name !== null && <>Not you? </>}
         <button type="submit" className="underline">
           Sign out
         </button>
