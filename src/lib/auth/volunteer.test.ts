@@ -171,7 +171,7 @@ describe("volunteerAccess", () => {
       ).toEqual({ status: "admin", name: "Casey Moreno" });
     });
 
-    it("still admits a volunteer when only the admin group is broken", async () => {
+    it("still admits a volunteer when only the admin group is broken, without logging", async () => {
       const client = seededClient();
       const read = client.listGroupContacts.bind(client);
       client.listGroupContacts = async (id) => {
@@ -182,6 +182,52 @@ describe("volunteerAccess", () => {
         status: "volunteer",
         name: "Pat Rivera",
       });
+      // They were let in, so the broken group changed nothing: not an error.
+      expect(error).not.toHaveBeenCalled();
+    });
+
+    it("admits an admin without logging when HELPER_GROUP_ID isn't set yet (live go-live)", async () => {
+      expect(
+        await volunteerAccess(
+          seededClient(),
+          "c_casey",
+          helperGroup({}, "live"),
+          ADMINS,
+        ),
+      ).toEqual({ status: "admin", name: "Casey Moreno" });
+      expect(error).not.toHaveBeenCalled();
+    });
+
+    it("answers volunteer, deliberately, for someone in both groups while the admin group is unreadable", async () => {
+      // We can't see the admin group, so we can't confirm the higher role:
+      // they get the lesser one until TidyHQ recovers. Fails closed, never up.
+      const client = seededClient();
+      const read = client.listGroupContacts.bind(client);
+      client.listGroupContacts = async (id) => {
+        if (id === MOCK_ADMIN_GROUP_ID) throw new TidyError(503, "down");
+        return id === MOCK_HELPER_GROUP_ID
+          ? [...(await read(id)), ...(await read(MOCK_ADMIN_GROUP_ID))]
+          : read(id);
+      };
+      expect(await access(client, "c_casey")).toEqual({
+        status: "volunteer",
+        name: "Casey Moreno",
+      });
+    });
+
+    it("logs each unreadable group once when it ends up denying", async () => {
+      const client = seededClient();
+      client.listGroupContacts = async () => {
+        throw new TidyError(503, "down");
+      };
+      expect(await access(client, "c_dante")).toEqual({
+        status: "unavailable",
+      });
+      expect(error).toHaveBeenCalledTimes(2);
+      expect(error).toHaveBeenCalledWith(
+        "volunteer access unavailable",
+        expect.objectContaining({ group: "helper" }),
+      );
       expect(error).toHaveBeenCalledWith(
         "volunteer access unavailable",
         expect.objectContaining({ group: "admin" }),

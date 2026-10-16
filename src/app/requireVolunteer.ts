@@ -1,11 +1,22 @@
 import { redirect } from "next/navigation";
-import { adminGroup } from "@/lib/auth/admin";
+import { type AdminDeniedReason, adminGroup } from "@/lib/auth/admin";
 import { getSession } from "@/lib/auth/session";
-import { helperGroup, volunteerAccess } from "@/lib/auth/volunteer";
+import {
+  helperGroup,
+  type VolunteerDeniedReason,
+  volunteerAccess,
+} from "@/lib/auth/volunteer";
 import { getTidyClient, getTidyMode } from "@/lib/tidyhq";
 import { adminDeniedPath } from "./admin/paths";
 import { lookupContact } from "./admin/lookupContact";
 import { signInPath } from "./memberPaths";
+
+// The denied screen's reason picks wording only. Typed against every denial
+// the access check can give, so a new one can't be left unmapped.
+const DENIED_AS: Record<VolunteerDeniedReason, AdminDeniedReason> = {
+  not_volunteer: "not_admin",
+  unavailable: "unavailable",
+};
 
 /**
  * The guard for every volunteer page and server action: call it first. Like
@@ -41,12 +52,5 @@ export async function requireVolunteer(
   if (contact.status === "unknown") redirect(signInPath(returnTo));
   if (access.status === "admin" || access.status === "volunteer")
     return { contactId, name: access.name, role: access.status };
-  // The denied screen's reason picks wording only; "not a volunteer" uses
-  // the existing "not allowed" wording.
-  redirect(
-    adminDeniedPath(
-      access.status === "unavailable" ? "unavailable" : "not_admin",
-      returnTo,
-    ),
-  );
+  redirect(adminDeniedPath(DENIED_AS[access.status], returnTo));
 }
