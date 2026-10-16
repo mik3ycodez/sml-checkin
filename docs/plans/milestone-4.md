@@ -1,6 +1,6 @@
 # Milestone 4: Admin pages
 
-**Status:** In progress. PRs 1–4 done (#23, #24, #25, #26). PR 5 in review.
+**Status:** In progress. PRs 1–5 done (#23, #24, #25, #26, #27). PR 6a in review.
 
 ## Context
 
@@ -208,7 +208,7 @@ light colors._
   signed-out visitor never seeing the list. The TidyHQ-failure notices are
   unit-tested only: the mock has no way to fail a read from a browser.)_
 
-### PR 5: Contact search in `TidyClient` 🔍 In review
+### PR 5: Contact search in `TidyClient` ✅ Done (#27)
 
 - `searchContacts(query)` (`GET /v2/contacts?search_terms=`), mock included,
   following all pages. Tests for name matches, no matches, and case.
@@ -232,6 +232,29 @@ light colors._
   live client's tests must cover "follows all pages".)_
 
 ### PR 6: Staff check-in (and the check-in volunteer role)
+
+PR 6 is large, so it ships in two PRs. The design below covers both.
+
+- **PR 6a 🔍 In review: the volunteer access rule, logic only.** `HELPER_GROUP_ID`
+  and its placeholder in `.env.example`; the access check (volunteer, or admin);
+  the `requireVolunteer` guard; the mock seed's volunteers group and a
+  volunteer member. No pages, no UI. Tests: the volunteer rule (volunteer,
+  admin-only person, neither, read on every call, failure and unset id fail
+  closed) and the guard stopping a non-volunteer itself even if a caller
+  ignores its return value.
+- **PR 6b: everything else.** The volunteer view and volunteer mode, the staff
+  check-in page and its action, the `checkIn` audit note, the denied screen's
+  wording for both roles, `CLAUDE.md`, and the end-to-end tests.
+  **Carry over from 6a's review:** `requireVolunteer` sends a denied
+  volunteer to the admin denied screen, which (1) only retries
+  `/admin/events/<id>`, so a door volunteer who hits a one-off TidyHQ failure
+  on `/admin/events/<id>/checkin` isn't retried automatically, and (2) links
+  to `/admin` and tells a non-member to join App Admin. 6b must let the
+  screen retry the staff check-in page and word its guidance for both roles.
+- _(Naming: the guard is `requireVolunteer`, not `requireStaff` as first
+  drafted. It returns for a volunteer or an admin and says which, so the
+  action can record the role. Wherever the design below says `requireStaff`,
+  read `requireVolunteer`.)_
 
 - **Its own page, not the event page.** Staff check-in lives at
   `/admin/events/<id>/checkin`, linked from the event page. The event page
@@ -321,7 +344,7 @@ light colors._
 - `package.json` to 0.4.0.
 
 **Dependencies:** PR 1 goes first, since everything after it needs
-`requireAdmin()`. PRs 2→3→4 are the event page. PR 5 comes before PR 6, which also adds the
+`requireAdmin()`. PRs 2→3→4 are the event page. PR 5 comes before PR 6 (6a, then 6b), which also adds the
 volunteer role. PR 7
 can go any time after PR 1, but it's last because it carries the version bump.
 
@@ -366,18 +389,18 @@ access, check:
 Production settings. Secrets go only in the host's secret store or
 `.env.local`, never in git, logs, or this file.
 
-| Setting                | Secret?                                          | Production value                                                                                                                                               |
-| ---------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TIDYHQ_MODE`          | No                                               | `live` (startup refuses to run without it)                                                                                                                     |
-| `APP_ORIGIN`           | No                                               | The site's https address. Register `APP_ORIGIN/auth/callback` as the OAuth redirect URI in TidyHQ. Changing it later means reprinting QR codes.                |
-| `TIDYHQ_CLIENT_ID`     | No (sent in the sign-in URL), but keep it in env | From SML's TidyHQ app registration                                                                                                                             |
-| `TIDYHQ_CLIENT_SECRET` | **Yes**                                          | From SML's TidyHQ app registration                                                                                                                             |
-| `TIDYHQ_DOMAIN_PREFIX` | No                                               | `sml`                                                                                                                                                          |
-| `TIDYHQ_ADMIN_TOKEN`   | **Yes**                                          | Admin-level token for server-side calls                                                                                                                        |
-| `SESSION_SECRET`       | **Yes**                                          | A new value (`openssl rand -base64 32`). Don't reuse the mock one: rotating it at the switch signs out sessions holding mock contact ids.                      |
-| `ADMIN_GROUP_ID`       | No (an id, not a credential)                     | **`221914`**, SML's App Admin group. Set it when live TidyHQ is connected.                                                                                     |
-| `HELPER_GROUP_ID`      | No (an id, not a credential)                     | The id of SML's **"App Check-In Volunteers"** group in TidyHQ. **To be filled in later** (not known yet). Added in PR 6. Set it when live TidyHQ is connected. |
-| `E2E`                  | No                                               | **Must be unset.** It enables the mock reset route (which also needs mock mode).                                                                               |
+| Setting                | Secret?                                          | Production value                                                                                                                                                                                                                                            |
+| ---------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TIDYHQ_MODE`          | No                                               | `live` (startup refuses to run without it)                                                                                                                                                                                                                  |
+| `APP_ORIGIN`           | No                                               | The site's https address. Register `APP_ORIGIN/auth/callback` as the OAuth redirect URI in TidyHQ. Changing it later means reprinting QR codes.                                                                                                             |
+| `TIDYHQ_CLIENT_ID`     | No (sent in the sign-in URL), but keep it in env | From SML's TidyHQ app registration                                                                                                                                                                                                                          |
+| `TIDYHQ_CLIENT_SECRET` | **Yes**                                          | From SML's TidyHQ app registration                                                                                                                                                                                                                          |
+| `TIDYHQ_DOMAIN_PREFIX` | No                                               | `sml`                                                                                                                                                                                                                                                       |
+| `TIDYHQ_ADMIN_TOKEN`   | **Yes**                                          | Admin-level token for server-side calls                                                                                                                                                                                                                     |
+| `SESSION_SECRET`       | **Yes**                                          | A new value (`openssl rand -base64 32`). Don't reuse the mock one: rotating it at the switch signs out sessions holding mock contact ids.                                                                                                                   |
+| `ADMIN_GROUP_ID`       | No (an id, not a credential)                     | **`221914`**, SML's App Admin group. Set it when live TidyHQ is connected.                                                                                                                                                                                  |
+| `HELPER_GROUP_ID`      | No (an id, not a credential)                     | The id of SML's **"App Check-In Volunteers"** group in TidyHQ, **not** the general **"Volunteers"** group (that would let every volunteer check anyone in). **To be filled in later** (not known yet). Added in PR 6. Set it when live TidyHQ is connected. |
+| `E2E`                  | No                                               | **Must be unset.** It enables the mock reset route (which also needs mock mode).                                                                                                                                                                            |
 
 Not env settings, but they must change in code before go-live (each lives in
 one file on purpose):

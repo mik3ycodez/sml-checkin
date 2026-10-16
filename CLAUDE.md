@@ -115,8 +115,10 @@ system of record; this app is a thin layer on top of it.
   load. It fails closed: if the group can't be read (TidyHQ error, unknown
   group, unset or invalid id), nobody is let in and it's logged. A missing
   `ADMIN_GROUP_ID` doesn't stop member check-in or the server starting. Every
-  admin page and server action calls `requireAdmin`; a page check alone
-  doesn't protect an action.
+  admin page and server action calls `requireAdmin`, except the staff
+  check-in page and its action (added in milestone 4, PR 6b), which call
+  `requireVolunteer` (a volunteer or an admin); a page check alone doesn't
+  protect an action.
 - Membership standing (check-in and `/me` use one rule, `membershipStanding`).
   Pending and cancelled memberships never count. Use the counted membership
   with the latest end date. End date today or later with status activated or
