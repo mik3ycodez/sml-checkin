@@ -1,6 +1,6 @@
 # Milestone 4: Admin pages
 
-**Status:** In progress. PRs 1 and 2 done (#23, #24). PR 3 in review.
+**Status:** In progress. PRs 1 and 2 done (#23, #24). PR 3 in review (#25).
 
 ## Context
 
@@ -130,7 +130,7 @@ attendees, staff check-in), then one report.
 - Playwright: the admin sees the list; a member gets the denied screen; signed out
   goes to sign-in and comes back.
 
-### PR 3: Event page with QR code and window warnings
+### PR 3: Event page with QR code and window warnings 🔍 In review (#25)
 
 - `/admin/events/<id>`: name, time, check-in window, the check-in URL
   (`APP_ORIGIN/checkin/<id>`) as text, and its QR code.
