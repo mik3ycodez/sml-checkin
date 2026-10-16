@@ -161,3 +161,112 @@ test("an event TidyHQ doesn't have says so", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "All events" })).toBeVisible();
 });
+
+// The attendee list. Social Night starts empty and is open all day in the
+// seed; Pub Night is over, with Marcus Bell and Jordan Park in its group.
+
+const REFRESH = 'meta[http-equiv="refresh"]';
+
+test("an admin sees an empty attendee list, refreshing every 30 seconds while check-in is open", async ({
+  page,
+}) => {
+  await signInAs(page, "Casey Moreno", EVENT_PATH);
+  await expect(
+    page.getByRole("heading", { name: "Checked in (0)" }),
+  ).toBeVisible();
+  await expect(page.getByText("Nobody has checked in yet")).toBeVisible();
+  await expect(page.getByText("Updates every 30 seconds")).toBeVisible();
+  await expect(page.locator(REFRESH)).toHaveAttribute("content", "30");
+});
+
+test("members who check in show up in the admin's list, by name in alphabetical order", async ({
+  page,
+}) => {
+  for (const member of ["Marcus Bell", "Dante Ruiz"]) {
+    await signInAs(page, member, "/checkin/ev_tonight");
+    await page.getByRole("button", { name: "Check in" }).click();
+    await expect(page.getByText("+1 point")).toBeVisible();
+  }
+  await signInAs(page, "Casey Moreno", EVENT_PATH);
+  await expect(
+    page.getByRole("heading", { name: "Checked in (2)" }),
+  ).toBeVisible();
+  const names = await page.getByRole("listitem").allTextContents();
+  expect(names).toEqual(["Dante Ruiz", "Marcus Bell"]);
+});
+
+test("the open event page reloads itself and picks up a new check-in, with no clicks", async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  await signInAs(page, "Casey Moreno", EVENT_PATH);
+  await expect(
+    page.getByRole("heading", { name: "Checked in (0)" }),
+  ).toBeVisible();
+
+  // A member checks in on their own phone (a separate session).
+  const phone = await browser.newContext({
+    baseURL: test.info().project.use.baseURL,
+  });
+  const member = await phone.newPage();
+  await signInAs(member, "Dante Ruiz", "/checkin/ev_tonight");
+  await member.getByRole("button", { name: "Check in" }).click();
+  await expect(member.getByText("+1 point")).toBeVisible();
+  await phone.close();
+
+  // No reload from the test: the page's own refresh brings the name in.
+  await expect(
+    page.getByRole("heading", { name: "Checked in (1)" }),
+  ).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByText("Dante Ruiz")).toBeVisible();
+});
+
+test("a finished event still lists who came, but doesn't refresh", async ({
+  page,
+}) => {
+  await signInAs(page, "Casey Moreno", "/admin/events/ev_pub_night");
+  await expect(
+    page.getByRole("heading", { name: "Checked in (2)" }),
+  ).toBeVisible();
+  const names = await page.getByRole("listitem").allTextContents();
+  expect(names).toEqual(["Jordan Park", "Marcus Bell"]);
+  await expect(page.locator(REFRESH)).toHaveCount(0);
+  await expect(page.getByText("Updates every")).toHaveCount(0);
+});
+
+test("an event days away doesn't refresh", async ({ page }) => {
+  await signInAs(page, "Casey Moreno", "/admin/events/ev_bootblack_social");
+  await expect(
+    page.getByRole("heading", { name: "Checked in (0)" }),
+  ).toBeVisible();
+  await expect(page.locator(REFRESH)).toHaveCount(0);
+});
+
+test("the attendee list isn't on the printed sheet", async ({ page }) => {
+  await signInAs(page, "Casey Moreno", "/admin/events/ev_pub_night");
+  await page.emulateMedia({ media: "print" });
+  await expect(page.getByText("Jordan Park")).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Pub Night" })).toBeVisible();
+});
+
+test("a member who isn't an admin never sees who attended, even by asking for the page", async ({
+  page,
+}) => {
+  await signInAs(page, "Dante Ruiz");
+  await page.goto("/admin/events/ev_pub_night");
+  await expect(page).toHaveURL(/\/admin\/denied\?reason=not_admin$/);
+  await expect(page.getByText("Jordan Park")).toHaveCount(0);
+  await expect(page.getByText("Marcus Bell")).toHaveCount(0);
+  await expect(page.getByText(/Checked in \(/)).toHaveCount(0);
+  await expect(page.locator(REFRESH)).toHaveCount(0);
+});
+
+test("a signed-out visitor never sees who attended", async ({ page }) => {
+  await page.goto("/admin/events/ev_pub_night");
+  await expect(page).toHaveURL(/\/mock-tidyhq\/oauth\/authorize/);
+  // (The fake sign-in page lists every member by name, so check for the
+  // event page's own content instead.)
+  await expect(page.getByText(/Checked in \(/)).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Pub Night" })).toHaveCount(0);
+});

@@ -1,6 +1,6 @@
 # Milestone 4: Admin pages
 
-**Status:** In progress. PRs 1 and 2 done (#23, #24). PR 3 in review (#25).
+**Status:** In progress. PRs 1–3 done (#23, #24, #25). PR 4 in review (#26).
 
 ## Context
 
@@ -130,7 +130,7 @@ attendees, staff check-in), then one report.
 - Playwright: the admin sees the list; a member gets the denied screen; signed out
   goes to sign-in and comes back.
 
-### PR 3: Event page with QR code and window warnings 🔍 In review (#25)
+### PR 3: Event page with QR code and window warnings ✅ Done (#25)
 
 _Review changes: archived events now refuse check-in (`event_unavailable`) so
 the door and the page agree; times must be ISO 8601 with an offset or `Z` and
@@ -169,11 +169,30 @@ light colors._
   member denied), because the seed has no archived or misconfigured event and
   there's no mock-only route to make one.)_
 
-### PR 4: Live attendee list
+### PR 4: Live attendee list 🔍 In review (#26)
 
 - On the event page: attendee names and a count from `listGroupContacts`,
   refreshed every 30 seconds.
 - Method and time aren't shown (that would mean a notes read per attendee).
+- _(Built: `getEventAttendees` in `src/lib/admin/attendees.ts` reads the
+  event's group (`listGroupContacts`, which follows every page) and sorts by
+  name, ignoring case and accents; a blank display name falls back to first
+  and last name, then "Unnamed member". `requireAdmin` still runs first, so
+  only admins see who attended. The page reloads itself with
+  `<meta http-equiv="refresh" content="30">` (no JavaScript, no API route),
+  but only while check-in is open or within 30 minutes of opening
+  (`ATTENDEE_REFRESH_LEAD_MINUTES`); not for closed events, events further
+  out, or events members can't check in to (`attendeeRefreshSeconds`). A
+  reload landing after check-in closes shows the final list and stops. If the
+  list can't be read (TidyHQ error only, via `loadOrNull`; logged with status
+  and message), that section says so and the QR code still shows; the page
+  keeps refreshing so it recovers. An event with no group shows no list (the
+  QR block already says why). The list is `print:hidden`, so the printed
+  sheet stays name, time, code and link. Playwright: empty and filled list,
+  alphabetical order, a real unaided refresh picking up a new check-in (about
+  30 seconds), no refresh for a finished or distant event, not printed, and a
+  member and a signed-out visitor never seeing it. The TidyHQ-failure path is
+  unit-tested only: the mock has no way to fail a read from a browser.)_
 
 ### PR 5: Contact search in `TidyClient`
 
