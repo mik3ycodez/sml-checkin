@@ -1,6 +1,6 @@
 # Milestone 4: Admin pages
 
-**Status:** In progress. PRs 1–4 done (#23, #24, #25, #26). PR 5 in review.
+**Status:** In progress. PRs 1–5 done (#23, #24, #25, #26, #27). PR 6a in review.
 
 ## Context
 
@@ -208,7 +208,7 @@ light colors._
   signed-out visitor never seeing the list. The TidyHQ-failure notices are
   unit-tested only: the mock has no way to fail a read from a browser.)_
 
-### PR 5: Contact search in `TidyClient` 🔍 In review
+### PR 5: Contact search in `TidyClient` ✅ Done (#27)
 
 - `searchContacts(query)` (`GET /v2/contacts?search_terms=`), mock included,
   following all pages. Tests for name matches, no matches, and case.
@@ -232,6 +232,23 @@ light colors._
   live client's tests must cover "follows all pages".)_
 
 ### PR 6: Staff check-in (and the check-in volunteer role)
+
+PR 6 is large, so it ships in two PRs. The design below covers both.
+
+- **PR 6a 🔍 In review: the volunteer access rule, logic only.** `HELPER_GROUP_ID`
+  and its placeholder in `.env.example`; the access check (volunteer, or admin);
+  the `requireVolunteer` guard; the mock seed's volunteers group and a
+  volunteer member. No pages, no UI. Tests: the volunteer rule (volunteer,
+  admin-only person, neither, read on every call, failure and unset id fail
+  closed) and the guard stopping a non-volunteer itself even if a caller
+  ignores its return value.
+- **PR 6b: everything else.** The volunteer view and volunteer mode, the staff
+  check-in page and its action, the `checkIn` audit note, the denied screen's
+  wording for both roles, `CLAUDE.md`, and the end-to-end tests.
+- _(Naming: the guard is `requireVolunteer`, not `requireStaff` as first
+  drafted. It returns for a volunteer or an admin and says which, so the
+  action can record the role. Wherever the design below says `requireStaff`,
+  read `requireVolunteer`.)_
 
 - **Its own page, not the event page.** Staff check-in lives at
   `/admin/events/<id>/checkin`, linked from the event page. The event page
@@ -321,7 +338,7 @@ light colors._
 - `package.json` to 0.4.0.
 
 **Dependencies:** PR 1 goes first, since everything after it needs
-`requireAdmin()`. PRs 2→3→4 are the event page. PR 5 comes before PR 6, which also adds the
+`requireAdmin()`. PRs 2→3→4 are the event page. PR 5 comes before PR 6 (6a, then 6b), which also adds the
 volunteer role. PR 7
 can go any time after PR 1, but it's last because it carries the version bump.
 

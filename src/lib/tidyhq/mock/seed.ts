@@ -41,6 +41,9 @@ function shiftIso(iso: string, ms: number): string {
 /** The mock's App Admin group, used when `ADMIN_GROUP_ID` is unset. */
 export const MOCK_ADMIN_GROUP_ID = "grp_app_admin";
 
+/** The mock's App Check-In Volunteers group, used when `HELPER_GROUP_ID` is unset. */
+export const MOCK_HELPER_GROUP_ID = "grp_app_checkin_volunteers";
+
 /** An evening start: 02:00 UTC is 7pm in Seattle (PDT). */
 function eveningOf(now: Date, days: number): Date {
   const date = daysFrom(now, days);
@@ -160,6 +163,8 @@ export function createSeed(now: Date = new Date()): MockSeed {
     grp_volunteers: ["c_marcus"],
     // The Board and social coordinator: who may use the admin pages.
     [MOCK_ADMIN_GROUP_ID]: ["c_casey"],
+    // Door volunteers, who aren't admins.
+    [MOCK_HELPER_GROUP_ID]: ["c_pat"],
     grp_social_night: [],
     grp_bootblack_social: [],
     grp_bar_night: [],
@@ -180,6 +185,12 @@ export function createSeed(now: Date = new Date()): MockSeed {
       "App Admin",
       false,
       "Can use the SML Check-in admin pages (managed in TidyHQ)",
+    ),
+    group(
+      MOCK_HELPER_GROUP_ID,
+      "App Check-In Volunteers",
+      false,
+      "Can check members in at the door (managed in TidyHQ)",
     ),
   ].map((g) => ({ ...g, size: groupMembers[g.id].length }));
 
@@ -262,6 +273,8 @@ export function createSeed(now: Date = new Date()): MockSeed {
       contact("c_morgan", "Morgan", "Hale", 25, true),
       // A Board member, in the App Admin group.
       contact("c_casey", "Casey", "Moreno", 3),
+      // A door volunteer, in the App Check-In Volunteers group but not App Admin.
+      contact("c_pat", "Pat", "Rivera", 2),
     ],
     memberships: [
       membership("m_marcus", "c_marcus", "lvl_full", -120, 245),
@@ -275,6 +288,7 @@ export function createSeed(now: Date = new Date()): MockSeed {
       membership("m_taylor", "c_taylor", "lvl_full", -150, 215),
       membership("m_morgan", "c_morgan", "lvl_full", -200, 165),
       membership("m_casey", "c_casey", "lvl_full", -150, 215),
+      membership("m_pat", "c_pat", "lvl_full", -110, 255),
     ],
     membershipLevels: [
       { id: "lvl_full", name: "Full Member", description: null },

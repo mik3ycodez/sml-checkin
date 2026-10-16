@@ -21,19 +21,32 @@ const GROUP_ID = /^[A-Za-z0-9_-]+$/;
 export type AdminGroup =
   { id: string } | { problem: "not_configured" | "invalid" };
 
-export function adminGroup(
-  env: { ADMIN_GROUP_ID?: string },
+/**
+ * Reads a group id setting: the trimmed value if it's a usable id, else why
+ * not. `mockDefault` stands in only for an unset or blank value in mock mode.
+ * Shared by the admin and volunteer groups so the two can't drift apart.
+ */
+export function groupFromSetting(
+  value: string | undefined,
+  mockDefault: string,
   mode: TidyMode,
 ): AdminGroup {
-  const configured = env.ADMIN_GROUP_ID?.trim();
+  const configured = value?.trim();
   if (!configured) {
     return mode === "mock"
-      ? { id: MOCK_ADMIN_GROUP_ID }
+      ? { id: mockDefault }
       : { problem: "not_configured" };
   }
   return GROUP_ID.test(configured)
     ? { id: configured }
     : { problem: "invalid" };
+}
+
+export function adminGroup(
+  env: { ADMIN_GROUP_ID?: string },
+  mode: TidyMode,
+): AdminGroup {
+  return groupFromSetting(env.ADMIN_GROUP_ID, MOCK_ADMIN_GROUP_ID, mode);
 }
 
 export type AdminAccess =

@@ -57,6 +57,7 @@ describe("MockTidyClient", () => {
         "c_taylor",
         "c_morgan",
         "c_casey",
+        "c_pat",
       ]);
     });
 
