@@ -175,23 +175,37 @@ light colors._
   refreshed every 30 seconds.
 - Method and time aren't shown (that would mean a notes read per attendee).
 - _(Built: `getEventAttendees` in `src/lib/admin/attendees.ts` reads the
-  event's group (`listGroupContacts`, which follows every page) and sorts by
-  name, ignoring case and accents; a blank display name falls back to first
-  and last name, then "Unnamed member". `requireAdmin` still runs first, so
-  only admins see who attended. The page reloads itself with
-  `<meta http-equiv="refresh" content="30">` (no JavaScript, no API route),
-  but only while check-in is open or within 30 minutes of opening
-  (`ATTENDEE_REFRESH_LEAD_MINUTES`); not for closed events, events further
-  out, or events members can't check in to (`attendeeRefreshSeconds`). A
-  reload landing after check-in closes shows the final list and stops. If the
-  list can't be read (TidyHQ error only, via `loadOrNull`; logged with status
-  and message), that section says so and the QR code still shows; the page
-  keeps refreshing so it recovers. An event with no group shows no list (the
-  QR block already says why). The list is `print:hidden`, so the printed
-  sheet stays name, time, code and link. Playwright: empty and filled list,
-  alphabetical order, a real unaided refresh picking up a new check-in (about
-  30 seconds), no refresh for a finished or distant event, not printed, and a
-  member and a signed-out visitor never seeing it. The TidyHQ-failure path is
+  event's group (`listGroupContacts`, which follows every page), lists each
+  contact once (by id, in case live paging repeats a row), and sorts by name,
+  ignoring case and accents. Names come from the shared `contactName` in
+  `src/lib/tidyhq/contactName.ts`: the display name, else first and last name,
+  else "Unnamed member", and null or missing fields can't break a page. Every
+  place that shows a member's name uses it. `requireAdmin` still runs first,
+  so only admins see who attended. The page decides once whether the event has
+  a group (`findEventGroup`), and the attendee read goes out alongside the
+  event read. The QR SVG is drawn once per URL (bounded cache in `qr.ts`).
+  The page reloads itself with `<meta http-equiv="refresh" content="30">` (no
+  JavaScript, no API route), but only while check-in is open or within 30
+  minutes of opening (`ATTENDEE_REFRESH_LEAD_MINUTES`); not for closed events,
+  events further out, or events members can't check in to
+  (`attendeeRefreshSeconds`). A reload landing after check-in closes shows the
+  final list and stops.
+  **TidyHQ failures don't end the refresh.** If the event itself can't be read
+  (TidyHQ error only, via `loadOrNull`, logged with status and message), the
+  page shows "This event is temporarily unavailable" with the same 30-second
+  refresh. If `requireAdmin` can't check access, the redirect carries the
+  event page's path (`returnTo`, only for `unavailable`, only for
+  `/admin/events/<id>`, validated by `deniedRetryPath`), and the denied screen
+  refreshes back to it after 30 seconds. If only the attendee list can't be
+  read, that section says so and the QR code still shows. Bugs in our own code
+  still reach the error page. Trade-off: these retries have no limit, so a tab
+  left on a persistently broken page keeps asking every 30 seconds. The list
+  is `print:hidden`, so the printed sheet stays name, time, code and link.
+  Playwright: empty and filled list, alphabetical order, a real unaided
+  refresh picking up a new check-in (about 30 seconds), the denied screen
+  retrying the event page by itself, no refresh for a finished or distant
+  event or for a non-event return path, not printed, and a member and a
+  signed-out visitor never seeing the list. The TidyHQ-failure notices are
   unit-tested only: the mock has no way to fail a read from a browser.)_
 
 ### PR 5: Contact search in `TidyClient`
@@ -314,18 +328,18 @@ access, check:
 Production settings. Secrets go only in the host's secret store or
 `.env.local`, never in git, logs, or this file.
 
-| Setting                | Secret?                                          | Production value                                                                                                                                |
-| ---------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TIDYHQ_MODE`          | No                                               | `live` (startup refuses to run without it)                                                                                                      |
-| `APP_ORIGIN`           | No                                               | The site's https address. Register `APP_ORIGIN/auth/callback` as the OAuth redirect URI in TidyHQ. Changing it later means reprinting QR codes. |
-| `TIDYHQ_CLIENT_ID`     | No (sent in the sign-in URL), but keep it in env | From SML's TidyHQ app registration                                                                                                              |
-| `TIDYHQ_CLIENT_SECRET` | **Yes**                                          | From SML's TidyHQ app registration                                                                                                              |
-| `TIDYHQ_DOMAIN_PREFIX` | No                                               | `sml`                                                                                                                                           |
-| `TIDYHQ_ADMIN_TOKEN`   | **Yes**                                          | Admin-level token for server-side calls                                                                                                         |
-| `SESSION_SECRET`       | **Yes**                                          | A new value (`openssl rand -base64 32`). Don't reuse the mock one: rotating it at the switch signs out sessions holding mock contact ids.       |
-| `ADMIN_GROUP_ID`       | No (an id, not a credential)                     | **`221914`**, SML's App Admin group. Set it when live TidyHQ is connected.                                                                      |
+| Setting                | Secret?                                          | Production value                                                                                                                                               |
+| ---------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TIDYHQ_MODE`          | No                                               | `live` (startup refuses to run without it)                                                                                                                     |
+| `APP_ORIGIN`           | No                                               | The site's https address. Register `APP_ORIGIN/auth/callback` as the OAuth redirect URI in TidyHQ. Changing it later means reprinting QR codes.                |
+| `TIDYHQ_CLIENT_ID`     | No (sent in the sign-in URL), but keep it in env | From SML's TidyHQ app registration                                                                                                                             |
+| `TIDYHQ_CLIENT_SECRET` | **Yes**                                          | From SML's TidyHQ app registration                                                                                                                             |
+| `TIDYHQ_DOMAIN_PREFIX` | No                                               | `sml`                                                                                                                                                          |
+| `TIDYHQ_ADMIN_TOKEN`   | **Yes**                                          | Admin-level token for server-side calls                                                                                                                        |
+| `SESSION_SECRET`       | **Yes**                                          | A new value (`openssl rand -base64 32`). Don't reuse the mock one: rotating it at the switch signs out sessions holding mock contact ids.                      |
+| `ADMIN_GROUP_ID`       | No (an id, not a credential)                     | **`221914`**, SML's App Admin group. Set it when live TidyHQ is connected.                                                                                     |
 | `HELPER_GROUP_ID`      | No (an id, not a credential)                     | The id of SML's **"App Check-In Volunteers"** group in TidyHQ. **To be filled in later** (not known yet). Added in PR 6. Set it when live TidyHQ is connected. |
-| `E2E`                  | No                                               | **Must be unset.** It enables the mock reset route (which also needs mock mode).                                                                |
+| `E2E`                  | No                                               | **Must be unset.** It enables the mock reset route (which also needs mock mode).                                                                               |
 
 Not env settings, but they must change in code before go-live (each lives in
 one file on purpose):

@@ -93,6 +93,43 @@ describe("requireAdmin", () => {
     });
   });
 
+  describe("from an event page", () => {
+    const EVENT_PAGE = "/admin/events/ev_one";
+
+    it("tells the denied screen which event page to retry when access couldn't be checked", async () => {
+      const client = signedInAs("c_casey");
+      client.listGroupContacts = async () => {
+        throw new TidyError(503, "TidyHQ unavailable");
+      };
+      await expect(requireAdmin(EVENT_PAGE)).rejects.toThrow(
+        "NEXT_REDIRECT /admin/denied?reason=unavailable&returnTo=%2Fadmin%2Fevents%2Fev_one",
+      );
+    });
+
+    it("doesn't, for someone who simply isn't an admin", async () => {
+      signedInAs("c_dante");
+      await expect(requireAdmin(EVENT_PAGE)).rejects.toThrow(
+        /^NEXT_REDIRECT \/admin\/denied\?reason=not_admin$/,
+      );
+    });
+  });
+
+  it("shows a contact with null name fields as unnamed, not as a crash", async () => {
+    const client = signedInAs("c_casey");
+    const group = client.listGroupContacts.bind(client);
+    client.listGroupContacts = async (id) =>
+      (await group(id)).map((c) => ({
+        ...c,
+        display_name: null as unknown as string,
+        first_name: null as unknown as string,
+        last_name: null as unknown as string,
+      }));
+    expect(await requireAdmin("/admin")).toEqual({
+      contactId: "c_casey",
+      name: "Unnamed member",
+    });
+  });
+
   it("sends a session whose contact TidyHQ no longer has to sign in, like /me", async () => {
     signedInAs("c_gone");
     await expect(requireAdmin("/admin")).rejects.toThrow(

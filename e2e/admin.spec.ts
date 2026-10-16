@@ -270,3 +270,60 @@ test("a signed-out visitor never sees who attended", async ({ page }) => {
   await expect(page.getByText(/Checked in \(/)).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Pub Night" })).toHaveCount(0);
 });
+
+// "Couldn't check admin access" from an event page retries that page. The mock
+// can't make TidyHQ fail from a browser, so these open the denied screen with
+// the query requireAdmin would have sent.
+
+const RETRY_DENIED = `/admin/denied?reason=unavailable&returnTo=${encodeURIComponent(EVENT_PATH)}`;
+
+test("the 'couldn't check access' screen from an event page goes back to it by itself", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await signInAs(page, "Casey Moreno", "/admin");
+  await page.goto(RETRY_DENIED);
+  await expect(
+    page.getByRole("heading", { name: "Admin access unavailable" }),
+  ).toBeVisible();
+  await expect(page.getByText("try again in 30 seconds")).toBeVisible();
+  await expect(page.locator(REFRESH)).toHaveAttribute(
+    "content",
+    `30;url=${EVENT_PATH}`,
+  );
+  // Access is fine this time, so the retry lands on the event page.
+  await page.waitForURL((url) => url.pathname === EVENT_PATH, {
+    timeout: 45_000,
+  });
+  await expect(
+    page.getByRole("heading", { name: "Social Night" }),
+  ).toBeVisible();
+});
+
+test("the denied screen won't refresh to a page that isn't an event page", async ({
+  page,
+}) => {
+  await signInAs(page, "Casey Moreno");
+  for (const returnTo of ["/admin", "https://evil.example/admin/events/x"]) {
+    await page.goto(
+      `/admin/denied?reason=unavailable&returnTo=${encodeURIComponent(returnTo)}`,
+    );
+    await expect(
+      page.getByRole("heading", { name: "Admin access unavailable" }),
+    ).toBeVisible();
+    await expect(page.locator(REFRESH)).toHaveCount(0);
+  }
+});
+
+test("a member who isn't an admin gets no refresh on the denied screen", async ({
+  page,
+}) => {
+  await signInAs(page, "Dante Ruiz");
+  await page.goto(
+    `/admin/denied?reason=not_admin&returnTo=${encodeURIComponent(EVENT_PATH)}`,
+  );
+  await expect(
+    page.getByRole("heading", { name: "You don't have access" }),
+  ).toBeVisible();
+  await expect(page.locator(REFRESH)).toHaveCount(0);
+});

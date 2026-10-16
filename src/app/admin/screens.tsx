@@ -1,3 +1,4 @@
+import { ATTENDEE_REFRESH_SECONDS } from "@/lib/admin/attendees";
 import type { AdminDeniedReason } from "@/lib/auth/admin";
 import { SignedInAs } from "../memberUi";
 import type { AdminEvent, AdminEvents } from "@/lib/admin/events";
@@ -102,13 +103,27 @@ export function AdminHomeScreen({
 export function AdminDeniedScreen({
   reason,
   name,
+  retryPath,
 }: {
   reason: AdminDeniedReason;
   /** Null if TidyHQ couldn't say who this is. */
   name: string | null;
+  /**
+   * An event page to go back to after 30 seconds (only when access couldn't
+   * be checked), so a door screen recovers from a one-off TidyHQ failure by
+   * itself. The caller has validated it (`deniedRetryPath`).
+   */
+  retryPath?: string | null;
 }) {
+  const retrying = reason === "unavailable" && retryPath;
   return (
     <div className="flex flex-1 flex-col justify-center gap-4">
+      {retrying && (
+        <meta
+          httpEquiv="refresh"
+          content={`${ATTENDEE_REFRESH_SECONDS};url=${retryPath}`}
+        />
+      )}
       {reason === "not_admin" ? (
         <>
           <h1 className="text-2xl font-bold tracking-tight">
@@ -126,8 +141,11 @@ export function AdminDeniedScreen({
           </h1>
           <p className="text-foreground/70 text-lg">
             We couldn&apos;t check admin access just now, so nobody can use the
-            admin pages. Please try again in a minute. If it keeps happening,
-            tell whoever runs this site.
+            admin pages.{" "}
+            {retrying
+              ? "We'll try again in 30 seconds."
+              : "Please try again in a minute."}{" "}
+            If it keeps happening, tell whoever runs this site.
           </p>
         </>
       )}

@@ -25,20 +25,16 @@ function named(c: Contact, fields: Partial<Contact>): Contact {
 }
 
 describe("getEventAttendees", () => {
-  it("counts the group's contacts and lists their names alphabetically", async () => {
+  it("lists the group's contacts alphabetically by name", async () => {
     // The seed's pub night has Marcus Bell and Jordan Park, in that order.
-    const view = await getEventAttendees(
+    const people = await getEventAttendees(
       clientWith(() => {}),
-      "ev_pub_night",
+      "grp_pub_night",
     );
-    expect(view).toEqual({
-      kind: "list",
-      count: 2,
-      people: [
-        { id: "c_jordan", name: "Jordan Park" },
-        { id: "c_marcus", name: "Marcus Bell" },
-      ],
-    });
+    expect(people).toEqual([
+      { id: "c_jordan", name: "Jordan Park" },
+      { id: "c_marcus", name: "Marcus Bell" },
+    ]);
   });
 
   it("sorts without regard to case or accents", async () => {
@@ -63,21 +59,17 @@ describe("getEventAttendees", () => {
       );
     });
     await client.addContactToGroup("grp_pub_night", "c_dante");
-    const view = await getEventAttendees(client, "ev_pub_night");
-    expect(view.kind === "list" && view.people.map((p) => p.name)).toEqual([
-      "adam",
-      "émile",
-      "Zed",
-    ]);
+    const people = await getEventAttendees(client, "grp_pub_night");
+    expect(people.map((p) => p.name)).toEqual(["adam", "émile", "Zed"]);
   });
 
   it("is an empty list, not a missing one, when nobody has checked in", async () => {
     expect(
       await getEventAttendees(
         clientWith(() => {}),
-        "ev_tonight",
+        "grp_social_night",
       ),
-    ).toEqual({ kind: "list", count: 0, people: [] });
+    ).toEqual([]);
   });
 
   it("falls back to first and last name, then to a placeholder, for a blank display name", async () => {
@@ -97,15 +89,53 @@ describe("getEventAttendees", () => {
         },
       );
     });
-    const view = await getEventAttendees(client, "ev_pub_night");
-    expect(view.kind === "list" && view.people.map((p) => p.name)).toEqual([
+    const people = await getEventAttendees(client, "grp_pub_night");
+    expect(people.map((p) => p.name)).toEqual([
       "Marcus Bell",
       "Unnamed member",
     ]);
   });
 
-  it("counts every attendee the client returns, one row each", async () => {
-    // The client's contract is to follow every page; the count must be all of it.
+  it("doesn't let one contact with null name fields break the list", async () => {
+    const client = clientWith((seed) => {
+      Object.assign(
+        seed.contacts.find((c) => c.id === "c_marcus")!,
+        {
+          display_name: null,
+          first_name: "Marcus",
+          last_name: null,
+        },
+      );
+      Object.assign(
+        seed.contacts.find((c) => c.id === "c_jordan")!,
+        {
+          display_name: null,
+          first_name: null,
+          last_name: null,
+        },
+      );
+    });
+    const people = await getEventAttendees(client, "grp_pub_night");
+    expect(people.map((p) => p.name)).toEqual(["Marcus", "Unnamed member"]);
+  });
+
+  it("lists a contact once even if the client returns it twice", async () => {
+    // Live paging can repeat a row when the group changes between pages.
+    const client = clientWith(() => {});
+    const read = client.listGroupContacts.bind(client);
+    client.listGroupContacts = async (id) => {
+      const contacts = await read(id);
+      return [...contacts, contacts[0], ...contacts];
+    };
+    const people = await getEventAttendees(client, "grp_pub_night");
+    expect(people).toEqual([
+      { id: "c_jordan", name: "Jordan Park" },
+      { id: "c_marcus", name: "Marcus Bell" },
+    ]);
+  });
+
+  it("lists every attendee the client returns, one row each", async () => {
+    // The client's contract is to follow every page; the list must be all of it.
     const client = clientWith(() => {});
     const many: Contact[] = Array.from({ length: 250 }, (_, i) => ({
       ...structuredClone(
@@ -115,12 +145,10 @@ describe("getEventAttendees", () => {
       display_name: `Member ${String(i).padStart(3, "0")}`,
     }));
     client.listGroupContacts = async () => many;
-    const view = await getEventAttendees(client, "ev_pub_night");
-    expect(view.kind === "list" && view.count).toBe(250);
-    expect(view.kind === "list" && view.people).toHaveLength(250);
+    expect(await getEventAttendees(client, "grp_pub_night")).toHaveLength(250);
   });
 
-  it("reads the event's group and nothing else", async () => {
+  it("reads the group it's given and nothing else", async () => {
     const client = clientWith(() => {});
     const asked: string[] = [];
     const read = client.listGroupContacts.bind(client);
@@ -128,18 +156,8 @@ describe("getEventAttendees", () => {
       asked.push(id);
       return read(id);
     };
-    await getEventAttendees(client, "ev_pub_night");
+    await getEventAttendees(client, "grp_pub_night");
     expect(asked).toEqual(["grp_pub_night"]);
-  });
-
-  it("says there's no group, without reading, for an event with none", async () => {
-    const client = clientWith(() => {});
-    client.listGroupContacts = async () => {
-      throw new Error("must not read");
-    };
-    expect(await getEventAttendees(client, "ev_nope")).toEqual({
-      kind: "no_group",
-    });
   });
 
   it("lets a TidyHQ failure through for the page to handle", async () => {
@@ -147,7 +165,7 @@ describe("getEventAttendees", () => {
     client.listGroupContacts = async () => {
       throw new TidyError(503, "down");
     };
-    await expect(getEventAttendees(client, "ev_pub_night")).rejects.toThrow(
+    await expect(getEventAttendees(client, "grp_pub_night")).rejects.toThrow(
       "down",
     );
   });

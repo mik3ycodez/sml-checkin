@@ -1,6 +1,5 @@
+import { contactName } from "../tidyhq/contactName";
 import type { TidyClient } from "../tidyhq/client";
-import { findEventGroup } from "../tidyhq/eventGroups";
-import type { Contact } from "../tidyhq/types";
 import type { AdminEventPage } from "./eventPage";
 
 /** How often the event page reloads itself while check-in is live. */
@@ -17,40 +16,29 @@ export interface Attendee {
   name: string;
 }
 
-export type AttendeesView =
-  | { kind: "list"; count: number; people: Attendee[] }
-  /** The event has no attendance group, so there's no list to show. */
-  | { kind: "no_group" };
-
-function nameOf(contact: Contact): string {
-  const display = contact.display_name.trim();
-  if (display) return display;
-  const full = `${contact.first_name} ${contact.last_name}`.trim();
-  return full || "Unnamed member";
-}
-
 /**
- * Who has checked in to the event: every contact in its attendance group,
- * sorted alphabetically by name. `listGroupContacts` follows every page of
- * TidyHQ's answer (its contract), so the count is the whole group. Method and
- * time aren't shown: that would take a notes read per attendee. A TidyHQ
- * failure throws; the page decides how to say so.
+ * Who has checked in: every contact in the attendance group, once each (live
+ * paging can repeat a row when the group changes between pages), sorted
+ * alphabetically by name. `listGroupContacts` follows every page of TidyHQ's
+ * answer (its contract), so this is the whole group. The caller decides
+ * whether the event has a group at all and passes its id. Method and time
+ * aren't shown: that would take a notes read per attendee. A TidyHQ failure
+ * throws; the page decides how to say so.
  */
 export async function getEventAttendees(
   client: TidyClient,
-  eventId: string,
-): Promise<AttendeesView> {
-  const groupId = findEventGroup({ id: eventId });
-  if (groupId === null) return { kind: "no_group" };
+  groupId: string,
+): Promise<Attendee[]> {
   const contacts = await client.listGroupContacts(groupId);
-  const people = contacts
-    .map((c) => ({ id: c.id, name: nameOf(c) }))
-    .sort(
-      (a, b) =>
-        a.name.localeCompare(b.name, "en", { sensitivity: "base" }) ||
-        a.id.localeCompare(b.id),
-    );
-  return { kind: "list", count: people.length, people };
+  const byId = new Map<string, Attendee>();
+  for (const c of contacts) {
+    if (!byId.has(c.id)) byId.set(c.id, { id: c.id, name: contactName(c) });
+  }
+  return [...byId.values()].sort(
+    (a, b) =>
+      a.name.localeCompare(b.name, "en", { sensitivity: "base" }) ||
+      a.id.localeCompare(b.id),
+  );
 }
 
 /**

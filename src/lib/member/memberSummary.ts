@@ -13,6 +13,7 @@ import {
   type RewardStatus,
 } from "../rewards";
 import type { TidyClient } from "../tidyhq/client";
+import { contactName } from "../tidyhq/contactName";
 import { findContact } from "../tidyhq/contacts";
 import { readPoints } from "../tidyhq/customFields";
 import { isTidyError } from "../tidyhq/errors";
@@ -115,7 +116,7 @@ export async function getMemberSummary(
   if (standing.kind === "none") {
     return {
       status: "not_member",
-      name: contact.display_name,
+      name: contactName(contact),
       points,
       rewards,
     };
@@ -125,7 +126,7 @@ export async function getMemberSummary(
 
   return {
     status: "ok",
-    name: contact.display_name,
+    name: contactName(contact),
     level,
     membershipEndsOn: standing.endsOn,
     points,
