@@ -167,7 +167,17 @@ test("an event TidyHQ doesn't have says so", async ({ page }) => {
 
 const REFRESH = 'meta[http-equiv="refresh"]';
 
-test("an admin sees an empty attendee list, refreshing every 30 seconds while check-in is open", async ({
+// The server runs with E2E=1, so its refresh is 2 seconds, not the 30 it is in
+// production (unit-tested). The two specs that wait for a real reload run in
+// chromium only: three browsers add time, not coverage.
+function onlyInChromium() {
+  test.skip(
+    test.info().project.name !== "chromium",
+    "waits for a real page refresh; chromium covers it",
+  );
+}
+
+test("an admin sees an empty attendee list, refreshing while check-in is open", async ({
   page,
 }) => {
   await signInAs(page, "Casey Moreno", EVENT_PATH);
@@ -175,8 +185,8 @@ test("an admin sees an empty attendee list, refreshing every 30 seconds while ch
     page.getByRole("heading", { name: "Checked in (0)" }),
   ).toBeVisible();
   await expect(page.getByText("Nobody has checked in yet")).toBeVisible();
-  await expect(page.getByText("Updates every 30 seconds")).toBeVisible();
-  await expect(page.locator(REFRESH)).toHaveAttribute("content", "30");
+  await expect(page.getByText("Updates every 2 seconds")).toBeVisible();
+  await expect(page.locator(REFRESH)).toHaveAttribute("content", "2");
 });
 
 test("members who check in show up in the admin's list, by name in alphabetical order", async ({
@@ -199,7 +209,7 @@ test("the open event page reloads itself and picks up a new check-in, with no cl
   page,
   browser,
 }) => {
-  test.setTimeout(90_000);
+  onlyInChromium();
   await signInAs(page, "Casey Moreno", EVENT_PATH);
   await expect(
     page.getByRole("heading", { name: "Checked in (0)" }),
@@ -218,7 +228,7 @@ test("the open event page reloads itself and picks up a new check-in, with no cl
   // No reload from the test: the page's own refresh brings the name in.
   await expect(
     page.getByRole("heading", { name: "Checked in (1)" }),
-  ).toBeVisible({ timeout: 45_000 });
+  ).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Dante Ruiz")).toBeVisible();
 });
 
@@ -280,20 +290,20 @@ const RETRY_DENIED = `/admin/denied?reason=unavailable&returnTo=${encodeURICompo
 test("the 'couldn't check access' screen from an event page goes back to it by itself", async ({
   page,
 }) => {
-  test.setTimeout(90_000);
+  onlyInChromium();
   await signInAs(page, "Casey Moreno", "/admin");
   await page.goto(RETRY_DENIED);
   await expect(
     page.getByRole("heading", { name: "Admin access unavailable" }),
   ).toBeVisible();
-  await expect(page.getByText("try again in 30 seconds")).toBeVisible();
+  await expect(page.getByText("try again in 2 seconds")).toBeVisible();
   await expect(page.locator(REFRESH)).toHaveAttribute(
     "content",
-    `30;url=${EVENT_PATH}`,
+    `2;url=${EVENT_PATH}`,
   );
   // Access is fine this time, so the retry lands on the event page.
   await page.waitForURL((url) => url.pathname === EVENT_PATH, {
-    timeout: 45_000,
+    timeout: 15_000,
   });
   await expect(
     page.getByRole("heading", { name: "Social Night" }),

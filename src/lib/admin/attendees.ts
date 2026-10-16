@@ -2,8 +2,16 @@ import { contactName } from "../tidyhq/contactName";
 import type { TidyClient } from "../tidyhq/client";
 import type { AdminEventPage } from "./eventPage";
 
-/** How often the event page reloads itself while check-in is live. */
-export const ATTENDEE_REFRESH_SECONDS = 30;
+/**
+ * How often the event page reloads itself while check-in is live: 30 seconds,
+ * except under `E2E=1` (set only by playwright.config.ts), where it is 2 so the
+ * end-to-end specs that wait for a real reload don't take 30 seconds each.
+ */
+export function refreshIntervalSeconds(
+  env: Record<string, string | undefined> = process.env,
+): number {
+  return env.E2E === "1" ? 2 : 30;
+}
 
 /**
  * How long before check-in opens the page starts refreshing, so the list is
@@ -53,11 +61,11 @@ export function attendeeRefreshSeconds(
   event: Pick<AdminEventPage, "checkin" | "window">,
   now: Date,
 ): number | null {
-  if (event.checkin === "open") return ATTENDEE_REFRESH_SECONDS;
+  if (event.checkin === "open") return refreshIntervalSeconds();
   if (event.checkin === "not_yet" && event.window.opensAt) {
     const leadMs = ATTENDEE_REFRESH_LEAD_MINUTES * 60_000;
     if (event.window.opensAt.getTime() - now.getTime() <= leadMs) {
-      return ATTENDEE_REFRESH_SECONDS;
+      return refreshIntervalSeconds();
     }
   }
   return null;
