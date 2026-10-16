@@ -3,7 +3,11 @@ import { TidyError } from "../tidyhq/errors";
 import { MockTidyClient } from "../tidyhq/mock/MockTidyClient";
 import { createSeed, type MockSeed } from "../tidyhq/mock/seed";
 import type { Event } from "../tidyhq/types";
-import { ADMIN_RECENT_DAYS, getAdminEvents } from "./events";
+import {
+  ADMIN_RECENT_DAYS,
+  ADMIN_UPCOMING_DAYS,
+  getAdminEvents,
+} from "./events";
 
 const NOW = new Date("2026-10-12T18:00:00Z");
 const HOUR_MS = 60 * 60 * 1000;
@@ -104,5 +108,74 @@ describe("getAdminEvents", () => {
       throw new TidyError(500, "boom");
     };
     await expect(getAdminEvents(client, { now: NOW })).rejects.toThrow("boom");
+  });
+
+  it("limits upcoming to the next ADMIN_UPCOMING_DAYS Seattle days", async () => {
+    const client = clientWith((seed) => {
+      seed.events.push(
+        event("ev_edge", (ADMIN_UPCOMING_DAYS - 1) * DAY_MS),
+        event("ev_far", (ADMIN_UPCOMING_DAYS + 3) * DAY_MS),
+      );
+    });
+    const { upcoming } = await getAdminEvents(client, { now: NOW });
+    const ids = upcoming.map((e) => e.id);
+    expect(ids).toContain("ev_edge");
+    expect(ids).not.toContain("ev_far");
+    expect(ADMIN_UPCOMING_DAYS).toBe(60);
+  });
+
+  it("flags an event that ends at or before its start", async () => {
+    const client = clientWith((seed) => {
+      const backwards = event("ev_backwards", DAY_MS);
+      seed.events.push(
+        { ...backwards, end_at: backwards.start_at },
+        {
+          ...event("ev_before", 2 * DAY_MS),
+          end_at: new Date(NOW.getTime() + DAY_MS).toISOString(),
+        },
+      );
+    });
+    const { upcoming } = await getAdminEvents(client, { now: NOW });
+    const byId = (id: string) => upcoming.find((e) => e.id === id);
+    expect(byId("ev_backwards")?.invalidTimes).toBe(true);
+    expect(byId("ev_before")?.invalidTimes).toBe(true);
+    expect(byId("ev_tonight")?.invalidTimes).toBe(false);
+  });
+
+  it("marks archived events instead of hiding them", async () => {
+    const client = clientWith((seed) => {
+      seed.events.push({ ...event("ev_archived", DAY_MS), archived: true });
+    });
+    const { upcoming } = await getAdminEvents(client, { now: NOW });
+    expect(upcoming.find((e) => e.id === "ev_archived")?.archived).toBe(true);
+    expect(upcoming.find((e) => e.id === "ev_tonight")?.archived).toBe(false);
+  });
+
+  it("treats an empty or blank name or location as missing", async () => {
+    const client = clientWith((seed) => {
+      seed.events.push({
+        ...event("ev_blank", DAY_MS),
+        name: "",
+        location: "  ",
+      });
+    });
+    const { upcoming } = await getAdminEvents(client, { now: NOW });
+    const blank = upcoming.find((e) => e.id === "ev_blank")!;
+    expect(blank.name).toBeNull();
+    expect(blank.location).toBeNull();
+  });
+
+  it("sorts by start time even when the events arrive out of order", async () => {
+    const client = clientWith((seed) => {
+      seed.events.push(
+        event("ev_c", 3 * DAY_MS),
+        event("ev_a", 1 * DAY_MS),
+        event("ev_b", 2 * DAY_MS),
+      );
+    });
+    const ids = (await getAdminEvents(client, { now: NOW })).upcoming
+      .map((e) => e.id)
+      .filter((id) => /^ev_[abc]$/.test(id));
+    expect(ids).toEqual(["ev_a", "ev_b", "ev_c"]);
   });
 });

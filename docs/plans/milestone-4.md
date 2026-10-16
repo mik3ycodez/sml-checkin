@@ -116,11 +116,17 @@ attendees, staff check-in), then one report.
 - `/admin`: upcoming and recent events from `listEvents`, each linking to
   `/admin/events/<id>`. Events with no attendance group are listed but marked.
   _(Built: `getAdminEvents` in `src/lib/admin/events.ts`. Upcoming means not
-  yet ended (so one in progress is listed), soonest first; recent means ended
-  within the last 30 days (`ADMIN_RECENT_DAYS`), newest first. Events whose
-  start or end can't be read are left out. If TidyHQ can't list events, the
-  page says so instead of failing, as `/me` does for its sections. The
-  event links 404 until PR 3 adds the page.)_
+  yet ended (so one in progress is listed), soonest first, starting within the
+  next 60 days (`ADMIN_UPCOMING_DAYS`); recent means ended within the last 30
+  days (`ADMIN_RECENT_DAYS`), newest first. Events whose start or end can't be
+  read are left out. Archived events are listed with an "Archived in TidyHQ"
+  label and no link (we don't yet know how SML uses archiving). An event whose
+  end isn't after its start is flagged, using the same time-range rule as
+  `checkinWindow.ts` (`timeRange.ts`). Blank names and locations count as
+  missing. If TidyHQ can't list events, the page says so instead of failing,
+  and logs the status and message. Only TidyHQ errors are caught, by the
+  shared `loadOrNull` that `/me`'s recent events now uses too; other errors
+  reach the error page. The event links 404 until PR 3 adds the page.)_
 - Playwright: the admin sees the list; a member gets the denied screen; signed out
   goes to sign-in and comes back.
 

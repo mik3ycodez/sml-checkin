@@ -32,4 +32,12 @@ describe("loadRecentEvents", () => {
     expect(error).toHaveBeenCalled();
     error.mockRestore();
   });
+
+  it("lets a non-TidyHQ error through rather than hiding a bug", async () => {
+    const c = client();
+    vi.spyOn(c, "listContactGroups").mockRejectedValue(new TypeError("bug"));
+    await expect(
+      loadRecentEvents(c, { contactId: "c_marcus", now: NOW }),
+    ).rejects.toThrow("bug");
+  });
 });

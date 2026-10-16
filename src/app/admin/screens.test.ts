@@ -49,6 +49,8 @@ const EVENT = {
   startAt: "2026-10-17T02:00:00Z", // 7:00 PM Seattle, Friday the 16th
   location: "The Eagle",
   hasGroup: true,
+  archived: false,
+  invalidTimes: false,
 };
 
 describe("AdminHomeScreen", () => {
@@ -120,6 +122,42 @@ describe("AdminHomeScreen", () => {
       }),
     );
     expect(fine).not.toContain("No attendance group");
+  });
+
+  it("labels an archived event and doesn't link to it", () => {
+    const events = {
+      upcoming: [{ ...EVENT, archived: true }],
+      recent: [],
+    };
+    const html = renderToStaticMarkup(
+      createElement(AdminHomeScreen, { name: "Casey", events }),
+    );
+    expect(html).not.toContain("/admin/events/");
+    expect(
+      text(createElement(AdminHomeScreen, { name: "Casey", events })),
+    ).toContain("Archived");
+    expect(html).toContain("Social Night");
+  });
+
+  it("warns about an event whose end isn't after its start", () => {
+    const shown = text(
+      createElement(AdminHomeScreen, {
+        name: "Casey",
+        events: {
+          upcoming: [{ ...EVENT, invalidTimes: true }],
+          recent: [],
+        },
+      }),
+    );
+    expect(shown).toContain("end time isn't after its start");
+    const fine = text(
+      createElement(AdminHomeScreen, {
+        name: "Casey",
+        events: { upcoming: [EVENT], recent: [] },
+      }),
+    );
+    expect(fine).not.toContain("end time isn't after");
+    expect(fine).not.toContain("Archived");
   });
 
   it("shows an unnamed event as untitled, and says when there are none", () => {

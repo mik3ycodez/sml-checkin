@@ -6,28 +6,49 @@ import { ADMIN_PATH, adminEventPath } from "./paths";
 
 // Plain server-rendered markup, like the member pages: no client JavaScript.
 
+const CARD = "border-foreground/20 flex flex-col gap-1 rounded-lg border p-4";
+
+function EventCard({ event }: { event: AdminEvent }) {
+  const details = (
+    <>
+      <span className="text-lg font-semibold">
+        {event.name ?? "Untitled event"}
+      </span>
+      <span className="text-foreground/70">
+        {seattleTimeLabel(new Date(event.startAt))}
+        {event.location !== null && <> · {event.location}</>}
+      </span>
+      {event.archived && (
+        <span className="font-semibold">Archived in TidyHQ</span>
+      )}
+      {!event.hasGroup && (
+        <span className="font-semibold">
+          No attendance group: check-in won&apos;t work for this event.
+        </span>
+      )}
+      {event.invalidTimes && (
+        <span className="font-semibold">
+          Its end time isn&apos;t after its start time. Check it in TidyHQ.
+        </span>
+      )}
+    </>
+  );
+  // An archived event is shown for reference but isn't one to run check-in for.
+  return event.archived ? (
+    <div className={CARD}>{details}</div>
+  ) : (
+    <a href={adminEventPath(event.id)} className={CARD}>
+      {details}
+    </a>
+  );
+}
+
 function EventList({ events }: { events: AdminEvent[] }) {
   return (
     <ul className="flex flex-col gap-3">
       {events.map((event) => (
         <li key={event.id}>
-          <a
-            href={adminEventPath(event.id)}
-            className="border-foreground/20 flex flex-col gap-1 rounded-lg border p-4"
-          >
-            <span className="text-lg font-semibold">
-              {event.name ?? "Untitled event"}
-            </span>
-            <span className="text-foreground/70">
-              {seattleTimeLabel(new Date(event.startAt))}
-              {event.location !== null && <> · {event.location}</>}
-            </span>
-            {!event.hasGroup && (
-              <span className="font-semibold">
-                No attendance group: check-in won&apos;t work for this event.
-              </span>
-            )}
-          </a>
+          <EventCard event={event} />
         </li>
       ))}
     </ul>

@@ -44,6 +44,16 @@ export function seattleStartOfDay(date: string): Date {
   throw new Error(`No Seattle midnight found for ${date}`);
 }
 
+/** The start of the Seattle day `days` days before `now`'s Seattle day. */
+export function seattleDaysAgo(now: Date, days: number): Date {
+  return seattleStartOfDay(addDays(seattleDate(now), -days));
+}
+
+/** The start of the Seattle day `days` days after `now`'s Seattle day. */
+export function seattleDaysFromNow(now: Date, days: number): Date {
+  return seattleDaysAgo(now, -days);
+}
+
 const seattleTimeParts = new Intl.DateTimeFormat("en-US", {
   timeZone: SML_TIME_ZONE,
   weekday: "long",

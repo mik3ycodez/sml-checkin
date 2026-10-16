@@ -1,6 +1,7 @@
-import { addDays, seattleDate, seattleStartOfDay } from "../dates";
+import { seattleDaysAgo, seattleDaysFromNow } from "../dates";
 import type { TidyClient } from "../tidyhq/client";
 import { findEventGroup } from "../tidyhq/eventGroups";
+import { parseTime } from "../tidyhq/timeRange";
 
 /** How far back `/me` looks for attended events. */
 export const RECENT_EVENTS_DAYS = 90;
@@ -30,11 +31,10 @@ export async function getRecentEvents(
   client: TidyClient,
   { contactId, now }: { contactId: string; now: Date },
 ): Promise<RecentEvent[]> {
-  const today = seattleDate(now);
   const [events, groups] = await Promise.all([
     client.listEvents({
-      after: seattleStartOfDay(addDays(today, -RECENT_EVENTS_DAYS)),
-      before: seattleStartOfDay(addDays(today, 1)),
+      after: seattleDaysAgo(now, RECENT_EVENTS_DAYS),
+      before: seattleDaysFromNow(now, 1),
     }),
     client.listContactGroups(contactId),
   ]);
@@ -42,10 +42,11 @@ export async function getRecentEvents(
   const attended: RecentEvent[] = [];
   for (const event of events) {
     const groupId = findEventGroup(event);
-    if (!groupId || !event.start_at || !memberGroupIds.has(groupId)) continue;
+    if (!groupId || !memberGroupIds.has(groupId)) continue;
     // A start time we can't read would crash the page's date formatting.
-    if (Number.isNaN(Date.parse(event.start_at))) continue;
-    attended.push({ id: event.id, name: event.name, startAt: event.start_at });
+    const start = parseTime(event.start_at);
+    if (!start) continue;
+    attended.push({ id: event.id, name: event.name, startAt: event.start_at! });
   }
   return attended
     .sort((a, b) => Date.parse(b.startAt) - Date.parse(a.startAt))
