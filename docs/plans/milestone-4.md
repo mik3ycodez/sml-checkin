@@ -1,6 +1,6 @@
 # Milestone 4: Admin pages
 
-**Status:** In progress. PRs 1–3 done (#23, #24, #25). PR 4 in review (#26).
+**Status:** In progress. PRs 1–4 done (#23, #24, #25, #26). PR 5 in review.
 
 ## Context
 
@@ -169,7 +169,7 @@ light colors._
   member denied), because the seed has no archived or misconfigured event and
   there's no mock-only route to make one.)_
 
-### PR 4: Live attendee list 🔍 In review (#26)
+### PR 4: Live attendee list ✅ Done (#26)
 
 - On the event page: attendee names and a count from `listGroupContacts`,
   refreshed every 30 seconds.
@@ -208,10 +208,28 @@ light colors._
   signed-out visitor never seeing the list. The TidyHQ-failure notices are
   unit-tested only: the mock has no way to fail a read from a browser.)_
 
-### PR 5: Contact search in `TidyClient`
+### PR 5: Contact search in `TidyClient` 🔍 In review
 
 - `searchContacts(query)` (`GET /v2/contacts?search_terms=`), mock included,
   following all pages. Tests for name matches, no matches, and case.
+- _(Built: on `TidyClient` and `MockTidyClient`; there is no live client yet.
+  TidyHQ returns only active contacts unless `all` is given, so the mock skips
+  inactive ones. TidyHQ's matching is its own; the mock approximates it:
+  case-insensitive, every word must appear in the name, nickname or email, in
+  any order. A blank query returns nothing rather than everyone, so staff
+  check-in can't dump the member list. Review changes: a substring match plus
+  a shared email domain meant "e" returned everyone, so the limits moved into
+  one shared helper, `searchMembers` in `contacts.ts` (the only way staff
+  check-in should search): queries under 2 characters (`MIN_SEARCH_LENGTH`)
+  never reach TidyHQ, and more than 20 matches (`MAX_SEARCH_RESULTS`) returns
+  "too many", with no names, so the page says "too many matches, type more".
+  The limits hold for any client, mock or live.
+  **Accepted:** a volunteer could still list many members by trying different
+  searches. Volunteers are trusted, and they see only names and points.
+  Check against live data: how TidyHQ matches partial words and accents (the
+  mock doesn't fold accents, so "jose" wouldn't find "José"; don't add that to
+  the mock until TidyHQ's behavior is known). The mock has no pages, so the
+  live client's tests must cover "follows all pages".)_
 
 ### PR 6: Staff check-in (and the check-in volunteer role)
 
@@ -234,15 +252,31 @@ light colors._
 - **What each role can reach.** App Admin members can use everything,
   including staff check-in. Volunteers can use **only** staff check-in (the
   event list and event pages stay admin-only). No QR codes, attendee lists,
-  reports or other admin pages for volunteers. **Open question for this PR's
-  review:** a volunteer can't use the event page's link, so they need their own
-  way to reach an event's check-in page, such as a short volunteer-only list of
-  today's open events.
+  reports or other admin pages for volunteers. How a volunteer reaches an
+  event's check-in is the volunteer mode below, not an admin page.
   `requireAdmin` stays admin-only; a new `requireStaff` (admin or volunteer)
   guards the staff check-in page and its server action, and returns which role
   the person has so the action can record it. Every server action calls its
   guard itself; a page check alone doesn't protect an action. The denied
   screen's wording covers both roles.
+- **Volunteer mode (the design).** Volunteers get to staff check-in through
+  the event's normal QR flow, not an admin page.
+  - After signing in, every member-facing page shows an "Are you a
+    volunteer?" link. Tapping it checks the App Check-In Volunteers group (App
+    Admin members also qualify).
+  - If approved, the member switches to a volunteer view for that event:
+    staff check-in, showing only a member's name, points total, and whether
+    they can check in or why not. A "Stop volunteering" link returns to the
+    regular member view.
+  - If they're in neither group, an on-page "not authorized" message appears
+    (no pop-up, so it works without JavaScript) and they stay in the member
+    view.
+  - **Volunteer mode is a display preference only, never a permission.** Every
+    volunteer action re-checks the group in TidyHQ and fails closed. Nothing
+    in the cookie grants access.
+  - Volunteer mode ends automatically when that event's check-in closes, or on
+    sign-out.
+  - Volunteers still check themselves in normally.
 - **What a volunteer sees of a member:** only the member's name, points total,
   and whether they can check in or why not (`assessCheckIn`'s outcome in plain
   words, e.g. "membership expired: ask them to renew in TidyHQ"). Not their
@@ -263,7 +297,11 @@ light colors._
   end date the app can't read. Ids only, no tokens. Volunteers see only the
   plain refusal reason.
 - Tests: the volunteer rule (volunteer, admin-only person, neither, read on
-  every call, failure and unset id fail closed); a volunteer can't open the
+  every call, failure and unset id fail closed); volunteer mode (the link
+  shows on member pages once signed in; approval, "not authorized" with
+  JavaScript off, stop volunteering, ends when check-in closes and on
+  sign-out, a removed volunteer's next action refused even with the mode
+  still set); a volunteer can't open the
   event list, event page, or reports and is sent to the denied screen; an
   admin can check in; a volunteer sees only the three fields; Playwright for
   both roles in all three projects.
@@ -356,3 +394,10 @@ one file on purpose):
   lists would drop them); how SML uses archiving (archived events now refuse
   check-in); `listContactGroups` includes archived groups, and
   how renewal invoices look (see CLAUDE.md, "Unverified assumptions").
+
+### Ideas to evaluate (not decisions)
+
+- **A short-lived cache of group membership** (for example 60 seconds), if live
+  TidyHQ rate limits make the per-action group checks (admin and volunteer)
+  a problem. Trade-off: a removal from App Admin or App Check-In Volunteers
+  would take effect within the cache time instead of immediately.
