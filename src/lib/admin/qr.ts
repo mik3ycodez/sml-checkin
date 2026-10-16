@@ -9,10 +9,23 @@ import QRCode from "qrcode";
  * code denser than a phone camera reads at arm's length.
  */
 export function qrSvg(text: string): Promise<string> {
-  return QRCode.toString(text, {
+  const cached = cache.get(text);
+  if (cached) return cached;
+  const drawn = QRCode.toString(text, {
     type: "svg",
     errorCorrectionLevel: "M",
     margin: 4,
     color: { dark: "#000000", light: "#ffffff" },
   });
+  cache.set(text, drawn);
+  // A failed drawing isn't kept, and the oldest entries make room.
+  drawn.catch(() => cache.delete(text));
+  if (cache.size > MAX_CACHED) cache.delete(cache.keys().next().value!);
+  return drawn;
 }
+
+// The event page redraws every 30 seconds while check-in is open, and a URL's
+// code never changes, so drawing is remembered per URL. Bounded, so a long-lived
+// server can't collect codes forever.
+const MAX_CACHED = 200;
+const cache = new Map<string, Promise<string>>();

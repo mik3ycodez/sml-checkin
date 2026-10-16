@@ -15,7 +15,9 @@ import { adminDeniedPath } from "./paths";
  * - No session, or a session whose contact TidyHQ no longer has: redirects to
  *   sign-in and back to `returnTo`, as `/me` does.
  * - Not in the App Admin group, or any trouble reading it: redirects to the
- *   denied page, which says which of the two it was. (A redirect, not Next's
+ *   denied page, which says which of the two it was. When access couldn't be
+ *   checked from an event page, it also says which page, so the denied screen
+ *   can retry it. (A redirect, not Next's
  *   `forbidden()`, which is experimental and can't say.)
  *
  * The group and the contact are read together, since neither needs the other.
@@ -37,6 +39,7 @@ export async function requireAdmin(
     lookupContact(client, contactId),
   ]);
   if (contact.status === "unknown") redirect(signInPath(returnTo));
-  if (access.status !== "admin") redirect(adminDeniedPath(access.status));
+  if (access.status !== "admin")
+    redirect(adminDeniedPath(access.status, returnTo));
   return { contactId, name: access.name };
 }

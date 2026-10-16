@@ -15,6 +15,7 @@ import {
 } from "../rewards";
 import { getCheckinWindow, isCheckinOpen } from "../tidyhq/checkinWindow";
 import type { TidyClient } from "../tidyhq/client";
+import { contactName } from "../tidyhq/contactName";
 import { findContact } from "../tidyhq/contacts";
 import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
 import { isTidyError, type TidyError } from "../tidyhq/errors";
@@ -200,7 +201,7 @@ export async function assessCheckIn(
   ]);
   if (!attendance) return { status: "unknown_contact" };
   const { contact } = attendance;
-  const name = contact.display_name;
+  const name = contactName(contact);
   if (attendance.checkedIn) {
     const total = readPoints(contact);
     return { status: "already_checked_in", name, eventName, total };

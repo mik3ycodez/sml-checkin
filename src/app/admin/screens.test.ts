@@ -33,6 +33,52 @@ describe("AdminDeniedScreen", () => {
   });
 });
 
+describe("AdminDeniedScreen retrying", () => {
+  it("reloads the event page after 30 seconds when access couldn't be checked", () => {
+    const html = renderToStaticMarkup(
+      createElement(AdminDeniedScreen, {
+        reason: "unavailable",
+        name: "Casey",
+        retryPath: "/admin/events/ev_one",
+      }),
+    );
+    expect(html).toMatch(
+      /<meta[^>]*http-equiv="refresh"[^>]*content="30;url=\/admin\/events\/ev_one"/,
+    );
+    expect(html).not.toContain("<script");
+  });
+
+  it("says it will try again by itself", () => {
+    const shown = text(
+      createElement(AdminDeniedScreen, {
+        reason: "unavailable",
+        name: "Casey",
+        retryPath: "/admin/events/ev_one",
+      }),
+    );
+    expect(shown).toContain("try again in 30 seconds");
+  });
+
+  it("never refreshes for not_admin, even if given a path", () => {
+    const html = renderToStaticMarkup(
+      createElement(AdminDeniedScreen, {
+        reason: "not_admin",
+        name: "Dante",
+        retryPath: "/admin/events/ev_one",
+      }),
+    );
+    expect(html).not.toContain("http-equiv");
+  });
+
+  it("has no refresh without a path", () => {
+    expect(
+      renderToStaticMarkup(
+        createElement(AdminDeniedScreen, { reason: "unavailable", name: null }),
+      ),
+    ).not.toContain("http-equiv");
+  });
+});
+
 describe("AdminDeniedScreen without a name", () => {
   it("still offers a way to sign out", () => {
     const html = renderToStaticMarkup(

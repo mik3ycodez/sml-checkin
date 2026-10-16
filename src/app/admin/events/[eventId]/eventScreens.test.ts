@@ -1,8 +1,13 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import type { Attendee } from "@/lib/admin/attendees";
 import type { AdminEventPage } from "@/lib/admin/eventPage";
-import { AdminEventScreen, UnknownAdminEvent } from "./eventScreens";
+import {
+  AdminEventScreen,
+  AdminEventUnavailable,
+  UnknownAdminEvent,
+} from "./eventScreens";
 
 function text(element: Parameters<typeof renderToStaticMarkup>[0]) {
   return renderToStaticMarkup(element)
@@ -34,10 +39,24 @@ const EVENT: AdminEventPage = {
 
 const CODE = { svg: SVG, url: URL };
 
+const NOBODY: Attendee[] = [];
+
 const render = (
   event: AdminEventPage,
   qr: { svg: string; url: string } | null = CODE,
-) => createElement(AdminEventScreen, { name: "Casey", event, qr });
+  extra: {
+    /** null: the event has no attendance group. */
+    attendees?: Attendee[] | "unavailable" | null;
+    refreshSeconds?: number | null;
+  } = {},
+) =>
+  createElement(AdminEventScreen, {
+    name: "Casey",
+    event,
+    qr,
+    attendees: extra.attendees === undefined ? NOBODY : extra.attendees,
+    refreshSeconds: extra.refreshSeconds ?? null,
+  });
 
 describe("AdminEventScreen", () => {
   it("shows the event, its time in Seattle time, and where", () => {
@@ -112,6 +131,140 @@ describe("AdminEventScreen", () => {
     const shown = text(render({ ...EVENT, name: null, location: null }));
     expect(shown).toContain("Untitled event");
     expect(shown).not.toContain("The Eagle");
+  });
+
+  describe("the attendee list", () => {
+    const THREE: Attendee[] = [
+      { id: "c_1", name: "Ana Lopez" },
+      { id: "c_2", name: "Ben Ito" },
+      { id: "c_3", name: "Cy Young" },
+    ];
+
+    it("shows the count and the names in the order given", () => {
+      const shown = text(render(EVENT, CODE, { attendees: THREE }));
+      expect(shown).toContain("Checked in (3)");
+      expect(shown.indexOf("Ana Lopez")).toBeGreaterThan(-1);
+      expect(shown.indexOf("Ana Lopez")).toBeLessThan(shown.indexOf("Ben Ito"));
+      expect(shown.indexOf("Ben Ito")).toBeLessThan(shown.indexOf("Cy Young"));
+    });
+
+    it("lists the names as a list, one item each", () => {
+      const html = renderToStaticMarkup(
+        render(EVENT, CODE, { attendees: THREE }),
+      );
+      expect(html.match(/<li[ >]/g)).toHaveLength(3);
+    });
+
+    it("says nobody has checked in yet, with a count of 0", () => {
+      const shown = text(render(EVENT));
+      expect(shown).toContain("Checked in (0)");
+      expect(shown).toContain("Nobody has checked in yet");
+    });
+
+    it("puts the QR code before the list", () => {
+      const html = renderToStaticMarkup(
+        render(EVENT, CODE, { attendees: THREE }),
+      );
+      expect(html.indexOf('data-test="qr"')).toBeLessThan(
+        html.indexOf("Ana Lopez"),
+      );
+    });
+
+    it("escapes a name, so it can't add markup", () => {
+      const html = renderToStaticMarkup(
+        render(EVENT, CODE, {
+          attendees: [{ id: "c_x", name: "<script>alert(1)</script>" }],
+        }),
+      );
+      expect(html).not.toContain("<script>");
+    });
+
+    it("says the list couldn't load, in plain words, and keeps the QR code", () => {
+      const html = renderToStaticMarkup(
+        render(EVENT, CODE, { attendees: "unavailable" }),
+      );
+      const shown = text(render(EVENT, CODE, { attendees: "unavailable" }));
+      expect(shown).toContain("couldn't load the list of who's checked in");
+      expect(shown).toContain("try again");
+      expect(shown).not.toContain("Checked in (");
+      expect(html).toContain('data-test="qr"');
+      expect(shown).toContain(URL);
+      // Still a page with the event on it, and a role the admin can notice.
+      expect(shown).toContain("Social Night");
+      expect(html).toContain('role="status"');
+    });
+
+    it("has no list for an event with no attendance group", () => {
+      const shown = text(render(EVENT, null, { attendees: null }));
+      expect(shown).not.toContain("Checked in (");
+      expect(shown).not.toContain("couldn't load");
+    });
+  });
+
+  describe("the refresh", () => {
+    it("asks the browser to reload every 30 seconds, with no JavaScript", () => {
+      const html = renderToStaticMarkup(
+        render(EVENT, CODE, { refreshSeconds: 30 }),
+      );
+      expect(html).toMatch(/<meta[^>]*http-equiv="refresh"[^>]*content="30"/);
+      expect(html).not.toContain("<script");
+    });
+
+    it("tells the admin the list updates itself", () => {
+      expect(text(render(EVENT, CODE, { refreshSeconds: 30 }))).toContain(
+        "Updates every 30 seconds",
+      );
+    });
+
+    it("adds no refresh, and no promise of one, when there isn't one", () => {
+      const html = renderToStaticMarkup(render(EVENT));
+      expect(html).not.toContain("http-equiv");
+      expect(text(render(EVENT))).not.toContain("Updates every");
+    });
+
+    it("still refreshes when the list couldn't load, so it can recover", () => {
+      const html = renderToStaticMarkup(
+        render(EVENT, CODE, {
+          attendees: "unavailable",
+          refreshSeconds: 30,
+        }),
+      );
+      expect(html).toContain('http-equiv="refresh"');
+    });
+  });
+
+  describe("when TidyHQ can't be read for the event itself", () => {
+    const unavailable = () =>
+      createElement(AdminEventUnavailable, {
+        name: "Casey",
+        eventId: "ev_one",
+      });
+
+    it("says it's temporarily unavailable and retrying, in plain words", () => {
+      const shown = text(unavailable());
+      expect(shown).toContain("temporarily unavailable");
+      expect(shown).toContain("retry");
+      expect(shown).not.toContain("Something went wrong");
+    });
+
+    it("reloads itself every 30 seconds, with no JavaScript", () => {
+      const html = renderToStaticMarkup(unavailable());
+      expect(html).toMatch(/<meta[^>]*http-equiv="refresh"[^>]*content="30"/);
+      expect(html).not.toContain("<script");
+    });
+
+    it("links back to the events and offers sign-out", () => {
+      const html = renderToStaticMarkup(unavailable());
+      expect(html).toContain('href="/admin"');
+      expect(html).toContain("Signed in as Casey");
+      expect(html).toContain('value="/admin/events/ev_one"');
+    });
+
+    it("shows no event details, QR code, or attendee names", () => {
+      const shown = text(unavailable());
+      expect(shown).not.toContain("Checked in (");
+      expect(renderToStaticMarkup(unavailable())).not.toContain("<svg");
+    });
   });
 
   describe("without a QR code", () => {

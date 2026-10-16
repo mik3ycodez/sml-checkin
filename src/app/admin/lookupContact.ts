@@ -1,4 +1,5 @@
 import type { TidyClient } from "@/lib/tidyhq";
+import { contactName } from "@/lib/tidyhq/contactName";
 import { isTidyError } from "@/lib/tidyhq/errors";
 
 /**
@@ -15,7 +16,7 @@ export async function lookupContact(
 > {
   try {
     const contact = await client.getContact(contactId);
-    return { status: "known", name: contact.display_name };
+    return { status: "known", name: contactName(contact) };
   } catch (error) {
     return { status: isTidyError(error, 404) ? "unknown" : "unreadable" };
   }

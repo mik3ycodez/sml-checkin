@@ -1,4 +1,5 @@
 import type { TidyClient, TidyMode } from "../tidyhq";
+import { contactName } from "../tidyhq/contactName";
 import { isTidyError } from "../tidyhq/errors";
 import { MOCK_ADMIN_GROUP_ID } from "../tidyhq/mock/seed";
 
@@ -66,7 +67,7 @@ export async function adminAccess(
     const admins = await client.listGroupContacts(group.id);
     const admin = admins.find((c) => c.id === contactId);
     return admin
-      ? { status: "admin", name: admin.display_name }
+      ? { status: "admin", name: contactName(admin) }
       : { status: "not_admin" };
   } catch (error) {
     console.error("admin access unavailable", {

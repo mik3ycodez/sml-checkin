@@ -35,6 +35,24 @@ function extraMembership(
 }
 
 describe("getMemberSummary", () => {
+  it("shows a member with null name fields as unnamed", async () => {
+    const client = seededClient((seed) => {
+      Object.assign(
+        seed.contacts.find((c) => c.id === "c_dante")!,
+        {
+          display_name: null,
+          first_name: null,
+          last_name: null,
+        },
+      );
+    });
+    const result = await getMemberSummary(client, {
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(result).toMatchObject({ status: "ok", name: "Unnamed member" });
+  });
+
   it("summarizes an active member", async () => {
     const result = await getMemberSummary(seededClient(), {
       contactId: "c_dante",

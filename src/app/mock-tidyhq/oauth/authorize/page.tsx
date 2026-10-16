@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { appOrigin } from "@/lib/auth/requestOrigin";
 import { getTidyMode, getTidyServices } from "@/lib/tidyhq";
+import { contactName } from "@/lib/tidyhq/contactName";
 import { parseMockAuthorizeRequest } from "@/lib/tidyhq/mock/MockTidyOAuth";
 
 // Fake TidyHQ sign-in page, for mock mode only. Pick a seed member and the
@@ -68,7 +69,7 @@ export default async function MockAuthorizePage({
             value={contact.id}
             className="border-foreground/20 rounded-lg border px-4 py-3 text-left text-lg"
           >
-            {contact.display_name}
+            {contactName(contact)}
           </button>
         ))}
       </form>

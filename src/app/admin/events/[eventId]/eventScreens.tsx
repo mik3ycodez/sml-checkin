@@ -1,3 +1,5 @@
+import type { Attendee } from "@/lib/admin/attendees";
+import { ATTENDEE_REFRESH_SECONDS } from "@/lib/admin/attendees";
 import type { AdminEventPage, NoQrReason } from "@/lib/admin/eventPage";
 import { seattleTimeLabel } from "@/lib/dates";
 import type { IgnoredWindowReason } from "@/lib/tidyhq/checkinWindow";
@@ -112,19 +114,76 @@ function QrBlock({
   );
 }
 
+function AttendeeList({
+  attendees,
+  refreshSeconds,
+}: {
+  attendees: Attendee[] | "unavailable" | null;
+  refreshSeconds: number | null;
+}) {
+  // An event with no group has nothing to list; the QR block says why.
+  if (attendees === null) return null;
+  if (attendees === "unavailable") {
+    return (
+      <p
+        role="status"
+        className="border-foreground/20 rounded-lg border p-4 print:hidden"
+      >
+        We couldn&apos;t load the list of who&apos;s checked in right now.
+        {refreshSeconds !== null
+          ? " This page will try again shortly."
+          : " Reload the page to try again."}
+      </p>
+    );
+  }
+  return (
+    <section className="flex flex-col gap-2 print:hidden">
+      <h2 className="text-xl font-semibold">Checked in ({attendees.length})</h2>
+      {refreshSeconds !== null && (
+        <p className="text-foreground/70">
+          Updates every {refreshSeconds} seconds.
+        </p>
+      )}
+      {attendees.length === 0 ? (
+        <p className="text-foreground/70 text-lg">Nobody has checked in yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-1 text-lg">
+          {attendees.map((person) => (
+            <li key={person.id}>{person.name}</li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export function AdminEventScreen({
   name,
   event,
   qr,
+  attendees,
+  refreshSeconds,
 }: {
   /** The signed-in admin. */
   name: string;
   event: AdminEventPage;
   /** The QR code's SVG markup and the link it opens; null when there's no code. */
   qr: { svg: string; url: string } | null;
+  /**
+   * Who has checked in, "unavailable" if TidyHQ couldn't say, or null if the
+   * event has no attendance group.
+   */
+  attendees: Attendee[] | "unavailable" | null;
+  /** Seconds until the browser reloads the page by itself, or null for never. */
+  refreshSeconds: number | null;
 }) {
   return (
     <div className="flex flex-1 flex-col gap-6">
+      {/* A plain meta refresh, so it works with JavaScript off. React puts it
+          in the document head. */}
+      {refreshSeconds !== null && (
+        <meta httpEquiv="refresh" content={String(refreshSeconds)} />
+      )}
       <BackToEvents />
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight">
@@ -138,9 +197,38 @@ export function AdminEventScreen({
       <WindowWarning event={event} />
       <CheckinStatus event={event} />
       <QrBlock event={event} qr={qr} />
+      <AttendeeList attendees={attendees} refreshSeconds={refreshSeconds} />
       <div className="print:hidden">
         <SignedInAs name={name} returnTo={adminEventPath(event.id)} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Shown when TidyHQ fails while reading the event itself. The page keeps
+ * reloading (the same meta refresh as the live page) so a door screen
+ * recovers from a one-off failure without anyone touching it.
+ */
+export function AdminEventUnavailable({
+  name,
+  eventId,
+}: {
+  name: string;
+  eventId: string;
+}) {
+  return (
+    <div className="flex flex-1 flex-col gap-4">
+      <meta httpEquiv="refresh" content={String(ATTENDEE_REFRESH_SECONDS)} />
+      <BackToEvents />
+      <h1 className="text-2xl font-bold tracking-tight">
+        This event is temporarily unavailable
+      </h1>
+      <p role="status" className="text-foreground/70 text-lg">
+        TidyHQ isn&apos;t answering right now, so this event can&apos;t be
+        shown. This page will retry in {ATTENDEE_REFRESH_SECONDS} seconds.
+      </p>
+      <SignedInAs name={name} returnTo={adminEventPath(eventId)} />
     </div>
   );
 }

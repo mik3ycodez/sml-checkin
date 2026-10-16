@@ -97,6 +97,17 @@ system of record; this app is a thin layer on top of it.
   check-in. A self check-in's time isn't recorded (TidyHQ's API documents no
   timestamp for group membership); that gap is accepted. A failed note is
   logged and never fails the check-in or touches points.
+- **The admin event page's attendee list** is the event group's members
+  (`listGroupContacts`, every page, once each), sorted by name, with a count.
+  It reloads itself every 30 seconds with a meta refresh (works with JavaScript
+  off), only while check-in is open or within 30 minutes of opening
+  (`attendeeRefreshSeconds`). A TidyHQ failure never ends the refresh: an
+  unreadable event shows "temporarily unavailable" and retries, "couldn't check
+  access" retries the event page, and an unreadable list says so while the QR
+  code still shows. Method and time aren't shown.
+- **A member's name is always `contactName(contact)`** (`src/lib/tidyhq`):
+  display name, else first and last name, else "Unnamed member". Never read
+  `display_name` directly: live data may have nulls.
 - **Admins are the contacts in SML's "App Admin" group in TidyHQ** (id in
   `ADMIN_GROUP_ID`; the Board manages the group in TidyHQ, the app never
   writes it). Admins sign in the same way as members. The group is read on

@@ -33,6 +33,23 @@ async function duringPubNight(client: MockTidyClient): Promise<Date> {
 }
 
 describe("checkIn", () => {
+  it("names a member with a blank display name by first and last name", async () => {
+    const client = seededClient((seed) => {
+      Object.assign(
+        seed.contacts.find((c) => c.id === "c_dante")!,
+        {
+          display_name: null,
+        },
+      );
+    });
+    const result = await checkIn(client, {
+      eventId: "ev_tonight",
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(result).toMatchObject({ status: "checked_in", name: "Dante Ruiz" });
+  });
+
   it("checks in an active member and awards a point", async () => {
     const client = seededClient();
     const result = await checkIn(client, {
