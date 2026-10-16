@@ -66,6 +66,64 @@ describe("MockTidyClient", () => {
     });
   });
 
+  describe("searchContacts", () => {
+    it("finds a member by first name", async () => {
+      const found = await client.searchContacts("Dante");
+      expect(found.map((c) => c.id)).toEqual(["c_dante"]);
+    });
+
+    it("finds a member by last name", async () => {
+      const found = await client.searchContacts("Okafor");
+      expect(found.map((c) => c.id)).toEqual(["c_sam"]);
+    });
+
+    it("ignores case and surrounding spaces", async () => {
+      const found = await client.searchContacts("  mARcUs  ");
+      expect(found.map((c) => c.id)).toEqual(["c_marcus"]);
+    });
+
+    it("matches part of a name", async () => {
+      const found = await client.searchContacts("ar");
+      const ids = found.map((c) => c.id);
+      expect(ids).toContain("c_marcus"); // Marcus
+      expect(ids).toContain("c_lee"); // Hart
+      expect(ids).not.toContain("c_dante");
+    });
+
+    it("needs every word to match, in any order", async () => {
+      const found = await client.searchContacts("park jordan");
+      expect(found.map((c) => c.id)).toEqual(["c_jordan"]);
+      expect(await client.searchContacts("Jordan Bell")).toEqual([]);
+    });
+
+    it("matches an email address", async () => {
+      const found = await client.searchContacts("riley@example");
+      expect(found.map((c) => c.id)).toEqual(["c_riley"]);
+    });
+
+    it("returns an empty list when nobody matches", async () => {
+      expect(await client.searchContacts("Zzyzx")).toEqual([]);
+    });
+
+    it("returns an empty list for a blank query, not everyone", async () => {
+      expect(await client.searchContacts("")).toEqual([]);
+      expect(await client.searchContacts("   ")).toEqual([]);
+    });
+
+    it("skips inactive contacts, as TidyHQ does by default", async () => {
+      const seed = createSeed(NOW);
+      seed.contacts.find((c) => c.id === "c_dante")!.status = "inactive";
+      const withInactive = new MockTidyClient(seed, () => NOW);
+      expect(await withInactive.searchContacts("Dante")).toEqual([]);
+    });
+
+    it("returns copies, so callers can't change the mock", async () => {
+      const [found] = await client.searchContacts("Dante");
+      found.first_name = "Changed";
+      expect((await client.getContact("c_dante")).first_name).toBe("Dante");
+    });
+  });
+
   describe("getContact", () => {
     it("returns a contact by id", async () => {
       const contact = await client.getContact("c_dante");

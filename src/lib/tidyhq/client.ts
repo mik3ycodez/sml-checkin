@@ -27,6 +27,14 @@ export interface TidyClient {
   /** `GET /v2/contacts/me` */
   getMe(memberToken: string): Promise<Contact>;
 
+  /**
+   * `GET /v2/contacts?search_terms=`: active contacts whose name or email
+   * matches. Must follow all pages. A blank query returns an empty list
+   * rather than every contact. Matching is TidyHQ's; the mock approximates it
+   * (case-insensitive, every word must match somewhere in the name or email).
+   */
+  searchContacts(query: string): Promise<Contact[]>;
+
   /** `GET /v2/contacts/{id}` */
   getContact(contactId: string): Promise<Contact>;
 
