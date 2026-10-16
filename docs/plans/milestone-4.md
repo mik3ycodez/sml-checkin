@@ -1,6 +1,6 @@
 # Milestone 4: Admin pages
 
-**Status:** In progress. PRs 1–5 done (#23, #24, #25, #26, #27). PR 6a done (#28). PR 6b in review.
+**Status:** In progress. PRs 1–5 done (#23, #24, #25, #26, #27). PR 6a done (#28). PR 6b done (#30). PR 6c in review.
 
 ## Context
 
@@ -242,7 +242,7 @@ PR 6 is large, so it ships in two PRs. The design below covers both.
   admin-only person, neither, read on every call, failure and unset id fail
   closed) and the guard stopping a non-volunteer itself even if a caller
   ignores its return value.
-- **PR 6b 🔍 In review: the staff check-in page and its note.** Reached by
+- **PR 6b ✅ Done (#30): the staff check-in page and its note.** Reached by
   URL (`/admin/events/<id>/checkin`) and from a "Staff check-in" link on the
   admin event page. Includes: the `checkIn` staff note; the staff check-in
   page and action (search, verdict, confirm, result); `staffVerdict` (what
@@ -253,7 +253,7 @@ PR 6 is large, so it ships in two PRs. The design below covers both.
   `/admin/events/<id>`, and (2) linked to `/admin` and told a non-member to
   join App Admin. 6b lets it retry the staff check-in page and word its
   guidance for volunteers, with a "Back to check-in" link.
-- **PR 6c: the volunteer entry point.** The "Are you a volunteer?" link on
+- **PR 6c 🔍 In review: the volunteer entry point.** The "Are you a volunteer?" link on
   event pages (the check-in page, the result and status screens; **not**
   `/me`, which has no event), "Stop volunteering", the "volunteer mode has
   ended" screen, and the volunteer entry-point Playwright specs.

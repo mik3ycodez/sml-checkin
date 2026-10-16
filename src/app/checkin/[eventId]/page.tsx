@@ -1,7 +1,6 @@
 import { checkInAction } from "./actions";
 import { memberStatus } from "./memberStatus";
-import { SignedInAs } from "../../memberUi";
-import { checkinPath } from "../../memberPaths";
+import { MemberFooter } from "../../memberUi";
 import { eventTitle, StatusScreen } from "./screens";
 
 // The page a member's phone opens from the event QR code. Visiting it changes
@@ -32,7 +31,7 @@ export default async function CheckInPage({
           Check in
         </button>
       </form>
-      <SignedInAs name={status.name} returnTo={checkinPath(eventId)} />
+      <MemberFooter eventId={eventId} name={status.name} />
     </div>
   );
 }

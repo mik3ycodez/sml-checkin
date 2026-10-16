@@ -216,8 +216,9 @@ describe("StatusScreen", () => {
     });
 
     it("isn't offered when the member isn't checked in", () => {
-      expect(render({ status: "closed", ...DANTE }).html).not.toContain(
-        'href="/me"',
+      // They get the quiet "My points and status" link instead (see below).
+      expect(render({ status: "closed", ...DANTE }).text).not.toContain(
+        "See your points",
       );
     });
   });
@@ -236,9 +237,9 @@ describe("StatusScreen", () => {
   describe("checked in, but the point didn't save", () => {
     const { html, text } = render(CHECKED_IN, { kind: "point_not_saved" });
 
-    it("asks the member to tell a volunteer", () => {
+    it("asks the member to tell a Board member", () => {
       expect(text).toContain("You're checked in, but your point didn't save");
-      expect(text).toContain("Please let a volunteer know.");
+      expect(text).toContain("Please tell a Board member.");
     });
 
     it("doesn't offer to try again, or show a total that's missing the point", () => {
@@ -340,9 +341,9 @@ describe("StatusScreen", () => {
     expect(text).toContain("SML event Check-in has closed");
   });
 
-  it("asks the member to see a volunteer when their total is unreadable", () => {
+  it("asks the member to see a Board member when their total is unreadable", () => {
     const { text } = render({ status: "points_unreadable", ...DANTE });
-    expect(text).toContain("Please see a volunteer");
+    expect(text).toContain("Please see a Board member");
     expect(text).toContain("You're not checked in yet");
   });
 
@@ -365,5 +366,126 @@ describe("CheckinProblem", () => {
 
   it("says a volunteer can help", () => {
     expect(text(html)).toContain("volunteer");
+  });
+});
+
+describe("the volunteer link", () => {
+  const STAFF = 'href="/admin/events/ev_tonight/checkin"';
+  const screens: [string, ShownStatus][] = [
+    ["checked in", { status: "already_checked_in", ...DANTE, total: 5 }],
+    ["membership inactive", { status: "membership_inactive", ...DANTE }],
+    ["not open", { status: "not_open", ...DANTE, opensAt: new Date() }],
+    ["points unreadable", { status: "points_unreadable", ...DANTE }],
+  ];
+
+  // Not on "closed" or "unavailable": volunteer mode has ended there.
+  it.each(screens)("is on the %s screen", (_, status) => {
+    const { html, text } = render(status);
+    expect(html).toContain(STAFF);
+    expect(text).toContain("Are you a volunteer?");
+  });
+
+  it("is on the check-in result screens", () => {
+    const { html } = render(
+      { status: "already_checked_in", ...DANTE, total: 5 },
+      { kind: "awarded", points: 1 },
+    );
+    expect(html).toContain(STAFF);
+  });
+
+  it("is not on an unknown event, where nobody is identified", () => {
+    const { html } = render({ status: "unknown_event" });
+    expect(html).not.toContain("/admin/");
+  });
+});
+
+describe("the My points and status link", () => {
+  const ME = /<a[^>]*href="\/me"[^>]*>My points and status<\/a>/;
+  const count = (html: string) => (html.match(/href="\/me"/g) ?? []).length;
+  const without: [string, ShownStatus][] = [
+    ["membership inactive", { status: "membership_inactive", ...DANTE }],
+    ["not open", { status: "not_open", ...DANTE, opensAt: new Date() }],
+    ["closed", { status: "closed", ...DANTE }],
+    ["event unavailable", { status: "event_unavailable", ...DANTE }],
+    ["points unreadable", { status: "points_unreadable", ...DANTE }],
+  ];
+
+  it.each(without)("is on the %s screen, once", (_, status) => {
+    const { html } = render(status);
+    expect(html).toMatch(ME);
+    expect(count(html)).toBe(1);
+  });
+
+  it("sits next to the volunteer link", () => {
+    const { text } = render({ status: "points_unreadable", ...DANTE });
+    expect(text).toContain("My points and status");
+    expect(text.indexOf("My points and status")).toBeLessThan(
+      text.indexOf("Are you a volunteer?"),
+    );
+  });
+
+  it("isn't added to checked-in screens, which already link to /me", () => {
+    const checkedIn = {
+      status: "already_checked_in",
+      ...DANTE,
+      total: 5,
+    } as const;
+    for (const notice of [
+      null,
+      { kind: "awarded", points: 1 },
+      { kind: "repeat" },
+      { kind: "point_not_saved" },
+    ] as const) {
+      const { html } = render(checkedIn, notice);
+      expect(html).not.toContain("My points and status");
+      expect(count(html)).toBe(1);
+    }
+  });
+});
+
+describe("no member screen sends someone to a volunteer for what a volunteer can't do", () => {
+  const all: [string, ShownStatus, TapOutcome | null][] = [
+    ["inactive", { status: "membership_inactive", ...DANTE }, null],
+    ["not open", { status: "not_open", ...DANTE, opensAt: new Date() }, null],
+    ["closed", { status: "closed", ...DANTE }, null],
+    ["unavailable", { status: "event_unavailable", ...DANTE }, null],
+    ["points unreadable", { status: "points_unreadable", ...DANTE }, null],
+    [
+      "point not saved",
+      { status: "already_checked_in", ...DANTE, total: 5 },
+      { kind: "point_not_saved" },
+    ],
+    ["unknown event", { status: "unknown_event" }, null],
+  ];
+
+  it.each(all)("%s", (_, status, notice) => {
+    // The "Are you a volunteer?" link is the only mention allowed.
+    const { text } = render(status, notice);
+    expect(text.replace("Are you a volunteer?", "")).not.toMatch(/volunteer/i);
+  });
+
+  it("sends closed and unavailable members to a Board member", () => {
+    for (const status of ["closed", "event_unavailable"] as const) {
+      expect(render({ status, ...DANTE }).text).toContain(
+        "If you were there, tell a Board member.",
+      );
+    }
+  });
+
+  it("says what to do about unreadable points", () => {
+    expect(render({ status: "points_unreadable", ...DANTE }).text).toContain(
+      "A Board member needs to fix your points in TidyHQ before you can check in.",
+    );
+  });
+
+  it("hides the volunteer link where volunteer mode has already ended", () => {
+    for (const status of ["closed", "event_unavailable"] as const) {
+      expect(render({ status, ...DANTE }).text).not.toContain(
+        "Are you a volunteer?",
+      );
+    }
+    expect(
+      render({ status: "not_open", ...DANTE, opensAt: new Date() }).text,
+    ).toContain("Are you a volunteer?");
   });
 });

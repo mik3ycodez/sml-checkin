@@ -56,7 +56,7 @@ function Points({ points }: { points: number | null }) {
   if (points === null) {
     return (
       <p className="text-lg">
-        Your points total needs fixing. Please see a volunteer.
+        Your points total needs fixing. Please see a Board member.
       </p>
     );
   }

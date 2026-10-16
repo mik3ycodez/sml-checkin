@@ -1,10 +1,10 @@
 import type { StaffVerdict } from "@/lib/checkin/staffVerdict";
+import type { CheckinBlocker } from "@/lib/tidyhq/checkinWindow";
 import type { TapOutcome } from "@/lib/checkin/tapNotice";
 import { checkinPath } from "../../../../memberPaths";
 import { PRIMARY, SECONDARY, SignedInAs } from "../../../../memberUi";
 import {
   adminEventPath,
-  staffCheckinPath,
   staffMemberPath,
   staffSearchPath,
 } from "../../../paths";
@@ -38,12 +38,16 @@ function Frame({
       </div>
       {children}
       <div className="flex flex-col gap-3">
-        {staff.role === "admin" && (
+        {staff.role === "admin" ? (
           <a href={adminEventPath(eventId)} className="underline">
-            Event page
+            Back to event page
+          </a>
+        ) : (
+          <a href={checkinPath(eventId)} className="underline">
+            Stop volunteering
           </a>
         )}
-        <SignedInAs name={staff.name} returnTo={staffCheckinPath(eventId)} />
+        <SignedInAs name={staff.name} returnTo={checkinPath(eventId)} />
       </div>
     </div>
   );
@@ -215,6 +219,28 @@ export function StaffNotice({
         {linkLabel}
       </a>
     </div>
+  );
+}
+
+/**
+ * What a volunteer sees once check-in has closed, the event is archived, or
+ * check-in can never open. There's no cookie to clear: leaving is the link.
+ * Only a closed event is "over"; for the rest, check-in never ran or was
+ * switched off, which the Board needs to hear about, so no thanks.
+ */
+export function VolunteerModeEnded({
+  eventId,
+  reason,
+}: {
+  eventId: string;
+  reason: CheckinBlocker | "closed";
+}) {
+  return (
+    <StaffNotice heading="Volunteer mode has ended" {...backToCheckin(eventId)}>
+      {reason === "closed"
+        ? "Check-in for this event is over. Thank you for helping!"
+        : "Check-in isn't available for this event. Please tell a Board member."}
+    </StaffNotice>
   );
 }
 
