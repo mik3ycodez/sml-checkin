@@ -5,3 +5,5 @@ export const ME_PATH = "/me";
 export function signInPath(returnTo: string): string {
   return `/auth/signin?returnTo=${encodeURIComponent(returnTo)}`;
 }
+
+export { checkinPath } from "@/lib/checkin/paths";

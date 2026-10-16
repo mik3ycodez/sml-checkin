@@ -1,6 +1,6 @@
 import type { TidyClient } from "./client";
-import { validRange } from "./timeRange";
-import type { Event } from "./types";
+import { rangeProblem, validRange, type RangeProblem } from "./timeRange";
+import type { Event, EventCheckinWindow } from "./types";
 
 export interface CheckinWindow {
   /** Null when no open time is known; check-in is then closed. */
@@ -13,22 +13,59 @@ export interface CheckinWindow {
 
 export type CheckinStatus = "open" | "not_yet" | "closed";
 
+/** Why an admin-set window was ignored (not set at all isn't a problem). */
+export type IgnoredWindowReason = Exclude<RangeProblem, "not_set">;
+
+export interface CheckinWindowDetails {
+  window: CheckinWindow;
+  /** Set when the event has a window that was ignored, and why. */
+  ignored: IgnoredWindowReason | null;
+}
+
 /**
- * The only place that works out when check-in is open for an event. Uses the
- * admin-set window if it's valid, otherwise the event's start to end. A
+ * The only place that works out when check-in is open for an event, and why
+ * an admin-set window was ignored (for the admin pages to warn about). Uses
+ * the admin-set window if it's valid, otherwise the event's start to end. A
  * half-filled, unparseable, or backwards window counts as not set, so a typo
  * in TidyHQ doesn't lock members out. If the event's own dates are invalid
  * too, both times are null and check-in is closed. A cache can go here later.
  */
+export async function getCheckinWindowDetails(
+  client: TidyClient,
+  event: Pick<Event, "id" | "start_at" | "end_at">,
+): Promise<CheckinWindowDetails> {
+  return resolveCheckinWindow(
+    await client.getEventCheckinWindow(event.id),
+    event,
+  );
+}
+
+/**
+ * `getCheckinWindowDetails` for a caller that has already read the admin-set
+ * window (so it can read that and the event together). Pure: the rule itself.
+ */
+export function resolveCheckinWindow(
+  set: EventCheckinWindow | null,
+  event: Pick<Event, "start_at" | "end_at">,
+): CheckinWindowDetails {
+  const adminSet = set && validRange(set.opens_at, set.closes_at);
+  if (adminSet) {
+    return { window: { ...adminSet, source: "event" }, ignored: null };
+  }
+  const problem = set && rangeProblem(set.opens_at, set.closes_at);
+  const fromEvent = validRange(event.start_at, event.end_at);
+  return {
+    window: { opensAt: null, closesAt: null, ...fromEvent, source: "fallback" },
+    ignored: problem && problem !== "not_set" ? problem : null,
+  };
+}
+
+/** The check-in window for an event; see `getCheckinWindowDetails`. */
 export async function getCheckinWindow(
   client: TidyClient,
   event: Pick<Event, "id" | "start_at" | "end_at">,
 ): Promise<CheckinWindow> {
-  const window = await client.getEventCheckinWindow(event.id);
-  const adminSet = window && validRange(window.opens_at, window.closes_at);
-  if (adminSet) return { ...adminSet, source: "event" };
-  const fromEvent = validRange(event.start_at, event.end_at);
-  return { opensAt: null, closesAt: null, ...fromEvent, source: "fallback" };
+  return (await getCheckinWindowDetails(client, event)).window;
 }
 
 /**

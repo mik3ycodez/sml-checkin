@@ -26,10 +26,6 @@ system of record; this app is a thin layer on top of it.
 - Payments, renewals, profile editing (TidyHQ handles these)
 - Anti-gaming measures (audits instead)
 - Its own database (add later only if reporting needs it)
-- Warnings for invalid check-in windows (later, on admin event pages). A
-  window that's half-filled, unparseable, or closes before it opens is
-  silently ignored, and check-in falls back to the event's start and end.
-  Admins should see a warning so they can fix it in TidyHQ.
 
 ## Key decisions
 
@@ -72,6 +68,28 @@ system of record; this app is a thin layer on top of it.
   The check-in confirmation shows it only when that check-in's point brought
   them to 18 (decided in `checkIn`, from the read before the write); `/me`
   shows it whenever it applies.
+- **An invalid check-in window is ignored, and the admin event page says so.**
+  A window that's half-filled, unparseable, or closes before it opens is
+  dropped, and check-in falls back to the event's start and end, so a typo in
+  TidyHQ never locks members out. Spaces around a time are ignored, and a
+  field holding only spaces is blank. Times must be ISO 8601 with an explicit
+  offset or `Z` (`parseTime` in `timeRange.ts`); anything else, such as
+  "Oct 17 18:30" (which JavaScript reads as the year 2001), is unparseable
+  and shows the warning. The rule is `rangeProblem` there, used by check-in
+  (via `resolveCheckinWindow`) and the warning. **The admin event page is the
+  authority on check-in problems.** The event list's flag ("end isn't after
+  start") is a cheap hint from the event's own times; it never reads the admin
+  window, so a bad window shows only on the event page.
+- **Archived events refuse check-in.** `assessCheckIn` returns
+  `event_unavailable` ("This event isn't open for check-in") for an archived
+  event even if its window is open, so a QR code printed earlier stops working.
+  A member already in its group still sees their check-in.
+- **Event QR codes** point to `APP_ORIGIN/checkin/<eventId>`, drawn as SVG on
+  the server. An archived event, one with no attendance group, or one whose
+  check-in can never open (no usable window or event times) gets the reason
+  shown instead of a code, and the page never says check-in is open or using
+  the event's times when members can't check in. These are the same cases
+  check-in refuses, and a test checks that they agree.
 - What a check-in records: for every check-in, who and which event (the
   member's place in the event's TidyHQ group). A **staff** check-in also
   writes a TidyHQ contact note with the event, which admin did it, and when;

@@ -438,6 +438,53 @@ describe("checkIn", () => {
     expect(result).toEqual({ status: "unknown_event" });
   });
 
+  describe("an archived event", () => {
+    // Social Night's window is open, as if its QR code had been printed and
+    // posted before someone archived the event in TidyHQ.
+    const archived = () =>
+      seededClient((seed) => {
+        seed.events.find((e) => e.id === "ev_tonight")!.archived = true;
+      });
+
+    it("refuses a scan of its printed QR code, and writes nothing", async () => {
+      const client = archived();
+      const result = await checkIn(client, {
+        eventId: "ev_tonight",
+        contactId: "c_dante",
+        now: NOW,
+      });
+      expect(result).toEqual({
+        status: "event_unavailable",
+        name: "Dante Ruiz",
+        eventName: "Social Night",
+      });
+      expect(await groupIds(client, "grp_social_night")).toEqual([]);
+      expect(await storedPoints(client, "c_dante")).toBe(0);
+    });
+
+    it("is refused ahead of the window and the membership", async () => {
+      const client = archived();
+      // Lee's membership lapsed; the archived refusal still comes first.
+      const result = await assessCheckIn(client, {
+        eventId: "ev_tonight",
+        contactId: "c_lee",
+        now: NOW,
+      });
+      expect(result.status).toBe("event_unavailable");
+    });
+
+    it("still shows an existing check-in", async () => {
+      const client = archived();
+      await client.addContactToGroup("grp_social_night", "c_dante");
+      const result = await assessCheckIn(client, {
+        eventId: "ev_tonight",
+        contactId: "c_dante",
+        now: NOW,
+      });
+      expect(result.status).toBe("already_checked_in");
+    });
+  });
+
   it("refuses check-in before the window opens", async () => {
     const client = seededClient();
     const window = await client.getEventCheckinWindow("ev_bootblack_social");
@@ -714,13 +761,20 @@ describe("assessCheckIn", () => {
       },
       { eventId: "ev_nope", contactId: "c_dante", status: "unknown_event" },
       {
+        eventId: "ev_leather_brunch",
+        contactId: "c_dante",
+        status: "event_unavailable",
+      },
+      {
         eventId: "ev_tonight",
         contactId: "c_nobody",
         status: "unknown_contact",
       },
     ];
     for (const { status, ...ids } of cases) {
-      const client = seededClient();
+      const client = seededClient((seed) => {
+        seed.events.find((e) => e.id === "ev_leather_brunch")!.archived = true;
+      });
       const input = { ...ids, now: NOW };
       expect((await assessCheckIn(client, input)).status, status).toBe(status);
       expect(await checkIn(client, input)).toEqual(

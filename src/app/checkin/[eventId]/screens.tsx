@@ -4,7 +4,11 @@ import type { TapOutcome } from "@/lib/checkin/tapNotice";
 import { seattleTimeLabel } from "@/lib/dates";
 import { findReward, rewardMessage, type QualifiedReward } from "@/lib/rewards";
 import { tidyhqSiteUrl } from "@/lib/tidyhq/site";
-import { ME_PATH, signInPath as memberSignInPath } from "../../memberPaths";
+import {
+  checkinPath,
+  ME_PATH,
+  signInPath as memberSignInPath,
+} from "../../memberPaths";
 import {
   MembershipNoticeBlock,
   PRIMARY,
@@ -15,10 +19,6 @@ import {
 // Shared pieces of the check-in pages: one small screen per outcome, chosen
 // by `StatusScreen` from what TidyHQ says now. Kept to plain links and forms
 // so they work on older phones without JavaScript.
-
-export function checkinPath(eventId: string): string {
-  return `/checkin/${encodeURIComponent(eventId)}`;
-}
 
 export function signInPath(eventId: string): string {
   return memberSignInPath(checkinPath(eventId));
@@ -120,6 +120,16 @@ export function StatusScreen({
       return (
         <Screen event={event} title="Check-in has closed">
           <Note>If you were there, a volunteer can check you in.</Note>
+          {signedInAs}
+        </Screen>
+      );
+    case "event_unavailable":
+      return (
+        <Screen event={event} title="This event isn't open for check-in">
+          <Note>
+            Check-in isn&apos;t available for this event. If you were there, a
+            volunteer can check you in.
+          </Note>
           {signedInAs}
         </Screen>
       );

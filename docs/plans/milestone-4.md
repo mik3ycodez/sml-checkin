@@ -1,6 +1,6 @@
 # Milestone 4: Admin pages
 
-**Status:** In progress. PR 1 done (#23). PR 2 in review.
+**Status:** In progress. PRs 1 and 2 done (#23, #24). PR 3 in review (#25).
 
 ## Context
 
@@ -111,7 +111,7 @@ attendees, staff check-in), then one report.
 - `CLAUDE.md`: the "Check-ins record" bullet now says what's recorded (see
   Decisions), and the admin decision is added.
 
-### PR 2: `/admin` event list 🔍 In review
+### PR 2: `/admin` event list ✅ Done (#24)
 
 - `/admin`: upcoming and recent events from `listEvents`, each linking to
   `/admin/events/<id>`. Events with no attendance group are listed but marked.
@@ -130,7 +130,13 @@ attendees, staff check-in), then one report.
 - Playwright: the admin sees the list; a member gets the denied screen; signed out
   goes to sign-in and comes back.
 
-### PR 3: Event page with QR code and window warnings
+### PR 3: Event page with QR code and window warnings 🔍 In review (#25)
+
+_Review changes: archived events now refuse check-in (`event_unavailable`) so
+the door and the page agree; times must be ISO 8601 with an offset or `Z` and
+are trimmed; the page says "unavailable", not "open", when members can't check
+in; the event and its window are read together; a print stylesheet forces
+light colors._
 
 - `/admin/events/<id>`: name, time, check-in window, the check-in URL
   (`APP_ORIGIN/checkin/<id>`) as text, and its QR code.
@@ -139,6 +145,29 @@ attendees, staff check-in), then one report.
   rule lives in `checkinWindow.ts`; this exposes why a window was ignored
   instead of only ignoring it.
 - `CLAUDE.md`: drop the warnings bullet from "Out of scope for MVP".
+- _(Built: `getAdminEventPage` in `src/lib/admin/eventPage.ts`;
+  `rangeProblem` in `timeRange.ts` is the one rule for "why isn't this a valid
+  range" (`not_set`, `half_filled`, `unparseable`, `backwards`), and
+  `validRange` is its yes/no, so check-in and the warning can't disagree.
+  `getCheckinWindowDetails` returns the window plus why an admin-set one was
+  ignored; `getCheckinWindow` is unchanged for callers. Both times blank is
+  "not set", not a warning. The page also says whether check-in is open now
+  and shows the window it actually uses.
+  No QR code, with the reason shown instead (first match wins): archived;
+  no attendance group; check-in can never open (neither the window nor the
+  event's own times are usable). A window that has already closed still gets
+  its code, since the window is fixable in TidyHQ and a printed code stays
+  valid. The URL is shown as text only when there's a code. The QR is
+  `qrcode`'s SVG (black on white, 4-module quiet zone, no fixed size) inside
+  a white panel, so dark mode can't wash it out; the back link and sign-out
+  are `print:hidden`, so printing gives name, time, code and link.
+  `checkinPath` lives in `src/lib/checkin/paths.ts` (re-exported by
+  `memberPaths.ts`); `lib/admin` returns the path and the page adds the origin,
+  and `noAppImports.test.ts` keeps `src/lib` from importing `src/app`. The unit tests cover every warning and every
+  no-QR reason; Playwright covers only what the mock seed can produce (a
+  valid window, no window, unknown event, print layout, sign-in return, and a
+  member denied), because the seed has no archived or misconfigured event and
+  there's no mock-only route to make one.)_
 
 ### PR 4: Live attendee list
 
@@ -247,5 +276,9 @@ one file on purpose):
 - `EVENT_GROUPS` in `src/lib/tidyhq/eventGroups.ts`: how an event links to its
   attendance group.
 - `getEventCheckinWindow`: where the check-in window lives in TidyHQ.
-- Verify against live data: `listContactGroups` includes archived groups, and
+- Verify against live data: TidyHQ's event times and the check-in window are
+  ISO 8601 with an offset or `Z` (`parseTime` refuses anything else, so a
+  different format would make every event look unreadable, and the admin
+  lists would drop them); how SML uses archiving (archived events now refuse
+  check-in); `listContactGroups` includes archived groups, and
   how renewal invoices look (see CLAUDE.md, "Unverified assumptions").

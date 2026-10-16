@@ -32,7 +32,8 @@ export interface AdminEvents {
   recent: AdminEvent[];
 }
 
-const blankToNull = (value: string | null) => value?.trim() || null;
+/** A name or place with nothing but spaces in it counts as missing. */
+export const blankToNull = (value: string | null) => value?.trim() || null;
 
 /**
  * The events for the admin home page, from one `listEvents` read: events
