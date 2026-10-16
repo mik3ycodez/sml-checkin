@@ -202,13 +202,31 @@ export function membershipNoticeText(
   switch (notice.kind) {
     case "balance_due":
       return "You have a balance due. Complete payment in TidyHQ.";
-    case "grace": {
-      const status =
-        notice.expiredOn === seattleDate(now)
-          ? "ends today"
-          : `expired on ${dateLabel(notice.expiredOn)}`;
-      return `Your membership ${status}. Renew by ${dateLabel(notice.renewBy)} to keep earning points.`;
-    }
+    case "grace":
+      return `Your membership ${graceStatus(notice, now)}. Renew by ${dateLabel(notice.renewBy)} to keep earning points.`;
+  }
+}
+
+/** "ends today" or "expired on <date>": a membership ending today isn't expired yet. */
+function graceStatus(
+  notice: Extract<MembershipNotice, { kind: "grace" }>,
+  now: Date,
+): string {
+  return notice.expiredOn === seattleDate(now)
+    ? "ends today"
+    : `expired on ${dateLabel(notice.expiredOn)}`;
+}
+
+/** `membershipNoticeText` for staff, about someone else. Admins only. */
+export function membershipNoticeStaffText(
+  notice: MembershipNotice,
+  now: Date,
+): string {
+  switch (notice.kind) {
+    case "balance_due":
+      return "Balance due: ask them to complete payment in TidyHQ.";
+    case "grace":
+      return `In the grace period: membership ${graceStatus(notice, now)}. Ask them to renew in TidyHQ by ${dateLabel(notice.renewBy)}.`;
   }
 }
 

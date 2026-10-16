@@ -7,10 +7,12 @@ export const ADMIN_PATH = "/admin";
 export const ADMIN_DENIED_PATH = "/admin/denied";
 
 /**
- * `returnTo` is the page the person was turned away from. It's kept only when
- * access couldn't be checked and the page was an event page, so the denied
- * screen can retry that page by itself (the event page reloads itself while
- * check-in is live, and one failed check shouldn't end that).
+ * `returnTo` is the page the person was turned away from. It's kept when
+ * access couldn't be checked and the page was an event page or its staff
+ * check-in page, so the denied screen can retry that page by itself (those
+ * pages are used at the door, and one failed check shouldn't end that). It's
+ * also kept for the staff check-in page whatever the reason, so the screen
+ * can link back to that event's member check-in.
  */
 export function adminDeniedPath(
   reason: AdminDeniedReason,
@@ -75,14 +77,33 @@ export function adminEventPath(eventId: string): string {
 
 /**
  * The staff check-in page with a member picked, for the verdict and the
- * result. `nothing_saved` marks a confirm that failed before anything was
+ * result. `q` keeps the search the volunteer was on, so "Search again" isn't
+ * empty; `nothing_saved` marks a confirm that failed before anything was
  * written.
  */
 export function staffMemberPath(
   eventId: string,
   memberId: string,
-  problem?: "nothing_saved",
+  { problem, q }: { problem?: "nothing_saved"; q?: string } = {},
 ): string {
-  const base = `${staffCheckinPath(eventId)}?member=${encodeURIComponent(memberId)}`;
-  return problem ? `${base}&problem=${problem}` : base;
+  let path = `${staffCheckinPath(eventId)}?member=${encodeURIComponent(memberId)}`;
+  if (problem) path += `&problem=${problem}`;
+  if (q) path += `&q=${encodeURIComponent(q)}`;
+  return path;
+}
+
+/** The staff check-in page with a search typed in (or the empty search). */
+export function staffSearchPath(eventId: string, q: string): string {
+  return q
+    ? `${staffCheckinPath(eventId)}?q=${encodeURIComponent(q)}`
+    : staffCheckinPath(eventId);
+}
+
+/**
+ * Where signing in again should land, from the denied page's `returnTo`: back
+ * on the staff check-in page for someone turned away from it, otherwise
+ * `/admin`.
+ */
+export function deniedSignInReturn(value: unknown): string {
+  return staffCheckinEventId(value) !== null ? (value as string) : ADMIN_PATH;
 }

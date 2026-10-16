@@ -1,14 +1,19 @@
 import { cookies } from "next/headers";
-import { assessCheckIn } from "@/lib/checkin/checkIn";
+import { assessCheckInFor } from "@/lib/checkin/checkIn";
 import { staffEventState } from "@/lib/checkin/staffEvent";
 import { membershipWarnings, staffVerdict } from "@/lib/checkin/staffVerdict";
 import { readTapNotice, STAFF_NOTICE_COOKIE } from "@/lib/checkin/tapNotice";
+import type { CheckinBlocker } from "@/lib/tidyhq/checkinWindow";
 import { getTidyClient } from "@/lib/tidyhq";
 import { contactName } from "@/lib/tidyhq/contactName";
 import { searchMembers } from "@/lib/tidyhq/contacts";
 import { loadOrNull } from "../../../../loadOrNull";
 import { requireVolunteer } from "../../../../requireVolunteer";
-import { staffCheckinPath } from "../../../paths";
+import {
+  adminEventPath,
+  staffCheckinPath,
+  staffMemberPath,
+} from "../../../paths";
 import {
   backToCheckin,
   StaffNotice,
@@ -25,6 +30,26 @@ import {
 //
 // TidyHQ failures show a notice with a retry, not the error page. Bugs in our
 // own code still reach it.
+
+const NEVER_RUNS: Record<CheckinBlocker, string> = {
+  archived:
+    "This event is archived in TidyHQ. Unarchive it there if it's still running.",
+  no_group:
+    "This event has no attendance group in TidyHQ, so check-ins couldn't be recorded.",
+  never_opens:
+    "Its check-in window and its own start and end times are both unusable. Fix them in TidyHQ.",
+};
+
+function UnknownEvent({ eventId }: { eventId: string }) {
+  return (
+    <StaffNotice
+      heading="We couldn't find that event"
+      {...backToCheckin(eventId)}
+    >
+      TidyHQ has no event with that link.
+    </StaffNotice>
+  );
+}
 
 const first = (value: string | string[] | undefined) =>
   typeof value === "string" ? value : "";
@@ -71,54 +96,66 @@ export default async function StaffCheckInPage({
       </StaffNotice>
     );
   }
+  // An admin is only stopped for an event check-in can never run for; for one
+  // that has merely closed they still see each member's verdict.
+  if (state.status === "ended" && state.reason !== "closed") {
+    return (
+      <StaffNotice
+        heading="Check-in can't run for this event"
+        linkHref={adminEventPath(eventId)}
+        linkLabel="Event page"
+      >
+        {NEVER_RUNS[state.reason]}
+      </StaffNotice>
+    );
+  }
+  if (!state.loaded) return <UnknownEvent eventId={eventId} />;
+  const { loaded } = state;
   const frame = { eventId, eventName: state.eventName, staff };
 
   const q = first(query.q);
   const memberId = first(query.member);
   if (memberId) {
-    const loaded = await loadOrNull("staff check-in member", async () => {
-      const assessment = await assessCheckIn(client, {
-        eventId,
-        contactId: memberId,
-        now,
-      });
-      // Admins also see why a membership record looks wrong.
-      const memberships =
-        staff.role === "admin" && "name" in assessment
-          ? await client.getMemberships(memberId)
-          : [];
-      return { assessment, memberships };
-    });
-    if (!loaded) {
+    const found = await loadOrNull("staff check-in member", () =>
+      assessCheckInFor(client, { contactId: memberId, now, ...loaded }),
+    );
+    if (!found) {
       return (
         <StaffNotice
           heading="We couldn't reach TidyHQ"
-          linkHref={`${here}?member=${encodeURIComponent(memberId)}`}
+          linkHref={staffMemberPath(eventId, memberId, { q })}
           linkLabel="Try again"
         >
           Nothing was changed.
         </StaffNotice>
       );
     }
-    const { assessment } = loaded;
-    if (
-      assessment.status !== "unknown_event" &&
-      assessment.status !== "unknown_contact"
-    ) {
-      const verdict = staffVerdict(assessment, staff.role);
+    if (found.status === "unknown_event") {
+      return <UnknownEvent eventId={eventId} />;
+    }
+    if (found.status !== "unknown_contact") {
+      const verdict = staffVerdict(found, staff.role, now);
       const notice =
-        assessment.status === "already_checked_in"
+        found.status === "already_checked_in"
           ? readTapNotice((await cookies()).get(STAFF_NOTICE_COOKIE)?.value, {
               eventId,
               contactId: memberId,
             })
           : null;
+      // Admins also see why a membership record looks wrong. A failed read
+      // only leaves the warnings out; it never hides the verdict.
+      const memberships =
+        staff.role === "admin"
+          ? ((await loadOrNull("staff check-in memberships", () =>
+              client.getMemberships(memberId),
+            )) ?? [])
+          : [];
       return (
         <StaffVerdictScreen
           {...frame}
           verdict={verdict}
           notice={notice}
-          warnings={membershipWarnings(loaded.memberships, now)}
+          warnings={membershipWarnings(memberships, now)}
           nothingSaved={first(query.problem) === "nothing_saved"}
           memberId={memberId}
           query={q}

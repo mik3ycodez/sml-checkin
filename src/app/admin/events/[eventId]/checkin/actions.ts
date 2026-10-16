@@ -9,7 +9,6 @@ import {
   type CheckInResult,
 } from "@/lib/checkin/checkIn";
 import { logCheckinFailure } from "@/lib/checkin/logFailure";
-import { staffEventState } from "@/lib/checkin/staffEvent";
 import {
   encodeTapNotice,
   STAFF_NOTICE_COOKIE,
@@ -27,9 +26,10 @@ import { staffCheckinPath, staffMemberPath } from "../../../paths";
  * runs first, before anything else is read or written (a page check alone
  * doesn't protect an action), and the ids are checked.
  *
- * A volunteer is refused once the event's check-in has ended (closed,
- * archived, or can never open). Always redirects, and the page re-reads
- * TidyHQ, so a refresh never posts again.
+ * No separate check that the event is still running: `checkIn` refuses a
+ * closed, archived or group-less event before writing anything, and the page
+ * is what stops a volunteer seeing members after the event. Always
+ * redirects, and the page re-reads TidyHQ, so a refresh never posts again.
  */
 export async function staffCheckInAction(
   eventId: unknown,
@@ -42,13 +42,11 @@ export async function staffCheckInAction(
   const member = formData.get("member");
   if (typeof member !== "string" || member === "") redirect(page);
 
+  const q = formData.get("q");
+  // Only carried back to the page, which treats it as plain text.
+  const search = typeof q === "string" ? q.slice(0, 100) : "";
   const client = getTidyClient();
   const now = new Date();
-  if (staff.role === "volunteer") {
-    // The page shows why; nothing is written.
-    const state = await staffEventState(client, eventId, now);
-    if (state.status !== "running") redirect(page);
-  }
 
   let result: CheckInResult | { status: "point_not_saved" };
   try {
@@ -64,7 +62,12 @@ export async function staffCheckInAction(
     logCheckinFailure({ eventId, contactId: member, failure: error });
     // Nothing was written, so trying again is safe.
     if (error.step !== "points_write") {
-      redirect(staffMemberPath(eventId, member, "nothing_saved"));
+      redirect(
+        staffMemberPath(eventId, member, {
+          problem: "nothing_saved",
+          q: search,
+        }),
+      );
     }
     // In the group without the point. Trying again would only say "already
     // checked in", so the page says to tell a Board member.
@@ -88,7 +91,7 @@ export async function staffCheckInAction(
   } else {
     (await cookies()).delete({ name: STAFF_NOTICE_COOKIE, path: page });
   }
-  redirect(staffMemberPath(eventId, member));
+  redirect(staffMemberPath(eventId, member, { q: search }));
 }
 
 /**

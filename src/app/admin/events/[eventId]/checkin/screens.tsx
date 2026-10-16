@@ -6,6 +6,7 @@ import {
   adminEventPath,
   staffCheckinPath,
   staffMemberPath,
+  staffSearchPath,
 } from "../../../paths";
 import { staffCheckInAction } from "./actions";
 
@@ -90,10 +91,7 @@ export function StaffSearchScreen({
       {search.status === "unavailable" && (
         <p role="status" className="text-lg">
           We couldn&apos;t reach TidyHQ just now.{" "}
-          <a
-            href={`${staffCheckinPath(frame.eventId)}?q=${encodeURIComponent(query)}`}
-            className="underline"
-          >
+          <a href={staffSearchPath(frame.eventId, query)} className="underline">
             Try again
           </a>
         </p>
@@ -106,7 +104,7 @@ export function StaffSearchScreen({
             {search.members.map((m) => (
               <li key={m.id}>
                 <a
-                  href={`${staffMemberPath(frame.eventId, m.id)}&q=${encodeURIComponent(query)}`}
+                  href={staffMemberPath(frame.eventId, m.id, { q: query })}
                   className={`${SECONDARY} block`}
                 >
                   {m.name}
@@ -152,9 +150,7 @@ export function StaffVerdictScreen({
   memberId: string;
   query: string;
 }) {
-  const back = query
-    ? `${staffCheckinPath(frame.eventId)}?q=${encodeURIComponent(query)}`
-    : staffCheckinPath(frame.eventId);
+  const back = staffSearchPath(frame.eventId, query);
   return (
     <Frame {...frame}>
       <div className="border-foreground/20 flex flex-col gap-2 rounded-lg border p-4">
@@ -186,6 +182,7 @@ export function StaffVerdictScreen({
       {verdict.canCheckIn && (
         <form action={staffCheckInAction.bind(null, frame.eventId)}>
           <input type="hidden" name="member" value={memberId} />
+          <input type="hidden" name="q" value={query} />
           <button type="submit" className={`${PRIMARY} w-full`}>
             Check in {verdict.name}
           </button>

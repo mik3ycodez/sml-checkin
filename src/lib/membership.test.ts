@@ -5,6 +5,7 @@ import {
   findInconsistentMemberships,
   isRenewalDue,
   membershipNotice,
+  membershipNoticeStaffText,
   membershipNoticeText,
   membershipStanding,
   RENEWAL_REMINDER_DAYS,
@@ -473,5 +474,32 @@ describe("membershipNoticeText", () => {
         new Date("2026-10-13T18:00:00Z"),
       ),
     ).toContain("expired on October 12, 2026");
+  });
+});
+
+describe("membershipNoticeStaffText", () => {
+  const NOW = new Date("2026-10-12T18:00:00Z");
+  it("words a balance due for the member's own staff", () => {
+    expect(membershipNoticeStaffText({ kind: "balance_due" }, NOW)).toBe(
+      "Balance due: ask them to complete payment in TidyHQ.",
+    );
+  });
+  it("says when the grace membership expired and the date to renew by", () => {
+    expect(
+      membershipNoticeStaffText(
+        { kind: "grace", expiredOn: "2026-10-01", renewBy: "2026-11-30" },
+        NOW,
+      ),
+    ).toBe(
+      "In the grace period: membership expired on October 1, 2026. Ask them to renew in TidyHQ by November 30, 2026.",
+    );
+  });
+  it("says ends today, as the member's own notice does", () => {
+    expect(
+      membershipNoticeStaffText(
+        { kind: "grace", expiredOn: "2026-10-12", renewBy: "2026-12-11" },
+        NOW,
+      ),
+    ).toContain("membership ends today");
   });
 });

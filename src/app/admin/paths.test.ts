@@ -7,6 +7,8 @@ import {
   deniedRetryPath,
   staffCheckinEventId,
   staffCheckinPath,
+  staffMemberPath,
+  deniedSignInReturn,
 } from "./paths";
 
 describe("adminEventPath", () => {
@@ -123,4 +125,39 @@ describe("the staff check-in page and the denied screen", () => {
   ])("refuses %j as a staff check-in path", (value) => {
     expect(staffCheckinEventId(value)).toBeNull();
   });
+});
+
+describe("staffMemberPath", () => {
+  it("picks a member, keeping the search and any problem, all encoded", () => {
+    expect(staffMemberPath("ev_one", "c_dante")).toBe(
+      "/admin/events/ev_one/checkin?member=c_dante",
+    );
+    expect(
+      staffMemberPath("ev_one", "c_dante", {
+        problem: "nothing_saved",
+        q: "Dan te&",
+      }),
+    ).toBe(
+      "/admin/events/ev_one/checkin?member=c_dante&problem=nothing_saved&q=Dan%20te%26",
+    );
+  });
+  it("leaves out an empty search", () => {
+    expect(staffMemberPath("ev_one", "c_dante", { q: "" })).toBe(
+      "/admin/events/ev_one/checkin?member=c_dante",
+    );
+  });
+});
+
+describe("deniedSignInReturn", () => {
+  it("returns a person turned away from staff check-in to that page", () => {
+    expect(deniedSignInReturn("/admin/events/ev_one/checkin")).toBe(
+      "/admin/events/ev_one/checkin",
+    );
+  });
+  it.each([undefined, "/admin/events/ev_one", "//evil.example", "/other"])(
+    "sends everyone else (%j) to /admin",
+    (value) => {
+      expect(deniedSignInReturn(value)).toBe("/admin");
+    },
+  );
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  checkinBlocker,
   getCheckinWindow,
   getCheckinWindowDetails,
   resolveCheckinWindow,
@@ -240,5 +241,36 @@ describe("isCheckinOpen", () => {
   it("is closed when either end of the window is missing", () => {
     expect(isCheckinOpen({ ...window, opensAt: null }, NOW)).toBe("closed");
     expect(isCheckinOpen({ ...window, closesAt: null }, NOW)).toBe("closed");
+  });
+});
+
+describe("checkinBlocker", () => {
+  const window = {
+    opensAt: new Date("2026-10-17T01:30:00Z"),
+    closesAt: new Date("2026-10-17T04:00:00Z"),
+    source: "event",
+  } as const;
+  const event = { id: "ev_tonight", archived: false };
+
+  it("is null for an event members can check in to", () => {
+    expect(checkinBlocker(event, window)).toBeNull();
+  });
+  it("names the first reason: archived, then no group, then never opens", () => {
+    expect(checkinBlocker({ ...event, archived: true }, window)).toBe(
+      "archived",
+    );
+    expect(checkinBlocker({ id: "ev_x", archived: true }, window)).toBe(
+      "archived",
+    );
+    expect(checkinBlocker({ id: "ev_x", archived: false }, window)).toBe(
+      "no_group",
+    );
+    expect(
+      checkinBlocker(event, {
+        opensAt: null,
+        closesAt: null,
+        source: "fallback",
+      }),
+    ).toBe("never_opens");
   });
 });

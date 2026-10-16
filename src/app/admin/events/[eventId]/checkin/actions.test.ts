@@ -147,11 +147,38 @@ describe("staffCheckInAction", () => {
     expect(await submit({ id: 1 }, { member: "c_dante" })).toBe("/");
   });
 
-  it("refuses a volunteer once check-in has closed, writing nothing", async () => {
+  it("writes nothing once check-in has closed: the check-in rules refuse it", async () => {
     signInAs("c_pat");
-    const page = "/admin/events/ev_pub_night/checkin";
-    expect(await submit("ev_pub_night", { member: "c_dante" })).toBe(page);
+    expect(await submit("ev_pub_night", { member: "c_dante" })).toBe(
+      "/admin/events/ev_pub_night/checkin?member=c_dante",
+    );
     expect(await inGroup("c_dante", "grp_pub_night")).toBe(false);
+    expect((await getTidyClient().getContact("c_dante")).notes).toEqual([]);
+  });
+
+  it("says nothing was saved if TidyHQ fails reading the event", async () => {
+    signInAs("c_pat");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(getTidyClient(), "getEvent").mockRejectedValue(
+      new TidyError(503, "down"),
+    );
+    expect(await submit("ev_tonight", { member: "c_dante" })).toBe(
+      `${PAGE}?member=c_dante&problem=nothing_saved`,
+    );
+  });
+
+  it("keeps the search the volunteer was on", async () => {
+    signInAs("c_pat");
+    expect(await submit("ev_tonight", { member: "c_dante", q: "Dan" })).toBe(
+      `${PAGE}?member=c_dante&q=Dan`,
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(getTidyClient(), "addContactToGroup").mockRejectedValue(
+      new TidyError(503, "down"),
+    );
+    expect(await submit("ev_tonight", { member: "c_riley", q: "Ri" })).toBe(
+      `${PAGE}?member=c_riley&problem=nothing_saved&q=Ri`,
+    );
   });
 
   it("tells the page about a repeat, with no second point", async () => {

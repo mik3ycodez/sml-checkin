@@ -13,7 +13,11 @@ import {
   type RewardEntry,
   type RewardStanding,
 } from "../rewards";
-import { getCheckinWindow, isCheckinOpen } from "../tidyhq/checkinWindow";
+import {
+  getCheckinWindow,
+  isCheckinOpen,
+  type CheckinWindow,
+} from "../tidyhq/checkinWindow";
 import type { TidyClient } from "../tidyhq/client";
 import { contactName } from "../tidyhq/contactName";
 import { findContact } from "../tidyhq/contacts";
@@ -200,13 +204,44 @@ export async function assessCheckIn(
   const found = await findEvent(client, eventId);
   if (!found) return { status: "unknown_event" };
   const { event, groupId } = found;
-  const eventName = event.name;
+  return assessCheckInFor(client, {
+    contactId,
+    now,
+    event,
+    groupId,
+    // Still read alongside the attendance, as before: not awaited here.
+    window: getCheckinWindow(client, event),
+  });
+}
 
+/**
+ * `assessCheckIn` for a caller that has already read the event, its group and
+ * its window (the staff page, which needs them for its own check). Same rules,
+ * no repeat reads of them.
+ */
+export async function assessCheckInFor(
+  client: TidyClient,
+  {
+    contactId,
+    now,
+    event,
+    groupId,
+    window: windowRead,
+  }: {
+    contactId: string;
+    now: Date;
+    event: Event;
+    groupId: string;
+    /** Or a read in flight, so it can overlap the attendance read. */
+    window: CheckinWindow | Promise<CheckinWindow>;
+  },
+): Promise<CheckInAssessment> {
+  const eventName = event.name;
   // The window is only needed if not already checked in, but fetching it
   // alongside saves a round trip on the common path.
   const [attendance, window] = await Promise.all([
     readAttendance(client, groupId, contactId),
-    getCheckinWindow(client, event),
+    windowRead,
   ]);
   if (!attendance) return { status: "unknown_contact" };
   const { contact } = attendance;
@@ -288,21 +323,27 @@ export async function checkIn(
   await step("group_add", () => client.addContactToGroup(groupId, contactId));
   const pointsAwarded = POINTS_PER_CHECKIN;
   const total = stored + pointsAwarded;
-  await step(
-    "points_write",
-    () => client.updateContact(contactId, buildPointsPatch(total)),
-    notice,
-  );
-  // Last, so a failed note can't affect the group or the points.
-  if (input.method === "staff") {
-    await writeStaffNote(client, {
-      eventId,
-      contactId,
-      eventName,
-      staff: input.staff,
-      now,
-    });
+  const noteInput = {
+    eventId,
+    contactId,
+    eventName,
+    staff: input.method === "staff" ? input.staff : null,
+    now,
+  };
+  try {
+    await step(
+      "points_write",
+      () => client.updateContact(contactId, buildPointsPatch(total)),
+      notice,
+    );
+  } catch (error) {
+    // In the group without the point: the note is still how a staff check-in
+    // is told from a self one, and who did it. It never touches points.
+    await writeStaffNote(client, noteInput);
+    throw error;
   }
+  // Last, so a failed note can't affect the group or the points.
+  await writeStaffNote(client, noteInput);
   return {
     status: "checked_in",
     name,
@@ -320,8 +361,9 @@ export async function checkIn(
 }
 
 /**
- * Leaves the staff check-in note. By now the member is in the group and has
- * their point, so any failure is logged and swallowed: surfacing it would show
+ * Leaves the staff check-in note, for a staff check-in only. By now the
+ * member is in the group (and, unless the points write failed, has their
+ * point), so any failure is logged and swallowed: surfacing it would show
  * an error for a check-in that worked. That includes errors that aren't from
  * TidyHQ. Logs ids and the error, never the note text.
  */
@@ -337,10 +379,12 @@ async function writeStaffNote(
     eventId: string;
     contactId: string;
     eventName: string | null;
-    staff: StaffActor;
+    /** Null for a self check-in, which leaves no note. */
+    staff: StaffActor | null;
     now: Date;
   },
 ): Promise<void> {
+  if (!staff) return;
   try {
     await client.addNote(
       contactId,

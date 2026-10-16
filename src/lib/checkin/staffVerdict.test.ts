@@ -8,6 +8,7 @@ type Shown = Exclude<
 >;
 
 const base = { name: "Dante Ruiz", eventName: "Social Night" };
+const NOW = new Date("2026-10-12T18:00:00Z");
 const OPENS = new Date("2026-10-17T01:30:00Z");
 
 // One of every status the verdict has to word. A Record, so a new status
@@ -38,7 +39,7 @@ describe("staffVerdict", () => {
   it("has wording for every status, for both roles", () => {
     for (const assessment of Object.values(CASES)) {
       for (const role of ["admin", "volunteer"] as const) {
-        const verdict = staffVerdict(assessment, role);
+        const verdict = staffVerdict(assessment, role, NOW);
         expect(verdict.text, `${assessment.status} ${role}`).not.toBe("");
         expect(verdict.name).toBe("Dante Ruiz");
       }
@@ -47,7 +48,7 @@ describe("staffVerdict", () => {
 
   it("lets only a member who is ready be checked in", () => {
     for (const assessment of Object.values(CASES)) {
-      expect(staffVerdict(assessment, "volunteer").canCheckIn).toBe(
+      expect(staffVerdict(assessment, "volunteer", NOW).canCheckIn).toBe(
         assessment.status === "ready",
       );
     }
@@ -56,7 +57,7 @@ describe("staffVerdict", () => {
   describe("for a volunteer", () => {
     it("gives a specific reason for event-related outcomes", () => {
       const text = (s: Shown["status"]) =>
-        staffVerdict(CASES[s], "volunteer").text;
+        staffVerdict(CASES[s], "volunteer", NOW).text;
       expect(text("ready")).toBe("Can check in.");
       expect(text("already_checked_in")).toBe("Already checked in.");
       expect(text("not_open")).toBe(
@@ -73,13 +74,15 @@ describe("staffVerdict", () => {
         "membership_inactive",
         "points_unreadable",
       ] as const) {
-        expect(staffVerdict(CASES[status], "volunteer").text).toBe(GENERIC);
+        expect(staffVerdict(CASES[status], "volunteer", NOW).text).toBe(
+          GENERIC,
+        );
       }
     });
 
     it("never contains membership-status or balance wording", () => {
       for (const assessment of Object.values(CASES)) {
-        const verdict = staffVerdict(assessment, "volunteer");
+        const verdict = staffVerdict(assessment, "volunteer", NOW);
         expect(JSON.stringify(verdict), assessment.status).not.toMatch(
           MEMBERSHIP_WORDING,
         );
@@ -87,38 +90,54 @@ describe("staffVerdict", () => {
     });
 
     it("hides a balance due on a member who can check in", () => {
-      expect(staffVerdict(CASES.ready, "volunteer").text).toBe("Can check in.");
+      expect(staffVerdict(CASES.ready, "volunteer", NOW).text).toBe(
+        "Can check in.",
+      );
     });
 
     it("shows the points total when it is readable, and nothing when it isn't", () => {
-      expect(staffVerdict(CASES.membership_inactive, "volunteer").total).toBe(
-        3,
-      );
       expect(
-        staffVerdict(CASES.points_unreadable, "volunteer").total,
+        staffVerdict(CASES.membership_inactive, "volunteer", NOW).total,
+      ).toBe(3);
+      expect(
+        staffVerdict(CASES.points_unreadable, "volunteer", NOW).total,
       ).toBeNull();
     });
   });
 
   describe("for an admin", () => {
     it("gives the specific membership and points reasons", () => {
-      const text = (s: Shown["status"]) => staffVerdict(CASES[s], "admin").text;
+      const text = (s: Shown["status"]) =>
+        staffVerdict(CASES[s], "admin", NOW).text;
       expect(text("membership_inactive")).toMatch(/membership/i);
       expect(text("points_unreadable")).toMatch(/points total/i);
       expect(text("membership_inactive")).not.toBe(GENERIC);
     });
 
+    it("says a grace-period membership ends today, like the member's own notice", () => {
+      const grace = {
+        ...CASES.ready,
+        membershipNotice: {
+          kind: "grace",
+          expiredOn: "2026-10-12",
+          renewBy: "2026-12-11",
+        },
+      } as Shown;
+      expect(staffVerdict(grace, "admin", NOW).text).toContain("ends today");
+    });
+
     it("adds the balance-due notice to a member who can check in", () => {
-      expect(staffVerdict(CASES.ready, "admin").text).toMatch(
+      expect(staffVerdict(CASES.ready, "admin", NOW).text).toMatch(
         /^Can check in\./,
       );
-      expect(staffVerdict(CASES.ready, "admin").text).toMatch(/balance due/i);
+      expect(staffVerdict(CASES.ready, "admin", NOW).text).toMatch(
+        /balance due/i,
+      );
     });
   });
 });
 
 describe("membershipWarnings", () => {
-  const NOW = new Date("2026-10-12T18:00:00Z");
   const expiredButFuture = {
     id: "m_bad",
     state: "expired",

@@ -1,18 +1,42 @@
-import { getCheckinWindow, isCheckinOpen } from "../tidyhq/checkinWindow";
+import {
+  checkinBlocker,
+  isCheckinOpen,
+  resolveCheckinWindow,
+  type CheckinBlocker,
+  type CheckinWindow,
+} from "../tidyhq/checkinWindow";
 import type { TidyClient } from "../tidyhq/client";
 import { isTidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
+import type { Event } from "../tidyhq/types";
+
+/** What was read to decide, so the page doesn't read it again. */
+export interface StaffEventLoaded {
+  event: Event;
+  groupId: string;
+  window: CheckinWindow;
+}
 
 /**
  * Whether a volunteer may still work an event's staff check-in page.
- * `ended` once check-in has closed, the event is archived, or check-in can
- * never open (no attendance group, no usable window or event times). Never
- * just because check-in hasn't opened yet: volunteers set up early. Unexpected
+ * `ended` once check-in has closed, or for any reason it can never open
+ * (`checkinBlocker`, the same rule as the admin event page's QR code). Never
+ * just because check-in hasn't opened yet: volunteers set up early.
+ * `loaded` is set unless the event has no attendance group. Unexpected
  * TidyHQ failures throw.
  */
 export type StaffEventState =
-  | { status: "running"; eventName: string | null }
-  | { status: "ended"; eventName: string | null }
+  | {
+      status: "running";
+      eventName: string | null;
+      loaded: StaffEventLoaded;
+    }
+  | {
+      status: "ended";
+      eventName: string | null;
+      reason: CheckinBlocker | "closed";
+      loaded: StaffEventLoaded | null;
+    }
   | { status: "unknown_event" };
 
 export async function staffEventState(
@@ -20,18 +44,25 @@ export async function staffEventState(
   eventId: string,
   now: Date,
 ): Promise<StaffEventState> {
-  let event;
+  let event, set;
   try {
-    event = await client.getEvent(eventId);
+    [event, set] = await Promise.all([
+      client.getEvent(eventId),
+      client.getEventCheckinWindow(eventId),
+    ]);
   } catch (error) {
     if (isTidyError(error, 404)) return { status: "unknown_event" };
     throw error;
   }
-  if (event.archived || findEventGroup(event) === null) {
-    return { status: "ended", eventName: event.name };
+  const { window } = resolveCheckinWindow(set, event);
+  const groupId = findEventGroup(event);
+  const loaded = groupId ? { event, groupId, window } : null;
+  const eventName = event.name;
+
+  const blocker = checkinBlocker(event, window);
+  if (blocker) return { status: "ended", eventName, reason: blocker, loaded };
+  if (isCheckinOpen(window, now) === "closed") {
+    return { status: "ended", eventName, reason: "closed", loaded };
   }
-  // A window that can't open reads as "closed" here, so it ends the mode too.
-  const window = await getCheckinWindow(client, event);
-  const status = isCheckinOpen(window, now) === "closed" ? "ended" : "running";
-  return { status, eventName: event.name };
+  return { status: "running", eventName, loaded: loaded! };
 }

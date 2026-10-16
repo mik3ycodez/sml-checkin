@@ -8,7 +8,13 @@ import {
 import { TidyError } from "../tidyhq/errors";
 import { MockTidyClient } from "../tidyhq/mock/MockTidyClient";
 import { createSeed } from "../tidyhq/mock/seed";
-import { assessCheckIn, CheckInFailure, checkIn } from "./checkIn";
+import { getCheckinWindow } from "../tidyhq/checkinWindow";
+import {
+  assessCheckIn,
+  assessCheckInFor,
+  CheckInFailure,
+  checkIn,
+} from "./checkIn";
 
 const NOW = new Date("2026-10-12T18:00:00Z");
 
@@ -1063,5 +1069,125 @@ describe("assessCheckIn carries the points total on refusals", () => {
         now: NOW,
       }),
     ).toMatchObject({ status: "points_unreadable", total: null });
+  });
+});
+
+describe("a staff check-in whose points write fails", () => {
+  const staff = {
+    contactId: "c_pat",
+    name: "Pat Rivera",
+    role: "volunteer",
+  } as const;
+  const input = {
+    eventId: "ev_tonight",
+    contactId: "c_dante",
+    method: "staff",
+    staff,
+    now: NOW,
+  } as const;
+  const notes = async (client: MockTidyClient) =>
+    (await client.getContact("c_dante")).notes.map((n) => n.text);
+
+  it("still leaves the note, and still reports the failure", async () => {
+    const client = seededClient();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(client, "updateContact").mockRejectedValue(
+      new TidyError(503, "down"),
+    );
+    await expect(checkIn(client, input)).rejects.toMatchObject({
+      name: "CheckInFailure",
+      step: "points_write",
+    });
+    expect(await groupIds(client, "grp_social_night")).toContain("c_dante");
+    expect(await notes(client)).toEqual([
+      expect.stringContaining("by volunteer: Pat Rivera (c_pat)"),
+    ]);
+    expect(await storedPoints(client, "c_dante")).toBe(0);
+  });
+
+  it("writes the note after the group add, and never touches points", async () => {
+    const client = seededClient();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const order: string[] = [];
+    const wrap = (method: "addContactToGroup" | "addNote") => {
+      const original = client[method].bind(client) as (
+        ...a: unknown[]
+      ) => Promise<unknown>;
+      vi.spyOn(client, method).mockImplementation(
+        async (...args: unknown[]) => {
+          order.push(method);
+          return original(...args) as never;
+        },
+      );
+    };
+    wrap("addContactToGroup");
+    wrap("addNote");
+    const update = vi
+      .spyOn(client, "updateContact")
+      .mockRejectedValue(new TidyError(503, "down"));
+    await checkIn(client, input).catch(() => {});
+    expect(order).toEqual(["addContactToGroup", "addNote"]);
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it("swallows a failing note, so the original failure is the one reported", async () => {
+    const client = seededClient();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(client, "updateContact").mockRejectedValue(
+      new TidyError(503, "down"),
+    );
+    vi.spyOn(client, "addNote").mockRejectedValue(new TypeError("bug"));
+    await expect(checkIn(client, input)).rejects.toMatchObject({
+      name: "CheckInFailure",
+      step: "points_write",
+    });
+  });
+
+  it("leaves no note for a self check-in, or when the group add fails", async () => {
+    const client = seededClient();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(client, "updateContact").mockRejectedValue(
+      new TidyError(503, "down"),
+    );
+    await checkIn(client, {
+      eventId: "ev_tonight",
+      contactId: "c_dante",
+      now: NOW,
+    }).catch(() => {});
+    expect(await notes(client)).toEqual([]);
+
+    const other = seededClient();
+    vi.spyOn(other, "addContactToGroup").mockRejectedValue(
+      new TidyError(503, "down"),
+    );
+    await checkIn(other, input).catch(() => {});
+    expect(await notes(other)).toEqual([]);
+  });
+});
+
+describe("assessCheckInFor", () => {
+  it("assesses with the event and window already read, without reading them again", async () => {
+    const client = seededClient();
+    const event = await client.getEvent("ev_tonight");
+    const window = await getCheckinWindow(client, event);
+    const getEvent = vi.spyOn(client, "getEvent");
+    const getWindow = vi.spyOn(client, "getEventCheckinWindow");
+    const result = await assessCheckInFor(client, {
+      contactId: "c_dante",
+      now: NOW,
+      event,
+      groupId: "grp_social_night",
+      window,
+    });
+    expect(result.status).toBe("ready");
+    expect(getEvent).not.toHaveBeenCalled();
+    expect(getWindow).not.toHaveBeenCalled();
+    expect(result).toEqual(
+      await assessCheckIn(client, {
+        eventId: "ev_tonight",
+        contactId: "c_dante",
+        now: NOW,
+      }),
+    );
   });
 });

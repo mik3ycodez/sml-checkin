@@ -1,7 +1,7 @@
-import { dateLabel, seattleTimeLabel } from "../dates";
+import { seattleTimeLabel } from "../dates";
 import {
   findInconsistentMemberships,
-  type MembershipNotice,
+  membershipNoticeStaffText,
   type MembershipProblem,
 } from "../membership";
 import type { Membership } from "../tidyhq/types";
@@ -32,12 +32,6 @@ export interface StaffVerdict {
 export const VOLUNTEER_GENERIC_REFUSAL =
   "Can't check in here. Please see a Board member.";
 
-function noticeForAdmin(notice: MembershipNotice): string {
-  return notice.kind === "balance_due"
-    ? "Balance due: ask them to complete payment in TidyHQ."
-    : `In the grace period (membership expired ${dateLabel(notice.expiredOn)}): ask them to renew in TidyHQ by ${dateLabel(notice.renewBy)}.`;
-}
-
 /**
  * What a staff screen says about a member, for one role. Event-related
  * outcomes (already checked in, not open yet, closed, unavailable) get the
@@ -49,6 +43,7 @@ function noticeForAdmin(notice: MembershipNotice): string {
 export function staffVerdict(
   assessment: StaffAssessment,
   role: StaffRole,
+  now: Date,
 ): StaffVerdict {
   const total =
     assessment.status === "ready" ? assessment.stored : assessment.total;
@@ -65,7 +60,7 @@ export function staffVerdict(
     case "ready": {
       const notice =
         role === "admin" && assessment.membershipNotice
-          ? ` ${noticeForAdmin(assessment.membershipNotice)}`
+          ? ` ${membershipNoticeStaffText(assessment.membershipNotice, now)}`
           : "";
       return verdict(true, `Can check in.${notice}`);
     }
