@@ -1,4 +1,5 @@
 import type { TidyClient } from "./client";
+import { findEventGroup } from "./eventGroups";
 import { rangeProblem, validRange, type RangeProblem } from "./timeRange";
 import type { Event, EventCheckinWindow } from "./types";
 
@@ -78,4 +79,30 @@ export function isCheckinOpen(window: CheckinWindow, now: Date): CheckinStatus {
   if (now < opensAt) return "not_yet";
   if (now >= closesAt) return "closed";
   return "open";
+}
+
+/** Why members can never check in to an event, whatever the time. */
+export type CheckinBlocker =
+  /** Archived in TidyHQ: not an event to run check-in for. */
+  | "archived"
+  /** No attendance group, so a check-in couldn't be recorded. */
+  | "no_group"
+  /** Neither an admin window nor the event's own times can open check-in. */
+  | "never_opens";
+
+/**
+ * The one rule for events members can't check in to at any time, first match
+ * winning, or null. Matches what check-in itself refuses: archived
+ * (`assessCheckIn`), no group (`findEvent`), a window that can't open
+ * (`isCheckinOpen` is always "closed" without times). The admin event page's
+ * QR code and the volunteer staff page both use it, so they can't disagree.
+ */
+export function checkinBlocker(
+  event: Pick<Event, "id" | "archived">,
+  window: CheckinWindow,
+): CheckinBlocker | null {
+  if (event.archived) return "archived";
+  if (findEventGroup(event) === null) return "no_group";
+  if (!window.opensAt || !window.closesAt) return "never_opens";
+  return null;
 }

@@ -352,3 +352,20 @@ describe("UnknownAdminEvent", () => {
     expect(html).toContain('href="/admin"');
   });
 });
+
+describe("AdminEventScreen staff check-in link", () => {
+  it("links to the event's staff check-in page, hidden when printing", () => {
+    const html = renderToStaticMarkup(render(EVENT));
+    expect(html).toMatch(
+      /<a[^>]*href="\/admin\/events\/ev_one\/checkin"[^>]*print:hidden[^>]*>Staff check-in<\/a>/,
+    );
+  });
+
+  it("isn't offered when members can't check in at all", () => {
+    const html = renderToStaticMarkup(
+      render({ ...EVENT, checkin: "unavailable" }),
+    );
+    expect(html).not.toContain('/checkin"');
+    expect(html).not.toContain("Staff check-in");
+  });
+});

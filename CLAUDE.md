@@ -92,7 +92,8 @@ system of record; this app is a thin layer on top of it.
   check-in refuses, and a test checks that they agree.
 - What a check-in records: for every check-in, who and which event (the
   member's place in the event's TidyHQ group). A **staff** check-in also
-  writes a TidyHQ contact note with the event, which admin did it, and when;
+  writes a TidyHQ contact note with the event, which staff member did it (their
+  role, name and contact id), and when;
   a self check-in writes no note, so a check-in with no note was a self
   check-in. A self check-in's time isn't recorded (TidyHQ's API documents no
   timestamp for group membership); that gap is accepted. A failed note is
@@ -105,6 +106,20 @@ system of record; this app is a thin layer on top of it.
   unreadable event shows "temporarily unavailable" and retries, "couldn't check
   access" retries the event page, and an unreadable list says so while the QR
   code still shows. Method and time aren't shown.
+- **Check-in volunteers.** Contacts in SML's "App Check-In Volunteers" group
+  (id in `HELPER_GROUP_ID`; managed in TidyHQ, never written by the app) can
+  run **staff check-in only** (`/admin/events/<id>/checkin`). Admins can too.
+  `requireVolunteer` guards the page and its action, returns the role, and
+  re-reads both groups on every request, failing closed like `requireAdmin`.
+  The URL is the mode: no cookie, nothing stored. A volunteer loses the page
+  once check-in has closed, the event is archived, or it can never open (never
+  just because it hasn't opened yet); admins aren't limited. **A volunteer
+  sees search by name, and a member's name, points total and a verdict.**
+  The verdict gives a specific reason only for event outcomes (already checked
+  in, not open yet, closed, unavailable); every membership or points refusal
+  is one generic line ("Can't check in here. Please see a Board member.").
+  Admins see the specific reasons and inconsistent-membership warnings
+  (`staffVerdict`).
 - **A member's name is always `contactName(contact)`** (`src/lib/tidyhq`):
   display name, else first and last name, else "Unnamed member". Never read
   `display_name` directly: live data may have nulls.

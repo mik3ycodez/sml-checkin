@@ -28,8 +28,9 @@ const DENIED_AS: Record<VolunteerDeniedReason, AdminDeniedReason> = {
  * - No session, or a session whose contact TidyHQ no longer has: redirects to
  *   sign-in and back to `returnTo`.
  * - In neither group, or any trouble reading them: redirects to the denied
- *   screen, which tells "not allowed" from "couldn't check". (The screen's
- *   wording still says "admin"; PR 6b makes it cover both roles.)
+ *   screen, which tells "not allowed" from "couldn't check". For the staff
+ *   check-in page it keeps `returnTo`, so the screen words its guidance for
+ *   volunteers, links back to member check-in, and retries the page.
  */
 export async function requireVolunteer(
   returnTo: string,

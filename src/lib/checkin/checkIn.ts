@@ -13,7 +13,11 @@ import {
   type RewardEntry,
   type RewardStanding,
 } from "../rewards";
-import { getCheckinWindow, isCheckinOpen } from "../tidyhq/checkinWindow";
+import {
+  getCheckinWindow,
+  isCheckinOpen,
+  type CheckinWindow,
+} from "../tidyhq/checkinWindow";
 import type { TidyClient } from "../tidyhq/client";
 import { contactName } from "../tidyhq/contactName";
 import { findContact } from "../tidyhq/contacts";
@@ -21,30 +25,39 @@ import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
 import { isTidyError, type TidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
 import { isInGroup } from "../tidyhq/groups";
+import { staffNoteText, type StaffActor } from "./staffNote";
 import type { Contact, Event } from "../tidyhq/types";
 
-export interface CheckInInput {
+/**
+ * A staff check-in must say who did it, so TypeScript rejects one that
+ * doesn't: the note names them.
+ */
+export type CheckInInput = {
   eventId: string;
   contactId: string;
-  /** Not saved yet; there's nowhere to record it until notes or a database. */
-  method?: CheckInMethod;
   now: Date;
+} & (
+  | { method?: Extract<CheckInMethod, "self"> }
+  | { method: Extract<CheckInMethod, "staff">; staff: StaffActor }
+);
+
+/** What a refusal knows about the member: staff see the stored total. */
+interface Known {
+  name: string;
+  eventName: string | null;
+  /** Null if the stored total is unreadable. */
+  total: number | null;
 }
 
 /** Why a member can't check in. The same reasons whether asked before or at the tap. */
 export type CheckInRefusal =
-  | { status: "membership_inactive"; name: string; eventName: string | null }
+  | (Known & { status: "membership_inactive" })
   /** The stored total isn't a plain whole number; a volunteer must fix it. */
-  | { status: "points_unreadable"; name: string; eventName: string | null }
-  | {
-      status: "not_open";
-      name: string;
-      eventName: string | null;
-      opensAt: Date;
-    }
-  | { status: "closed"; name: string; eventName: string | null }
+  | (Known & { status: "points_unreadable" })
+  | (Known & { status: "not_open"; opensAt: Date })
+  | (Known & { status: "closed" })
   /** Archived in TidyHQ: not an event to check in to, whatever its window says. */
-  | { status: "event_unavailable"; name: string; eventName: string | null }
+  | (Known & { status: "event_unavailable" })
   | { status: "unknown_event" }
   /** The session names a contact TidyHQ no longer has (merged or deleted). */
   | { status: "unknown_contact" };
@@ -191,40 +204,86 @@ export async function assessCheckIn(
   const found = await findEvent(client, eventId);
   if (!found) return { status: "unknown_event" };
   const { event, groupId } = found;
-  const eventName = event.name;
+  return assessCheckInFor(client, {
+    contactId,
+    now,
+    event,
+    groupId,
+    // Still read alongside the attendance, as before: not awaited here.
+    window: getCheckinWindow(client, event),
+  });
+}
 
+/**
+ * `assessCheckIn` for a caller that has already read the event, its group and
+ * its window (the staff page, which needs them for its own check). Same rules,
+ * no repeat reads of them.
+ */
+export async function assessCheckInFor(
+  client: TidyClient,
+  {
+    contactId,
+    now,
+    event,
+    groupId,
+    window: windowRead,
+  }: {
+    contactId: string;
+    now: Date;
+    event: Event;
+    groupId: string;
+    /** Or a read in flight, so it can overlap the attendance read. */
+    window: CheckinWindow | Promise<CheckinWindow>;
+  },
+): Promise<CheckInAssessment> {
+  const eventName = event.name;
   // The window is only needed if not already checked in, but fetching it
   // alongside saves a round trip on the common path.
   const [attendance, window] = await Promise.all([
     readAttendance(client, groupId, contactId),
-    getCheckinWindow(client, event),
+    windowRead,
   ]);
   if (!attendance) return { status: "unknown_contact" };
   const { contact } = attendance;
   const name = contactName(contact);
   if (attendance.checkedIn) {
-    const total = readPoints(contact);
-    return { status: "already_checked_in", name, eventName, total };
+    return {
+      status: "already_checked_in",
+      name,
+      eventName,
+      total: readPoints(contact),
+    };
   }
 
-  if (event.archived) return { status: "event_unavailable", name, eventName };
+  const total = readPoints(contact);
+  if (event.archived) {
+    return { status: "event_unavailable", name, eventName, total };
+  }
 
   const open = isCheckinOpen(window, now);
   if (open === "not_yet") {
-    return { status: "not_open", name, eventName, opensAt: window.opensAt! };
+    return {
+      status: "not_open",
+      name,
+      eventName,
+      total,
+      opensAt: window.opensAt!,
+    };
   }
-  if (open === "closed") return { status: "closed", name, eventName };
+  if (open === "closed") return { status: "closed", name, eventName, total };
 
   const memberships = await client.getMemberships(contactId);
   // Current members and those in the grace period may check in.
   logInconsistentMemberships(contactId, memberships, now);
   const standing = membershipStanding(memberships, now);
   if (standing.kind !== "current" && standing.kind !== "grace") {
-    return { status: "membership_inactive", name, eventName };
+    return { status: "membership_inactive", name, eventName, total };
   }
 
-  const stored = readPoints(contact);
-  if (stored === null) return { status: "points_unreadable", name, eventName };
+  const stored = total;
+  if (stored === null) {
+    return { status: "points_unreadable", name, eventName, total };
+  }
   return {
     status: "ready",
     name,
@@ -251,8 +310,9 @@ export async function assessCheckIn(
  */
 export async function checkIn(
   client: TidyClient,
-  { eventId, contactId, now }: CheckInInput,
+  input: CheckInInput,
 ): Promise<CheckInResult> {
+  const { eventId, contactId, now } = input;
   const assessment = await step("lookup", () =>
     assessCheckIn(client, { eventId, contactId, now }),
   );
@@ -263,11 +323,27 @@ export async function checkIn(
   await step("group_add", () => client.addContactToGroup(groupId, contactId));
   const pointsAwarded = POINTS_PER_CHECKIN;
   const total = stored + pointsAwarded;
-  await step(
-    "points_write",
-    () => client.updateContact(contactId, buildPointsPatch(total)),
-    notice,
-  );
+  const noteInput = {
+    eventId,
+    contactId,
+    eventName,
+    staff: input.method === "staff" ? input.staff : null,
+    now,
+  };
+  try {
+    await step(
+      "points_write",
+      () => client.updateContact(contactId, buildPointsPatch(total)),
+      notice,
+    );
+  } catch (error) {
+    // In the group without the point: the note is still how a staff check-in
+    // is told from a self one, and who did it. It never touches points.
+    await writeStaffNote(client, noteInput);
+    throw error;
+  }
+  // Last, so a failed note can't affect the group or the points.
+  await writeStaffNote(client, noteInput);
   return {
     status: "checked_in",
     name,
@@ -282,4 +358,47 @@ export async function checkIn(
       standing: assessment.rewardStanding,
     })),
   };
+}
+
+/**
+ * Leaves the staff check-in note, for a staff check-in only. By now the
+ * member is in the group (and, unless the points write failed, has their
+ * point), so any failure is logged and swallowed: surfacing it would show
+ * an error for a check-in that worked. That includes errors that aren't from
+ * TidyHQ. Logs ids and the error, never the note text.
+ */
+async function writeStaffNote(
+  client: TidyClient,
+  {
+    eventId,
+    contactId,
+    eventName,
+    staff,
+    now,
+  }: {
+    eventId: string;
+    contactId: string;
+    eventName: string | null;
+    /** Null for a self check-in, which leaves no note. */
+    staff: StaffActor | null;
+    now: Date;
+  },
+): Promise<void> {
+  if (!staff) return;
+  try {
+    await client.addNote(
+      contactId,
+      staffNoteText({ eventId, eventName, staff, now }),
+    );
+  } catch (error) {
+    console.error("staff check-in note failed", {
+      eventId,
+      contactId,
+      error: isTidyError(error)
+        ? `TidyError ${error.status}: ${error.message}`
+        : error instanceof Error
+          ? error.name
+          : "unknown",
+    });
+  }
 }

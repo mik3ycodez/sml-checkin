@@ -1,7 +1,8 @@
 import { isTidyError } from "../tidyhq/errors";
-import { findEventGroup } from "../tidyhq/eventGroups";
 import {
+  checkinBlocker,
   isCheckinOpen,
+  type CheckinBlocker,
   resolveCheckinWindow,
   type CheckinStatus,
   type CheckinWindow,
@@ -11,14 +12,8 @@ import type { TidyClient } from "../tidyhq/client";
 import { checkinPath } from "../checkin/paths";
 import { blankToNull } from "./events";
 
-/** Why an event gets no QR code. */
-export type NoQrReason =
-  /** Archived in TidyHQ: not an event to run check-in for. */
-  | "archived"
-  /** No attendance group, so a check-in couldn't be recorded. */
-  | "no_group"
-  /** Neither an admin window nor the event's own times can open check-in. */
-  | "never_opens";
+/** Why an event gets no QR code: the reasons check-in can never open. */
+export type NoQrReason = CheckinBlocker;
 
 export interface AdminEventPage {
   id: string;
@@ -76,16 +71,10 @@ export async function getAdminEventPage(
   }
   const { window, ignored } = resolveCheckinWindow(set, event);
 
-  // The reasons check-in itself would refuse the event: archived
-  // (`assessCheckIn`), no group (`findEvent`), or a window that can't open
-  // (`isCheckinOpen` is always "closed" without times).
-  let qr: AdminEventPage["qr"];
-  if (event.archived) qr = { kind: "none", reason: "archived" };
-  else if (findEventGroup(event) === null) {
-    qr = { kind: "none", reason: "no_group" };
-  } else if (!window.opensAt || !window.closesAt) {
-    qr = { kind: "none", reason: "never_opens" };
-  } else qr = { kind: "qr", path: checkinPath(event.id) };
+  const blocker = checkinBlocker(event, window);
+  const qr: AdminEventPage["qr"] = blocker
+    ? { kind: "none", reason: blocker }
+    : { kind: "qr", path: checkinPath(event.id) };
 
   return {
     id: event.id,

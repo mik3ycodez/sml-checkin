@@ -1,8 +1,9 @@
 import { refreshIntervalSeconds } from "@/lib/admin/attendees";
 import type { AdminDeniedReason } from "@/lib/auth/admin";
-import { SignedInAs } from "../memberUi";
+import { SECONDARY, SignedInAs } from "../memberUi";
 import type { AdminEvent, AdminEvents } from "@/lib/admin/events";
 import { seattleTimeLabel } from "@/lib/dates";
+import { checkinPath } from "../memberPaths";
 import { ADMIN_PATH, adminEventPath } from "./paths";
 
 // Plain server-rendered markup, like the member pages: no client JavaScript.
@@ -96,7 +97,8 @@ export function AdminHomeScreen({
 }
 
 /**
- * Why a signed-in person can't use the admin pages. `unavailable` is
+ * Why a signed-in person can't use the admin pages, or (with `staffEventId`)
+ * the staff check-in page, which volunteers use too. `unavailable` is
  * deliberately different from `not_admin`, so the Board knows to look at the
  * app's settings and TidyHQ rather than at who's in the group.
  */
@@ -104,18 +106,25 @@ export function AdminDeniedScreen({
   reason,
   name,
   retryPath,
+  staffEventId,
 }: {
   reason: AdminDeniedReason;
   /** Null if TidyHQ couldn't say who this is. */
   name: string | null;
   /**
-   * An event page to go back to after 30 seconds (only when access couldn't
-   * be checked), so a door screen recovers from a one-off TidyHQ failure by
+   * A page to go back to after 30 seconds (only when access couldn't be
+   * checked), so a door screen recovers from a one-off TidyHQ failure by
    * itself. The caller has validated it (`deniedRetryPath`).
    */
   retryPath?: string | null;
+  /** Set when turned away from this event's staff check-in page. */
+  staffEventId?: string | null;
 }) {
   const retrying = reason === "unavailable" && retryPath;
+  const staff = staffEventId != null;
+  const retryText = retrying
+    ? `We'll try again in ${refreshIntervalSeconds()} seconds.`
+    : "Please try again in a minute.";
   return (
     <div className="flex flex-1 flex-col justify-center gap-4">
       {retrying && (
@@ -130,26 +139,33 @@ export function AdminDeniedScreen({
             You don&apos;t have access
           </h1>
           <p className="text-foreground/70 text-lg">
-            You don&apos;t have access to the admin pages. If you should, ask a
-            Board member to add you to the App Admin group in TidyHQ.
+            {staff
+              ? "You don't have access to staff check-in. If you should, ask a Board member to add you to the App Check-In Volunteers group in TidyHQ."
+              : "You don't have access to the admin pages. If you should, ask a Board member to add you to the App Admin group in TidyHQ."}
           </p>
         </>
       ) : (
         <>
           <h1 className="text-2xl font-bold tracking-tight">
-            Admin access unavailable
+            {staff ? "Check-in access unavailable" : "Admin access unavailable"}
           </h1>
           <p className="text-foreground/70 text-lg">
-            We couldn&apos;t check admin access just now, so nobody can use the
-            admin pages.{" "}
-            {retrying
-              ? `We'll try again in ${refreshIntervalSeconds()} seconds.`
-              : "Please try again in a minute."}{" "}
-            If it keeps happening, tell whoever runs this site.
+            {staff
+              ? "We couldn't check check-in access just now, so staff check-in isn't available."
+              : "We couldn't check admin access just now, so nobody can use the admin pages."}{" "}
+            {retryText} If it keeps happening, tell whoever runs this site.
           </p>
         </>
       )}
-      <SignedInAs name={name} returnTo={ADMIN_PATH} />
+      {staff && (
+        <a href={checkinPath(staffEventId)} className={SECONDARY}>
+          Back to check-in
+        </a>
+      )}
+      <SignedInAs
+        name={name}
+        returnTo={staff ? checkinPath(staffEventId) : ADMIN_PATH}
+      />
     </div>
   );
 }

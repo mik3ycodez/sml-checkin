@@ -59,7 +59,7 @@ function render(
   return { html, text: text(html) };
 }
 
-const DANTE = { name: "Dante Ruiz", eventName: "Social Night" };
+const DANTE = { name: "Dante Ruiz", eventName: "Social Night", total: 0 };
 
 describe("StatusScreen", () => {
   const CHECKED_IN = {
@@ -335,6 +335,7 @@ describe("StatusScreen", () => {
       status: "closed",
       name: "Dante Ruiz",
       eventName: null,
+      total: 0,
     });
     expect(text).toContain("SML event Check-in has closed");
   });
