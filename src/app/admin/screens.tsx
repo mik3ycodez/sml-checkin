@@ -1,3 +1,4 @@
+import type { AdminDeniedReason } from "@/lib/auth/admin";
 import { SignedInAs } from "../memberUi";
 import { ADMIN_PATH } from "./paths";
 
@@ -21,7 +22,7 @@ export function AdminDeniedScreen({
   reason,
   name,
 }: {
-  reason: "not_admin" | "unavailable";
+  reason: AdminDeniedReason;
   /** Null if TidyHQ couldn't say who this is. */
   name: string | null;
 }) {
@@ -49,16 +50,7 @@ export function AdminDeniedScreen({
           </p>
         </>
       )}
-      {name ? (
-        <SignedInAs name={name} returnTo={ADMIN_PATH} />
-      ) : (
-        <form method="post" action="/auth/signout">
-          <input type="hidden" name="returnTo" value={ADMIN_PATH} />
-          <button type="submit" className="text-foreground/70 underline">
-            Sign out
-          </button>
-        </form>
-      )}
+      <SignedInAs name={name} returnTo={ADMIN_PATH} />
     </div>
   );
 }

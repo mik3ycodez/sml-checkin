@@ -1,6 +1,6 @@
 import { requireAdmin } from "./requireAdmin";
 import { ADMIN_PATH } from "./paths";
-import { AdminDeniedScreen, AdminHomeScreen } from "./screens";
+import { AdminHomeScreen } from "./screens";
 
 // The admin home page. Rendered fully on the server with no Suspense boundary
 // or loading file (see CLAUDE.md), like the member pages. The event list
@@ -8,8 +8,5 @@ import { AdminDeniedScreen, AdminHomeScreen } from "./screens";
 
 export default async function AdminPage() {
   const admin = await requireAdmin(ADMIN_PATH);
-  if (admin.status === "denied") {
-    return <AdminDeniedScreen reason={admin.reason} name={admin.name} />;
-  }
   return <AdminHomeScreen name={admin.name} />;
 }

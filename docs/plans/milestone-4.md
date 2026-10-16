@@ -30,7 +30,8 @@ attendees, staff check-in), then one report.
   stored in the cookie.
 - **Fails closed.** If the group can't be read (TidyHQ error, unknown group,
   `ADMIN_GROUP_ID` unset in live mode or blank), admin access is denied and
-  the problem is logged (contact id and error status only, never tokens).
+  the problem is logged (contact id, TidyHQ's error status and message, never
+  tokens; for a non-TidyHQ error, only its name).
   The page says admin access couldn't be checked, which is different from
   "you're not an admin", so the Board knows to look at config rather than
   the group.
@@ -75,28 +76,33 @@ attendees, staff check-in), then one report.
 
 ### PR 1: Admin access rule (test-first) 🔍 In review (#23)
 
-- `src/lib/auth/admin.ts`: `adminAccess(client, contactId, groupId)` returns
+- `src/lib/auth/admin.ts`: `adminAccess(client, contactId, group)` returns
   `admin` (with the name), `not_admin`, or `unavailable`, plus
-  `adminGroupId(env, mode)`: the mock seed's group by default in mock mode,
-  nothing in live mode, and an id with anything but letters, digits, `_` and
-  `-` counts as unusable, so it can't alter a request path later.
-  `unavailable` is logged (contact id and TidyHQ's status and message; for a
-  non-TidyHQ error, only its name).
-- `src/app/admin/requireAdmin.ts`: for admin pages and actions. No session
-  redirects to sign-in with `returnTo`. `not_admin` and `unavailable` come
-  back as a `denied` result and the page renders `AdminDeniedScreen` with
-  its own message. _(Built: not Next's `forbidden()`, which is experimental
+  `adminGroup(env, mode)`: the mock seed's group by default in mock mode,
+  nothing in live mode (`not_configured`), and an id with anything but
+  letters, digits, `_` and `-` is `invalid`, so it can't alter a request path
+  later. `unavailable` is logged with its own reason (`not_configured`,
+  `invalid`, or `read_failed`: contact id and TidyHQ's status and message; for
+  a non-TidyHQ error, only its name).
+- `src/app/admin/requireAdmin.ts`: for admin pages and actions. **Fails
+  closed by stopping the request itself**, and only ever returns for an admin,
+  so a caller can't forget to check. No session, or a session whose contact
+  TidyHQ no longer has (as `/me` does), redirects to sign-in with
+  `returnTo`. `not_admin` and `unavailable` redirect to `/admin/denied`, which
+  renders `AdminDeniedScreen` with its own message. The group and the contact
+  are read together. _(Built: not Next's `forbidden()`, which is experimental
   (`authInterrupts`) and renders one fixed page, so it can't tell the two
   apart. The cost: the denied page has status 200, not 403. It shows nothing
-  private.)_
+  private, and its `reason` query only picks the wording.)_
 - `/admin` is a placeholder (heading and who's signed in) so the guard has
   something to protect; PR 2 fills it in.
 - Seed: an App Admin group (`grp_app_admin`) with a new Board member, Casey
   Moreno, in it. Existing members don't change.
 - `.env.example`: `ADMIN_GROUP_ID`, and `CLAUDE.md` records the decision.
 - Tests: the rule (admin, member, unknown contact, read on every call,
-  failure, unknown group, unset id, a non-TidyHQ error that must not log its
-  message), id parsing, the screens, and Playwright (sign in and land on
+  failure, unknown group, unset or invalid id, a non-TidyHQ error that must
+  not log its message), id parsing, `requireAdmin` (a non-admin can't get
+  past it even if the caller ignores the result), the screens, and Playwright (sign in and land on
   `/admin`; a member is turned away) in all three projects. "A removal takes
   effect on the next load" is the unit test that the group is read every time;
   an end-to-end version would need another mock-only route.

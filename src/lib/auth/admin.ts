@@ -11,17 +11,28 @@ import { MOCK_ADMIN_GROUP_ID } from "../tidyhq/mock/seed";
 const GROUP_ID = /^[A-Za-z0-9_-]+$/;
 
 /**
- * The App Admin group's id, from `ADMIN_GROUP_ID`, or null if there isn't a
- * usable one. Mock mode falls back to the seed's group so development needs
- * no setup; live mode has no default.
+ * The App Admin group's id from `ADMIN_GROUP_ID`, or why there isn't a usable
+ * one: `not_configured` (unset or blank) or `invalid` (set, but not a group
+ * id), so the log points at the real problem. Mock mode falls back to the
+ * seed's group when it's unset, so development needs no setup; live mode has
+ * no default.
  */
-export function adminGroupId(
+export type AdminGroup =
+  { id: string } | { problem: "not_configured" | "invalid" };
+
+export function adminGroup(
   env: { ADMIN_GROUP_ID?: string },
   mode: TidyMode,
-): string | null {
+): AdminGroup {
   const configured = env.ADMIN_GROUP_ID?.trim();
-  if (!configured) return mode === "mock" ? MOCK_ADMIN_GROUP_ID : null;
-  return GROUP_ID.test(configured) ? configured : null;
+  if (!configured) {
+    return mode === "mock"
+      ? { id: MOCK_ADMIN_GROUP_ID }
+      : { problem: "not_configured" };
+  }
+  return GROUP_ID.test(configured)
+    ? { id: configured }
+    : { problem: "invalid" };
 }
 
 export type AdminAccess =
@@ -29,6 +40,9 @@ export type AdminAccess =
   | { status: "not_admin" }
   /** The group couldn't be read. Denied, which is different from `not_admin`. */
   | { status: "unavailable" };
+
+/** Why an admin page turned someone away; derived, so a new status can't drift. */
+export type AdminDeniedReason = Exclude<AdminAccess["status"], "admin">;
 
 /**
  * Whether the contact is an admin. Fails closed: if the group can't be read
@@ -39,17 +53,17 @@ export type AdminAccess =
 export async function adminAccess(
   client: TidyClient,
   contactId: string,
-  groupId: string | null,
+  group: AdminGroup,
 ): Promise<AdminAccess> {
-  if (!groupId) {
+  if ("problem" in group) {
     console.error("admin access unavailable", {
       contactId,
-      reason: "not_configured",
+      reason: group.problem,
     });
     return { status: "unavailable" };
   }
   try {
-    const admins = await client.listGroupContacts(groupId);
+    const admins = await client.listGroupContacts(group.id);
     const admin = admins.find((c) => c.id === contactId);
     return admin
       ? { status: "admin", name: admin.display_name }

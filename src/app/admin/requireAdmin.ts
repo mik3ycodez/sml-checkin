@@ -1,47 +1,42 @@
 import { redirect } from "next/navigation";
-import { adminAccess, adminGroupId } from "@/lib/auth/admin";
+import { adminAccess, adminGroup } from "@/lib/auth/admin";
 import { getSession } from "@/lib/auth/session";
 import { getTidyClient, getTidyMode } from "@/lib/tidyhq";
 import { signInPath } from "../memberPaths";
-
-export type AdminCheck =
-  | { status: "admin"; contactId: string; name: string }
-  | {
-      status: "denied";
-      reason: "not_admin" | "unavailable";
-      /** Null if TidyHQ couldn't say who this is. */
-      name: string | null;
-    };
+import { lookupContact } from "./lookupContact";
+import { adminDeniedPath } from "./paths";
 
 /**
- * The guard for every admin page and server action: call it first, and only
- * go on when `status` is `admin`. A page check alone doesn't protect a server
- * action, which anyone can post to, so each action calls this itself.
+ * The guard for every admin page and server action: call it first. It fails
+ * closed by stopping the request itself, so a caller can't forget to check
+ * the result (a page check alone doesn't protect a server action, which
+ * anyone can post to). It only ever returns for an admin.
  *
- * No session redirects to sign-in and back to `returnTo`. Anyone else not in
- * the App Admin group, or any trouble reading it, is `denied` (fails closed),
- * and the page renders `AdminDeniedScreen`. It's a result and not Next's
- * `forbidden()`, which is experimental and can't say which of the two it was.
+ * - No session, or a session whose contact TidyHQ no longer has: redirects to
+ *   sign-in and back to `returnTo`, as `/me` does.
+ * - Not in the App Admin group, or any trouble reading it: redirects to the
+ *   denied page, which says which of the two it was. (A redirect, not Next's
+ *   `forbidden()`, which is experimental and can't say.)
+ *
+ * The group and the contact are read together, since neither needs the other.
  */
-export async function requireAdmin(returnTo: string): Promise<AdminCheck> {
+export async function requireAdmin(
+  returnTo: string,
+): Promise<{ contactId: string; name: string }> {
   const session = await getSession();
   if (!session) redirect(signInPath(returnTo));
 
   const client = getTidyClient();
   const { contactId } = session;
-  const access = await adminAccess(
-    client,
-    contactId,
-    adminGroupId({ ADMIN_GROUP_ID: process.env.ADMIN_GROUP_ID }, getTidyMode()),
-  );
-  if (access.status === "admin") {
-    return { status: "admin", contactId, name: access.name };
-  }
-  // Only to say who's signed in. If this read fails too, the screen still
-  // offers a sign-out.
-  const name = await client
-    .getContact(contactId)
-    .then((contact) => contact.display_name)
-    .catch(() => null);
-  return { status: "denied", reason: access.status, name };
+  const [access, contact] = await Promise.all([
+    adminAccess(
+      client,
+      contactId,
+      adminGroup({ ADMIN_GROUP_ID: process.env.ADMIN_GROUP_ID }, getTidyMode()),
+    ),
+    lookupContact(client, contactId),
+  ]);
+  if (contact.status === "unknown") redirect(signInPath(returnTo));
+  if (access.status !== "admin") redirect(adminDeniedPath(access.status));
+  return { contactId, name: access.name };
 }
