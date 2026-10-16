@@ -199,25 +199,64 @@ light colors._
 - `searchContacts(query)` (`GET /v2/contacts?search_terms=`), mock included,
   following all pages. Tests for name matches, no matches, and case.
 
-### PR 6: Staff check-in
+### PR 6: Staff check-in (and the check-in volunteer role)
 
-- From the event page: search by name, pick a member, see their assessment
-  (`assessCheckIn`: standing, already checked in, or why they're refused),
-  then confirm. Confirming runs `checkIn` with `method: "staff"` and the
-  admin's contact, so it uses the same rules and points as self check-in.
+- **Its own page, not the event page.** Staff check-in lives at
+  `/admin/events/<id>/checkin`, linked from the event page. The event page
+  reloads itself every 30 seconds while check-in is live (PR 4), and a reload
+  would wipe a search or a half-finished confirm. The staff check-in page has
+  no auto-refresh; every step is a plain form.
+- **A second role: check-in volunteers.** SML's TidyHQ group **"App Check-In
+  Volunteers"** lets door volunteers check members in without being admins.
+  Its id is config, `HELPER_GROUP_ID` (placeholder only in `.env.example`; the
+  real id goes in the go-live checklist). Like App Admin, the app only reads
+  the group: it is checked on every request (so a removal takes effect on the
+  next page load) and fails closed (TidyHQ error, unknown group, unset or
+  invalid id: nobody is let in, logged the same way, and the page says access
+  couldn't be checked, which differs from "not a volunteer"). Mock mode falls
+  back to the seed's own volunteers group; live mode has no default. Startup
+  doesn't require it. The mock seed gets a volunteers group with one
+  volunteer member who is not an admin.
+- **What each role can reach.** App Admin members can use everything,
+  including staff check-in. Volunteers can use **only** staff check-in (the
+  event list and event pages stay admin-only). No QR codes, attendee lists,
+  reports or other admin pages for volunteers. **Open question for this PR's
+  review:** a volunteer can't use the event page's link, so they need their own
+  way to reach an event's check-in page, such as a short volunteer-only list of
+  today's open events.
+  `requireAdmin` stays admin-only; a new `requireStaff` (admin or volunteer)
+  guards the staff check-in page and its server action, and returns which role
+  the person has so the action can record it. Every server action calls its
+  guard itself; a page check alone doesn't protect an action. The denied
+  screen's wording covers both roles.
+- **What a volunteer sees of a member:** only the member's name, points total,
+  and whether they can check in or why not (`assessCheckIn`'s outcome in plain
+  words, e.g. "membership expired: ask them to renew in TidyHQ"). Not their
+  membership level, dates, email, rewards, notes, or inconsistent-membership
+  details. Admins get the fuller view below.
+- Flow: search by name, pick a member, see their assessment (`assessCheckIn`:
+  standing, already checked in, or why they're refused), then confirm.
+  Confirming runs `checkIn` with `method: "staff"` and the staff member's
+  contact, so it uses the same rules and points as self check-in.
 - `checkIn` (test-first): for a new staff check-in, write the note last, as
-  described under Decisions. Tests: the note's text; no note for self
-  check-ins; no note when already checked in; a failed note still returns
-  `checked_in` with the same total; the note comes after the points write.
-- Inconsistent membership records (`findInconsistentMemberships`) show in
-  this member view, so staff can see why a member was refused: an `expired`
-  membership with a future or missing end date, or an end date the app can't
-  read. Ids only, no tokens.
-- The server action calls `requireAdmin()` itself; a page check alone doesn't
-  protect an action.
+  described under Decisions (it names the person who did it, whichever role).
+  Tests: the note's text; no note for self check-ins; no note when already
+  checked in; a failed note still returns `checked_in` with the same total;
+  the note comes after the points write.
+- Inconsistent membership records (`findInconsistentMemberships`) show in the
+  **admin** version of this member view, so an admin can see why a member was
+  refused: an `expired` membership with a future or missing end date, or an
+  end date the app can't read. Ids only, no tokens. Volunteers see only the
+  plain refusal reason.
+- Tests: the volunteer rule (volunteer, admin-only person, neither, read on
+  every call, failure and unset id fail closed); a volunteer can't open the
+  event list, event page, or reports and is sent to the denied screen; an
+  admin can check in; a volunteer sees only the three fields; Playwright for
+  both roles in all three projects.
 - `CLAUDE.md`: the "Check-ins record" bullet changes to: staff check-ins write
-  a note (event, admin, time); self check-ins are recorded by the group alone.
-  Remove "Not saved yet" from `CheckInInput.method`'s comment.
+  a note (event, who did it, time); self check-ins are recorded by the group
+  alone. A new bullet records the volunteer role. Remove "Not saved yet" from
+  `CheckInInput.method`'s comment.
 
 ### PR 7: Club colors owed report, and 0.4.0
 
@@ -230,7 +269,8 @@ light colors._
 - `package.json` to 0.4.0.
 
 **Dependencies:** PR 1 goes first, since everything after it needs
-`requireAdmin()`. PRs 2→3→4 are the event page. PR 5 comes before PR 6. PR 7
+`requireAdmin()`. PRs 2→3→4 are the event page. PR 5 comes before PR 6, which also adds the
+volunteer role. PR 7
 can go any time after PR 1, but it's last because it carries the version bump.
 
 ## Deferred
@@ -284,6 +324,7 @@ Production settings. Secrets go only in the host's secret store or
 | `TIDYHQ_ADMIN_TOKEN`   | **Yes**                                          | Admin-level token for server-side calls                                                                                                         |
 | `SESSION_SECRET`       | **Yes**                                          | A new value (`openssl rand -base64 32`). Don't reuse the mock one: rotating it at the switch signs out sessions holding mock contact ids.       |
 | `ADMIN_GROUP_ID`       | No (an id, not a credential)                     | **`221914`**, SML's App Admin group. Set it when live TidyHQ is connected.                                                                      |
+| `HELPER_GROUP_ID`      | No (an id, not a credential)                     | The id of SML's **"App Check-In Volunteers"** group in TidyHQ. **To be filled in later** (not known yet). Added in PR 6. Set it when live TidyHQ is connected. |
 | `E2E`                  | No                                               | **Must be unset.** It enables the mock reset route (which also needs mock mode).                                                                |
 
 Not env settings, but they must change in code before go-live (each lives in
