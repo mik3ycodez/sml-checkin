@@ -5,9 +5,9 @@ import { createSeed } from "../tidyhq/mock/seed";
 import type { Contact } from "../tidyhq/types";
 import {
   ATTENDEE_REFRESH_LEAD_MINUTES,
-  ATTENDEE_REFRESH_SECONDS,
   attendeeRefreshSeconds,
   getEventAttendees,
+  refreshIntervalSeconds,
 } from "./attendees";
 import type { AdminEventPage } from "./eventPage";
 
@@ -188,7 +188,7 @@ describe("attendeeRefreshSeconds", () => {
   });
 
   it("refreshes every 30 seconds while check-in is open", () => {
-    expect(ATTENDEE_REFRESH_SECONDS).toBe(30);
+    expect(refreshIntervalSeconds()).toBe(30);
     expect(attendeeRefreshSeconds(page("open", -10), NOW)).toBe(30);
   });
 
@@ -211,5 +211,19 @@ describe("attendeeRefreshSeconds", () => {
 
   it("doesn't refresh a not-yet event whose opening time is unknown", () => {
     expect(attendeeRefreshSeconds(page("not_yet", null), NOW)).toBeNull();
+  });
+});
+
+describe("refreshIntervalSeconds", () => {
+  it("is 30 seconds in production", () => {
+    expect(refreshIntervalSeconds({ NODE_ENV: "production" })).toBe(30);
+    expect(refreshIntervalSeconds({})).toBe(30);
+  });
+
+  it("is 2 seconds only when E2E is exactly 1", () => {
+    expect(refreshIntervalSeconds({ E2E: "1" })).toBe(2);
+    for (const E2E of ["", "0", "true", "2"]) {
+      expect(refreshIntervalSeconds({ E2E })).toBe(30);
+    }
   });
 });

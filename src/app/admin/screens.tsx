@@ -1,4 +1,4 @@
-import { ATTENDEE_REFRESH_SECONDS } from "@/lib/admin/attendees";
+import { refreshIntervalSeconds } from "@/lib/admin/attendees";
 import type { AdminDeniedReason } from "@/lib/auth/admin";
 import { SignedInAs } from "../memberUi";
 import type { AdminEvent, AdminEvents } from "@/lib/admin/events";
@@ -121,7 +121,7 @@ export function AdminDeniedScreen({
       {retrying && (
         <meta
           httpEquiv="refresh"
-          content={`${ATTENDEE_REFRESH_SECONDS};url=${retryPath}`}
+          content={`${refreshIntervalSeconds()};url=${retryPath}`}
         />
       )}
       {reason === "not_admin" ? (
@@ -143,7 +143,7 @@ export function AdminDeniedScreen({
             We couldn&apos;t check admin access just now, so nobody can use the
             admin pages.{" "}
             {retrying
-              ? "We'll try again in 30 seconds."
+              ? `We'll try again in ${refreshIntervalSeconds()} seconds.`
               : "Please try again in a minute."}{" "}
             If it keeps happening, tell whoever runs this site.
           </p>

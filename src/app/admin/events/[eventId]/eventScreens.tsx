@@ -1,5 +1,5 @@
 import type { Attendee } from "@/lib/admin/attendees";
-import { ATTENDEE_REFRESH_SECONDS } from "@/lib/admin/attendees";
+import { refreshIntervalSeconds } from "@/lib/admin/attendees";
 import type { AdminEventPage, NoQrReason } from "@/lib/admin/eventPage";
 import { seattleTimeLabel } from "@/lib/dates";
 import type { IgnoredWindowReason } from "@/lib/tidyhq/checkinWindow";
@@ -219,14 +219,14 @@ export function AdminEventUnavailable({
 }) {
   return (
     <div className="flex flex-1 flex-col gap-4">
-      <meta httpEquiv="refresh" content={String(ATTENDEE_REFRESH_SECONDS)} />
+      <meta httpEquiv="refresh" content={String(refreshIntervalSeconds())} />
       <BackToEvents />
       <h1 className="text-2xl font-bold tracking-tight">
         This event is temporarily unavailable
       </h1>
       <p role="status" className="text-foreground/70 text-lg">
         TidyHQ isn&apos;t answering right now, so this event can&apos;t be
-        shown. This page will retry in {ATTENDEE_REFRESH_SECONDS} seconds.
+        shown. This page will retry in {refreshIntervalSeconds()} seconds.
       </p>
       <SignedInAs name={name} returnTo={adminEventPath(eventId)} />
     </div>
