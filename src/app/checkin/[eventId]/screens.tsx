@@ -29,7 +29,7 @@ export function UnknownEvent() {
     <Screen title="We couldn't find that event">
       <Note>
         The QR code may be for another event, or the event may have been
-        removed. Please ask a Board member to check you in.
+        removed. Please tell a Board member.
       </Note>
     </Screen>
   );

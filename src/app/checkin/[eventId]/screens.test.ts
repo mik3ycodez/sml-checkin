@@ -350,6 +350,8 @@ describe("StatusScreen", () => {
   it("explains an unknown event", () => {
     const { text } = render({ status: "unknown_event" });
     expect(text).toContain("We couldn't find that event");
+    expect(text).toContain("Please tell a Board member.");
+    expect(text).not.toContain("check you in");
     expect(text).not.toContain("Signed in as");
   });
 });

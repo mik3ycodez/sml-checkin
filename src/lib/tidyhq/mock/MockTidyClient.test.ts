@@ -67,6 +67,35 @@ describe("MockTidyClient", () => {
     });
   });
 
+  describe("listAllContacts", () => {
+    it("lists every active contact, and no inactive ones", async () => {
+      const seed = createSeed();
+      seed.contacts[1].status = "inactive";
+      const mock = new MockTidyClient(seed);
+      const ids = (await mock.listAllContacts()).map((c) => c.id);
+      expect(ids).toHaveLength(seed.contacts.length - 1);
+      expect(ids).not.toContain(seed.contacts[1].id);
+    });
+
+    it("returns every contact however many there are (the real client follows all pages)", async () => {
+      const seed = createSeed();
+      const template = seed.contacts[0];
+      for (let i = 0; i < 650; i++) {
+        seed.contacts.push({ ...structuredClone(template), id: `c_bulk_${i}` });
+      }
+      const all = await new MockTidyClient(seed).listAllContacts();
+      expect(all).toHaveLength(seed.contacts.length);
+    });
+
+    it("returns copies callers can't use to change the mock", async () => {
+      const first = await client.listAllContacts();
+      first[0].display_name = "Changed";
+      expect((await client.listAllContacts())[0].display_name).not.toBe(
+        "Changed",
+      );
+    });
+  });
+
   describe("searchContacts", () => {
     it("finds a member by first name", async () => {
       const found = await client.searchContacts("Dante");

@@ -277,3 +277,17 @@ describe("AdminDeniedScreen on the staff check-in page", () => {
     ).toContain("You don't have access to the admin pages");
   });
 });
+
+describe("AdminHomeScreen reports", () => {
+  it("links to the club colors owed report", () => {
+    const html = renderToStaticMarkup(
+      createElement(AdminHomeScreen, {
+        name: "Casey",
+        events: { upcoming: [], recent: [] },
+      }),
+    );
+    expect(html).toMatch(
+      /<a[^>]*href="\/admin\/reports\/colors"[^>]*>[^<]*[Cc]lub colors/,
+    );
+  });
+});

@@ -59,6 +59,12 @@ export class MockTidyClient implements TidyClient {
     return structuredClone(this.state.contacts);
   }
 
+  async listAllContacts(): Promise<Contact[]> {
+    return structuredClone(
+      this.state.contacts.filter((c) => c.status === "active"),
+    );
+  }
+
   async searchContacts(query: string): Promise<Contact[]> {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
     if (words.length === 0) return [];
