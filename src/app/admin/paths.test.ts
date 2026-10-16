@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { ADMIN_DENIED_PATH, adminDeniedPath, deniedReason } from "./paths";
+import {
+  ADMIN_DENIED_PATH,
+  adminDeniedPath,
+  adminEventPath,
+  deniedReason,
+} from "./paths";
+
+describe("adminEventPath", () => {
+  it("encodes the id so it can't change the path", () => {
+    expect(adminEventPath("ev_tonight")).toBe("/admin/events/ev_tonight");
+    expect(adminEventPath("a/b?c")).toBe("/admin/events/a%2Fb%3Fc");
+  });
+});
 
 describe("adminDeniedPath", () => {
   it("names the reason in the query", () => {

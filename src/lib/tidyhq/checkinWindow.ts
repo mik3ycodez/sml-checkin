@@ -1,4 +1,5 @@
 import type { TidyClient } from "./client";
+import { validRange } from "./timeRange";
 import type { Event } from "./types";
 
 export interface CheckinWindow {
@@ -11,23 +12,6 @@ export interface CheckinWindow {
 }
 
 export type CheckinStatus = "open" | "not_yet" | "closed";
-
-function parseTime(value: string | null): Date | null {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-/** Both times parsed, with close after open; otherwise null. */
-function validRange(
-  opens: string | null,
-  closes: string | null,
-): { opensAt: Date; closesAt: Date } | null {
-  const opensAt = parseTime(opens);
-  const closesAt = parseTime(closes);
-  if (!opensAt || !closesAt || closesAt <= opensAt) return null;
-  return { opensAt, closesAt };
-}
 
 /**
  * The only place that works out when check-in is open for an event. Uses the

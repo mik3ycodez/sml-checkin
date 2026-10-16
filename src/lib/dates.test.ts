@@ -5,6 +5,8 @@ import {
   dateLabel,
   isCalendarDate,
   seattleDate,
+  seattleDaysAgo,
+  seattleDaysFromNow,
   seattleStartOfDay,
   seattleTimeLabel,
 } from "./dates";
@@ -139,5 +141,31 @@ describe("seattleStartOfDay", () => {
 
   it("throws for something that isn't YYYY-MM-DD", () => {
     expect(() => seattleStartOfDay("soon")).toThrow(/YYYY-MM-DD/);
+  });
+});
+
+describe("seattleDaysAgo and seattleDaysFromNow", () => {
+  // 2026-10-12 18:00Z is 11:00 AM on Monday the 12th in Seattle (PDT).
+  const now = new Date("2026-10-12T18:00:00Z");
+
+  it("start the Seattle day that many days back or ahead", () => {
+    expect(seattleDaysAgo(now, 0)).toEqual(new Date("2026-10-12T07:00:00Z"));
+    expect(seattleDaysAgo(now, 30)).toEqual(new Date("2026-09-12T07:00:00Z"));
+    expect(seattleDaysFromNow(now, 1)).toEqual(
+      new Date("2026-10-13T07:00:00Z"),
+    );
+  });
+
+  it("count Seattle days, not 24-hour blocks, across a clock change", () => {
+    // Clocks fall back on Nov 1, 2026: midnight Nov 2 is 08:00Z.
+    expect(seattleDaysFromNow(now, 21)).toEqual(
+      new Date("2026-11-02T08:00:00Z"),
+    );
+  });
+
+  it("use the Seattle date when UTC is already the next day", () => {
+    // 2026-10-13 03:00Z is still the 12th (8 PM) in Seattle.
+    const late = new Date("2026-10-13T03:00:00Z");
+    expect(seattleDaysAgo(late, 0)).toEqual(new Date("2026-10-12T07:00:00Z"));
   });
 });
