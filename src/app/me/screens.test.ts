@@ -169,7 +169,7 @@ describe("MeScreen", () => {
     it("explains an unreadable total instead of showing one", () => {
       const { text } = render({ ...OK, points: null });
       expect(text).toContain(
-        "Your points total needs fixing. Please see a volunteer.",
+        "Your points total needs fixing. Please see a Board member.",
       );
       expect(text).not.toContain("Points:");
     });

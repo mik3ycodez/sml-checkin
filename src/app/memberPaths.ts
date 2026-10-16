@@ -6,4 +6,4 @@ export function signInPath(returnTo: string): string {
   return `/auth/signin?returnTo=${encodeURIComponent(returnTo)}`;
 }
 
-export { checkinPath } from "@/lib/checkin/paths";
+export { checkinPath, staffCheckinPath } from "@/lib/checkin/paths";

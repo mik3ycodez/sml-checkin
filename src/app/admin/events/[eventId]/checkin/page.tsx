@@ -81,17 +81,10 @@ export default async function StaffCheckInPage({
     );
   }
   if (state.status === "unknown_event") {
-    return (
-      <StaffNotice
-        heading="We couldn't find that event"
-        {...backToCheckin(eventId)}
-      >
-        TidyHQ has no event with that link.
-      </StaffNotice>
-    );
+    return <UnknownEvent eventId={eventId} />;
   }
   if (state.status === "ended" && staff.role === "volunteer") {
-    return <VolunteerModeEnded eventId={eventId} />;
+    return <VolunteerModeEnded eventId={eventId} reason={state.reason} />;
   }
   // An admin is only stopped for an event check-in can never run for; for one
   // that has merely closed they still see each member's verdict.

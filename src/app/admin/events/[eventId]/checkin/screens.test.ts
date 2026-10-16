@@ -35,7 +35,9 @@ describe("staff check-in frame", () => {
     expect(out).toContain('name="returnTo" value="/checkin/ev_tonight"');
   });
 
-  it("offers Stop volunteering to admins too", () => {
+  // Admins aren't volunteering: they reached this page from the event page,
+  // so they get a way back there instead of "Stop volunteering".
+  it("gives admins a link back to the event page, not Stop volunteering", () => {
     const admin = html(
       createElement(StaffSearchScreen, {
         ...frame,
@@ -44,7 +46,11 @@ describe("staff check-in frame", () => {
         search: { status: "none" },
       }),
     );
-    expect(admin).toContain("Stop volunteering");
+    expect(admin).not.toContain("Stop volunteering");
+    expect(admin).toMatch(
+      /<a[^>]*href="\/admin\/events\/ev_tonight"[^>]*>Back to event page<\/a>/,
+    );
+    expect(admin).not.toContain(">Event page<");
   });
 
   it("has it on the verdict screen as well", () => {
@@ -65,12 +71,29 @@ describe("staff check-in frame", () => {
 });
 
 describe("VolunteerModeEnded", () => {
-  const out = html(
-    createElement(VolunteerModeEnded, { eventId: "ev_tonight" }),
-  );
+  const render = (reason: "closed" | "archived" | "no_group" | "never_opens") =>
+    html(createElement(VolunteerModeEnded, { eventId: "ev_tonight", reason }));
 
   it("says volunteer mode has ended, with a link back to check-in", () => {
+    const out = render("closed");
     expect(out).toContain("Volunteer mode has ended");
     expect(out).toMatch(/<a[^>]*href="\/checkin\/ev_tonight"/);
   });
+
+  it("says check-in is over only when it closed", () => {
+    const out = render("closed");
+    expect(out).toContain("Check-in for this event is over.");
+    expect(out).toContain("Thank you");
+  });
+
+  it.each(["archived", "no_group", "never_opens"] as const)(
+    "for %s says it isn't available and to tell a Board member, with no thanks",
+    (reason) => {
+      const out = render(reason);
+      expect(out).toContain("Check-in isn&#x27;t available for this event.");
+      expect(out).toContain("Please tell a Board member.");
+      expect(out).not.toContain("is over");
+      expect(out).not.toContain("Thank you");
+    },
+  );
 });

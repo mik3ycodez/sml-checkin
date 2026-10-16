@@ -11,11 +11,9 @@ import {
 } from "../../memberPaths";
 import {
   MembershipNoticeBlock,
-  MyPointsLink,
+  MemberFooter,
   PRIMARY,
   SECONDARY,
-  SignedInAs,
-  VolunteerLink,
 } from "../../memberUi";
 
 // Shared pieces of the check-in pages: one small screen per outcome, chosen
@@ -31,7 +29,7 @@ export function UnknownEvent() {
     <Screen title="We couldn't find that event">
       <Note>
         The QR code may be for another event, or the event may have been
-        removed. Please ask a volunteer at the door to check you in.
+        removed. Please ask a Board member to check you in.
       </Note>
     </Screen>
   );
@@ -76,12 +74,17 @@ export function StatusScreen({
 
   const event = eventTitle(status.eventName);
   // Checked-in screens already link to /me ("See your points").
+  // Checked-in screens already link to /me ("See your points"). Closed and
+  // unavailable events have no volunteer mode to enter.
+  const volunteerOver =
+    status.status === "closed" || status.status === "event_unavailable";
   const signedInAs = (
-    <>
-      {status.status !== "already_checked_in" && <MyPointsLink />}
-      <VolunteerLink eventId={eventId} />
-      <SignedInAs name={status.name} returnTo={checkinPath(eventId)} />
-    </>
+    <MemberFooter
+      eventId={eventId}
+      name={status.name}
+      points={status.status !== "already_checked_in"}
+      volunteer={!volunteerOver}
+    />
   );
   switch (status.status) {
     case "already_checked_in":
@@ -126,7 +129,7 @@ export function StatusScreen({
     case "closed":
       return (
         <Screen event={event} title="Check-in has closed">
-          <Note>If you were there, a volunteer can check you in.</Note>
+          <Note>If you were there, tell a Board member.</Note>
           {signedInAs}
         </Screen>
       );
@@ -134,19 +137,19 @@ export function StatusScreen({
       return (
         <Screen event={event} title="This event isn't open for check-in">
           <Note>
-            Check-in isn&apos;t available for this event. If you were there, a
-            volunteer can check you in.
+            Check-in isn&apos;t available for this event. If you were there,
+            tell a Board member.
           </Note>
           {signedInAs}
         </Screen>
       );
     case "points_unreadable":
       return (
-        <Screen event={event} title="Please see a volunteer">
+        <Screen event={event} title="Please see a Board member">
           <Note>
             You&apos;re not checked in yet. There&apos;s a problem with your
-            points total in TidyHQ, and a volunteer needs to fix it before you
-            can check in.
+            points total in TidyHQ. A Board member needs to fix your points in
+            TidyHQ before you can check in.
           </Note>
           {signedInAs}
         </Screen>
@@ -188,13 +191,13 @@ function CheckedIn({
       );
     case "point_not_saved":
       // No total: it's missing the point. No "try again": it would only say
-      // "already checked in". A volunteer can add the point in TidyHQ.
+      // "already checked in". A Board member can add the point in TidyHQ.
       return (
         <Screen
           event={event}
           title="You're checked in, but your point didn't save"
         >
-          <Note>Please let a volunteer know.</Note>
+          <Note>Please tell a Board member.</Note>
           {notice.membershipNotice && (
             <MembershipNoticeBlock notice={notice.membershipNotice} now={now} />
           )}

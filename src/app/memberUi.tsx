@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { membershipNoticeText, type MembershipNotice } from "@/lib/membership";
 import { tidyhqSiteUrl } from "@/lib/tidyhq/site";
-import { staffCheckinPath } from "./admin/paths";
-import { ME_PATH } from "./memberPaths";
+import { checkinPath, ME_PATH, staffCheckinPath } from "./memberPaths";
 
 // Pieces shared by the member pages (check-in and `/me`): plain links and
 // forms, so they work on older phones without JavaScript.
@@ -65,6 +64,31 @@ export function VolunteerLink({ eventId }: { eventId: string }) {
     <a href={staffCheckinPath(eventId)} className={QUIET_LINK}>
       Are you a volunteer?
     </a>
+  );
+}
+
+/**
+ * The footer of a member's event screen: the quiet links, then who's signed
+ * in. `points` is false on screens that already link to /me; `volunteer` is
+ * false once volunteer mode has ended for the event.
+ */
+export function MemberFooter({
+  eventId,
+  name,
+  points = true,
+  volunteer = true,
+}: {
+  eventId: string;
+  name: string | null;
+  points?: boolean;
+  volunteer?: boolean;
+}) {
+  return (
+    <>
+      {points && <MyPointsLink />}
+      {volunteer && <VolunteerLink eventId={eventId} />}
+      <SignedInAs name={name} returnTo={checkinPath(eventId)} />
+    </>
   );
 }
 

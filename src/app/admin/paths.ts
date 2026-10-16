@@ -1,4 +1,9 @@
 import type { AdminDeniedReason } from "@/lib/auth/admin";
+import { adminEventPath, staffCheckinPath } from "@/lib/checkin/paths";
+
+// Defined in `lib` so the member pages can link to these without depending on
+// this route layer; re-exported for the admin pages.
+export { adminEventPath, staffCheckinPath };
 
 /** The admin home page. */
 export const ADMIN_PATH = "/admin";
@@ -42,11 +47,6 @@ export function deniedRetryPath(value: unknown): string | null {
   return value;
 }
 
-/** An event's staff check-in page. The id is encoded so it can't alter the path. */
-export function staffCheckinPath(eventId: string): string {
-  return `${adminEventPath(eventId)}/checkin`;
-}
-
 /**
  * The event id when `value` is exactly a staff check-in path, decoded, or
  * null. Lets the denied screen link back to that event's member check-in page.
@@ -68,11 +68,6 @@ export function staffCheckinEventId(value: unknown): string | null {
  */
 export function deniedReason(value: unknown): AdminDeniedReason {
   return value === "unavailable" ? "unavailable" : "not_admin";
-}
-
-/** An event's admin page. The id is encoded so it can't alter the path. */
-export function adminEventPath(eventId: string): string {
-  return `/admin/events/${encodeURIComponent(eventId)}`;
 }
 
 /**
