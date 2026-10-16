@@ -11,6 +11,7 @@ import {
 } from "../../memberPaths";
 import {
   MembershipNoticeBlock,
+  MyPointsLink,
   PRIMARY,
   SECONDARY,
   SignedInAs,
@@ -74,8 +75,10 @@ export function StatusScreen({
   if (status.status === "unknown_event") return <UnknownEvent />;
 
   const event = eventTitle(status.eventName);
+  // Checked-in screens already link to /me ("See your points").
   const signedInAs = (
     <>
+      {status.status !== "already_checked_in" && <MyPointsLink />}
       <VolunteerLink eventId={eventId} />
       <SignedInAs name={status.name} returnTo={checkinPath(eventId)} />
     </>

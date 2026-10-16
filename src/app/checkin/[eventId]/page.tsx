@@ -1,6 +1,6 @@
 import { checkInAction } from "./actions";
 import { memberStatus } from "./memberStatus";
-import { SignedInAs, VolunteerLink } from "../../memberUi";
+import { MyPointsLink, SignedInAs, VolunteerLink } from "../../memberUi";
 import { checkinPath } from "../../memberPaths";
 import { eventTitle, StatusScreen } from "./screens";
 
@@ -32,6 +32,7 @@ export default async function CheckInPage({
           Check in
         </button>
       </form>
+      <MyPointsLink />
       <VolunteerLink eventId={eventId} />
       <SignedInAs name={status.name} returnTo={checkinPath(eventId)} />
     </div>

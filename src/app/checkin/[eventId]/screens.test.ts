@@ -216,8 +216,9 @@ describe("StatusScreen", () => {
     });
 
     it("isn't offered when the member isn't checked in", () => {
-      expect(render({ status: "closed", ...DANTE }).html).not.toContain(
-        'href="/me"',
+      // They get the quiet "My points and status" link instead (see below).
+      expect(render({ status: "closed", ...DANTE }).text).not.toContain(
+        "See your points",
       );
     });
   });
@@ -396,5 +397,49 @@ describe("the volunteer link", () => {
   it("is not on an unknown event, where nobody is identified", () => {
     const { html } = render({ status: "unknown_event" });
     expect(html).not.toContain("/admin/");
+  });
+});
+
+describe("the My points and status link", () => {
+  const ME = /<a[^>]*href="\/me"[^>]*>My points and status<\/a>/;
+  const count = (html: string) => (html.match(/href="\/me"/g) ?? []).length;
+  const without: [string, ShownStatus][] = [
+    ["membership inactive", { status: "membership_inactive", ...DANTE }],
+    ["not open", { status: "not_open", ...DANTE, opensAt: new Date() }],
+    ["closed", { status: "closed", ...DANTE }],
+    ["event unavailable", { status: "event_unavailable", ...DANTE }],
+    ["points unreadable", { status: "points_unreadable", ...DANTE }],
+  ];
+
+  it.each(without)("is on the %s screen, once", (_, status) => {
+    const { html } = render(status);
+    expect(html).toMatch(ME);
+    expect(count(html)).toBe(1);
+  });
+
+  it("sits next to the volunteer link", () => {
+    const { text } = render({ status: "closed", ...DANTE });
+    expect(text).toContain("My points and status");
+    expect(text.indexOf("My points and status")).toBeLessThan(
+      text.indexOf("Are you a volunteer?"),
+    );
+  });
+
+  it("isn't added to checked-in screens, which already link to /me", () => {
+    const checkedIn = {
+      status: "already_checked_in",
+      ...DANTE,
+      total: 5,
+    } as const;
+    for (const notice of [
+      null,
+      { kind: "awarded", points: 1 },
+      { kind: "repeat" },
+      { kind: "point_not_saved" },
+    ] as const) {
+      const { html } = render(checkedIn, notice);
+      expect(html).not.toContain("My points and status");
+      expect(count(html)).toBe(1);
+    }
   });
 });

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { membershipNoticeText, type MembershipNotice } from "@/lib/membership";
 import { tidyhqSiteUrl } from "@/lib/tidyhq/site";
 import { staffCheckinPath } from "./admin/paths";
+import { ME_PATH } from "./memberPaths";
 
 // Pieces shared by the member pages (check-in and `/me`): plain links and
 // forms, so they work on older phones without JavaScript.
@@ -38,6 +39,21 @@ export function SignedInAs({
   );
 }
 
+const QUIET_LINK = "text-foreground/70 underline";
+
+/**
+ * A quiet link to the member's status page, in the same style as
+ * `VolunteerLink` so it never competes with the Check in button. Left off
+ * screens that already link to /me.
+ */
+export function MyPointsLink() {
+  return (
+    <a href={ME_PATH} className={QUIET_LINK}>
+      My points and status
+    </a>
+  );
+}
+
 /**
  * A plain link from a member's event page to that event's staff check-in
  * page. It's shown to every signed-in member without checking any group:
@@ -46,10 +62,7 @@ export function SignedInAs({
  */
 export function VolunteerLink({ eventId }: { eventId: string }) {
   return (
-    <a
-      href={staffCheckinPath(eventId)}
-      className="text-foreground/70 underline"
-    >
+    <a href={staffCheckinPath(eventId)} className={QUIET_LINK}>
       Are you a volunteer?
     </a>
   );

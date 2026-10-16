@@ -122,3 +122,13 @@ test("signing out from /me leads back to sign-in", async ({ page }) => {
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/mock-tidyhq\/oauth\/authorize/);
 });
+
+test("the splash page leads, through sign-in, to the member's status", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "My points and status" }).click();
+  await page.getByRole("button", { name: "Dante Ruiz" }).click();
+  await expect(page).toHaveURL(/\/me$/);
+  await expect(page.getByText("Dante Ruiz").first()).toBeVisible();
+});
