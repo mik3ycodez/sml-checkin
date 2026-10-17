@@ -55,10 +55,11 @@ describe("HttpTidyClient", () => {
   describe("paging", () => {
     it("asks for page after page until an empty one", async () => {
       const { server, client } = build();
-      expect(await client.searchContacts("example.com")).toHaveLength(12);
+      expect(await client.listGroupContacts("grp_members")).toHaveLength(3);
       const offsets = server.requests.map((r) => r.query.get("offset"));
-      // 12 contacts at 2 a page: six full pages, then the empty one.
-      expect(offsets).toEqual(["0", "2", "4", "6", "8", "10", "12"]);
+      // 3 members at 2 a page: a full page, a short one (the offset moves by
+      // what came back, so 3), then the empty one.
+      expect(offsets).toEqual(["0", "2", "3"]);
       expect(server.requests.every((r) => r.query.get("limit") === "100")).toBe(
         true,
       );

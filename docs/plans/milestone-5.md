@@ -392,12 +392,7 @@ and skips the colors add (logged each time).
   `not_accepted`; check-in refuses it as `event_unavailable`, and the agreement
   between the QR page, the volunteer page and check-in is tested. The admin
   event list carries nothing for it.
-- **Colors owed report, live:** if checklist item 2 finds TidyHQ omits unanswered
-  fields, every contact without points would land in the report's "Needs
-  checking" list (the missing-points marker). Left as is; the report is
-  removed in PR 6.
-- **`src/lib/liveUnknown.test.ts`** lists every marker tag and checks each has a
-  checklist item here naming it.
+- **Colors owed report, live:** removed in PR 6.
 
 ### PR 5 ✅ Done (#38): Docs: colors eligibility moves into TidyHQ
 

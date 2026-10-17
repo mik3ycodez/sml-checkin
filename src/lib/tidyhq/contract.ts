@@ -519,6 +519,12 @@ export function runTidyClientContract(
         expect(readPoints(dante)).toBe(
           harness.differences.missingPointsUnreadable ? null : 0,
         );
+        // The v2 list path agrees with the single read.
+        const [found] = await harness.client.searchContacts("Dante");
+        expect(found.id).toBe("c_dante");
+        expect(readPoints(found)).toBe(
+          harness.differences.missingPointsUnreadable ? null : 0,
+        );
       });
 
       it("a blank points field is 0 either way", async () => {
