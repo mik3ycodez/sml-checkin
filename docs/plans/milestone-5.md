@@ -203,7 +203,7 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
 
 ## Pull requests (in order)
 
-### PR 1 🔍 In review: Docs: the app edits nothing beyond check-in
+### PR 1 🔍 In review (#34): Docs: the app edits nothing beyond check-in
 
 - CLAUDE.md: remove "points adjustments" from the admin side and from the
   points rule ("(later) admin adjustments" becomes corrections made in
