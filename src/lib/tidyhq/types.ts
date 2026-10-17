@@ -81,6 +81,13 @@ export interface Event {
   location: string | null;
   public: boolean;
   archived: boolean;
+  /**
+   * The event's attendee group in TidyHQ, kept in step with its ticket
+   * holders. Read but not used for check-in: see `eventGroups.ts`.
+   */
+  group_id?: string | null;
+  /** Set when the event belongs to another organisation and was shared in. */
+  shared_from?: { id: string; name: string } | null;
   created_at: string;
   updated_at: string;
 }
@@ -94,20 +101,20 @@ export interface EventCheckinWindow {
   closes_at: string;
 }
 
+/**
+ * A TidyHQ group, as the v1 API describes it (`GET /v1/contacts/{id}/groups`).
+ * v1 sends no `archived` flag or `updated_at`, so they aren't here: nothing may
+ * rely on data live TidyHQ doesn't provide.
+ */
 export interface Group {
+  /** v1 sends a number; we keep every id a string. */
   id: string;
   label: string;
   description: string;
-  /** How many contacts are in this group. */
+  /** How many contacts are in this group (v1's `contacts_count`). */
   size: number;
-  /**
-   * Past events' attendance groups are archived in the TidyHQ admin screens
-   * but still list the contact's membership. Optional: no app code reads it,
-   * and the v1 response's exact shape is unconfirmed. Only the mock sets it.
-   */
-  archived?: boolean;
+  /** ISO 8601 (v1 sends `2012-12-16 21:01:22 +0000`; the client converts). */
   created_at: string;
-  updated_at: string;
 }
 
 /** Body for `PATCH /v2/contacts/{id}`. Build custom_fields via customFields.ts. */

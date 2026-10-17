@@ -160,8 +160,11 @@ export class MockTidyClient implements TidyClient {
 
   async listGroupContacts(groupId: string): Promise<Contact[]> {
     const memberIds = this.findGroupMembers(groupId);
+    // Like v1: active contacts only, named but without field values or notes.
     return structuredClone(
-      this.state.contacts.filter((c) => memberIds.includes(c.id)),
+      this.state.contacts
+        .filter((c) => memberIds.includes(c.id) && c.status === "active")
+        .map((c) => ({ ...c, custom_fields: {}, notes: [] })),
     );
   }
 
@@ -180,7 +183,6 @@ export class MockTidyClient implements TidyClient {
     memberIds.push(contactId);
     const group = this.state.groups.find((g) => g.id === groupId)!;
     group.size = memberIds.length;
-    group.updated_at = this.now().toISOString();
   }
 
   private findContact(contactId: string): Contact {
