@@ -94,7 +94,9 @@ afterEach(() => vi.restoreAllMocks());
 describe("check-in against the live client", () => {
   it("refuses every event, writing nothing, until the group link is verified", async () => {
     const { server, http } = setup();
-    expect(await checkIn(http, input)).toEqual({ status: "unknown_event" });
+    expect(await checkIn(http, input)).toMatchObject({
+      status: "event_unavailable",
+    });
     expect(writes(server)).toEqual([]);
   });
 

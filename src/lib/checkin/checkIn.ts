@@ -141,20 +141,21 @@ async function step<T>(
   }
 }
 
-/** The event and its attendance group, or null if either is missing. */
+/**
+ * The event, or null if TidyHQ has no such event (a 404). An event with no
+ * attendance group is still found: the caller refuses it as unavailable, the
+ * same as `checkinBlocker`, rather than calling it unknown.
+ */
 export async function findEvent(
   client: TidyClient,
   eventId: string,
-): Promise<{ event: Event; groupId: string } | null> {
-  let event: Event;
+): Promise<Event | null> {
   try {
-    event = await client.getEvent(eventId);
+    return await client.getEvent(eventId);
   } catch (error) {
     if (isTidyError(error, 404)) return null;
     throw error;
   }
-  const groupId = findEventGroup(event);
-  return groupId ? { event, groupId } : null;
 }
 
 /**
@@ -206,7 +207,8 @@ export type CheckInAssessment =
  * not, why. `checkIn` acts on it, and the pages show it before the tap, so the
  * two can never disagree. Unexpected TidyHQ failures throw.
  *
- * Order: event → existing check-in → archived → check-in window → membership
+ * Order: event (an event with no attendance group is refused as
+ * unavailable here, before the rest) → existing check-in → archived → check-in window → membership
  * → points. An existing check-in comes first so a member who reloads the page
  * after the window closes, after their membership lapses, or after the event
  * is archived, still sees it. An archived event refuses new check-ins even
@@ -221,9 +223,21 @@ export async function assessCheckIn(
     now,
   }: { eventId: string; contactId: string; now: Date },
 ): Promise<CheckInAssessment> {
-  const found = await findEvent(client, eventId);
-  if (!found) return { status: "unknown_event" };
-  const { event, groupId } = found;
+  const event = await findEvent(client, eventId);
+  if (!event) return { status: "unknown_event" };
+  const groupId = findEventGroup(event);
+  if (!groupId) {
+    // Nowhere to record anyone, so there is no attendance to read: refuse it
+    // like an archived event, with the member's name for the screen.
+    const contact = await findContact(client, contactId);
+    if (!contact) return { status: "unknown_contact" };
+    return {
+      status: "event_unavailable",
+      name: contactName(contact),
+      eventName: event.name,
+      total: readPoints(contact),
+    };
+  }
   return assessCheckInFor(client, {
     contactId,
     now,

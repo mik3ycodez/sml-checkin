@@ -23,9 +23,8 @@ test("the admin event page gives the reason instead of a QR code", async ({
 
 test("a member's check-in is refused", async ({ page }) => {
   await signInAs(page, "Dante Ruiz", "/checkin/ev_no_group");
-  // The member page treats an event with no group as one it can't find.
   await expect(
-    page.getByRole("heading", { name: "We couldn't find that event" }),
+    page.getByRole("heading", { name: "This event isn't open for check-in" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Check in" })).toHaveCount(0);
 });

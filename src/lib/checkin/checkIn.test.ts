@@ -499,7 +499,7 @@ describe("checkIn", () => {
     expect(result).toEqual({ status: "unknown_event" });
   });
 
-  it("treats an event with no attendance group as unknown", async () => {
+  it("refuses an event with no attendance group as unavailable, not unknown", async () => {
     const client = seededClient((seed) => {
       const tonight = seed.events.find((e) => e.id === "ev_tonight")!;
       seed.events.push({
@@ -508,12 +508,32 @@ describe("checkIn", () => {
         attendance_group_id: null,
       });
     });
-    const result = await checkIn(client, {
+    const input = {
       eventId: "ev_unmapped",
       contactId: "c_dante",
       now: NOW,
+    };
+    expect(await assessCheckIn(client, input)).toMatchObject({
+      status: "event_unavailable",
+      name: "Dante Ruiz",
     });
-    expect(result).toEqual({ status: "unknown_event" });
+    expect(await checkIn(client, input)).toMatchObject({
+      status: "event_unavailable",
+    });
+  });
+
+  it("still says unknown_contact for a missing member at a no-group event", async () => {
+    const client = seededClient((seed) => {
+      seed.events.find((e) => e.id === "ev_tonight")!.attendance_group_id =
+        null;
+    });
+    expect(
+      await assessCheckIn(client, {
+        eventId: "ev_tonight",
+        contactId: "c_nobody",
+        now: NOW,
+      }),
+    ).toEqual({ status: "unknown_contact" });
   });
 
   describe("an archived event", () => {
