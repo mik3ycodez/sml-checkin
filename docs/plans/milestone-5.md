@@ -536,6 +536,19 @@ the colors read and add. PR 9 is last because it carries the version bump.
   then whether shared events (`shared_from` set) are accepted for check-in
   (`acceptsCheckIn`). If the Board wants partner events recorded without
   points, that is a separate rule added then.
+- **1.1: what real data taught us** (after go-live). Milestone 5 builds for
+  unknowns; once live data answers them, simplify:
+  - **Delete disproven branches.** For every `LIVE-UNKNOWN` answered on
+    go-live day, remove the marker if confirmed, or the code path if
+    disproven (and its checklist item and tests).
+  - **Measure before optimizing.** TidyHQ calls and time per check-in at a
+    real event, and which screens are actually used (staff check-in
+    included). Optimize only what the numbers point at.
+  - **Prune tests.** Remove unit tests the contract suite already covers, and
+    decide which e2e specs need all three browser projects.
+  - **Slim CLAUDE.md** to current rules only, moving decision history into the
+    plan docs.
+  - **Shrink the mock** to what local development and e2e need.
 
 ## Go-live checklist (live TidyHQ)
 
