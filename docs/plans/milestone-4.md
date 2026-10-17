@@ -1,6 +1,6 @@
 # Milestone 4: Admin pages
 
-**Status:** In progress. PRs 1–5 done (#23, #24, #25, #26, #27). PR 6a done (#28). PR 6b done (#30). PR 6c done (#31). PR 7 in review.
+**Status:** In progress. PRs 1–5 done (#23, #24, #25, #26, #27). PR 6a done (#28). PR 6b done (#30). PR 6c done (#31). PR 7 done (#32). Complete in 0.4.0.
 
 ## Context
 
@@ -378,7 +378,7 @@ common duplicate names are in SML's TidyHQ before deciding what extra detail
   alone. A new bullet records the volunteer role. Remove "Not saved yet" from
   `CheckInInput.method`'s comment.
 
-### PR 7 🔍 In review: Club colors owed report, and 0.4.0
+### PR 7 ✅ Done (#32): Club colors owed report, and 0.4.0
 
 - `/admin/reports/colors`: members at 18+ points not marked issued, using
   `rewardStatus` and `readRewardIssued` (as `/me` does), with their membership
@@ -401,8 +401,10 @@ can go any time after PR 1, but it's last because it carries the version bump.
   groups and is as fresh as the group list right after a group add. Getting
   that wrong double-awards points, and the mock can't tell us. Keep the
   contact-before-group read order when it's done.
-- **Points adjustments** (CLAUDE.md's admin side): to milestone 5. It
-  writes the points source of truth and needs its own reason and audit design.
+- **Points adjustments** (CLAUDE.md's admin side): **dropped**, not
+  deferred. The app edits nothing in TidyHQ beyond a check-in; corrections
+  are made in TidyHQ by appointed people, which already has the permissions,
+  history and audit a correction needs (decided in milestone 5).
 - **Org-wide inconsistent-memberships report**: one memberships read per
   contact. In this milestone they show only in the staff check-in member view.
 - **Method and time in the attendee list.**
