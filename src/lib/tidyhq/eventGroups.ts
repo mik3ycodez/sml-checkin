@@ -1,4 +1,3 @@
-import { TidyError } from "./errors";
 import type { Event } from "./types";
 
 // The only place that knows how an event links to its attendance contact group.
@@ -18,18 +17,4 @@ export function findEventGroup(
   event: Pick<Event, "attendance_group_id">,
 ): string | null {
   return event.attendance_group_id || null;
-}
-
-/** Like `findEventGroup`, but throws 404 if the event has no group. */
-export function resolveEventGroup(
-  event: Pick<Event, "attendance_group_id"> & { id?: string },
-): string {
-  const groupId = findEventGroup(event);
-  if (!groupId) {
-    throw new TidyError(
-      404,
-      `No attendance group for event ${event.id ?? "(unknown)"}`,
-    );
-  }
-  return groupId;
 }

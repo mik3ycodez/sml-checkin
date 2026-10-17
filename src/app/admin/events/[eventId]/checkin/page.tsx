@@ -35,6 +35,7 @@ import {
 const NEVER_RUNS: Record<CheckinBlocker, string> = {
   archived:
     "This event is archived in TidyHQ. Unarchive it there if it's still running.",
+  not_accepted: "This event doesn't take check-ins.",
   no_group:
     "This event has no attendance group in TidyHQ, so check-ins couldn't be recorded.",
   never_opens:

@@ -89,10 +89,7 @@ export class MockTidyClient implements TidyClient {
     return structuredClone(this.findContact(contactId));
   }
 
-  async updateContact(
-    contactId: string,
-    patch: ContactPatch,
-  ): Promise<Contact> {
+  async updateContact(contactId: string, patch: ContactPatch): Promise<void> {
     const contact = this.findContact(contactId);
     // Validate everything before changing anything, as one PATCH is atomic.
     const answers = Object.entries(patch.custom_fields ?? {});
@@ -108,7 +105,6 @@ export class MockTidyClient implements TidyClient {
       contact.custom_fields[fieldId].value = answer.value;
     }
     contact.updated_at = this.now().toISOString();
-    return structuredClone(contact);
   }
 
   async addNote(contactId: string, text: string): Promise<Note> {

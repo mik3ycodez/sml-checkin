@@ -141,8 +141,9 @@ Each gets a marked comment (`// LIVE-UNKNOWN:`), so
    every page.
 5. **Shared events count for points like any other.** Any event that appears
    in SML's TidyHQ is point-applicable, including ones with `shared_from` set.
-   The rule lives in one small named function, `countsForPoints(event)`, used
-   by check-in and the admin event list, so it's easy to change later. Go-live
+   The rule lives in one small named function, `acceptsCheckIn(event)`, part of
+   `checkinBlocker` (so check-in, the QR page and the volunteer page agree),
+   so it's easy to change later. Go-live
    checklist: confirm no events have `shared_from` set. Future enhancement
    below.
 6. **Retries:** reads once, writes never (as in the `HttpTidyClient` rules).
@@ -296,9 +297,10 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
   go-live checklist item 16 (what the v1 group `PUT` returns) is confirmed.
 - Contract additions: group add is idempotent, an unknown custom field is
   422, a note on an unknown contact is 404, writes are never retried.
-- `countsForPoints(event)` (decision 5): returns true for every event, in one
-  small file; check-in and the admin event list call it. Tests cover both
-  callers, including an event with `shared_from` set.
+- `acceptsCheckIn(event)` (decision 5): returns true for every event, in one
+  small file, used by `checkinBlocker` and so by check-in, the QR page and the
+  volunteer page. Tests cover all three, including an event with `shared_from`
+  set.
 - Live mode reads a points field missing from the response as unreadable
   (decision 2). Tests: missing key refuses with `points_unreadable` and
   writes nothing; blank still counts as 0.
@@ -318,18 +320,20 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
   attendee read alongside the event read, because the group depended only on
   the id. It now reads the event first, so the page makes one more serial
   TidyHQ round trip. The page test that pinned the old overlap was changed.
-- **Write responses:** `updateContact` and `addNote` now expect a record (the
-  spec defines a `Contact` and a `Note`). `addContactToGroup` keeps accepting
+- **Write responses:** `addNote` expects a record (the spec defines a `Note`).
+  `updateContact` accepts any 2xx and returns nothing, until checklist item 13
+  confirms the PATCH reply. `addContactToGroup` keeps accepting
   any 2xx (`LIVE-UNKNOWN(group-put-response)`): v1's spec says 204, but the
   plan ties tightening it to checklist item 16.
 - **`getEventCheckinWindow`:** neither spec has check-in times on an event, so
   live returns null without a request (`LIVE-UNKNOWN(checkin-window)`) and
   check-in uses the event's start and end. It therefore no longer 404s an
   unknown event on its own; every caller reads the event too.
-- **`countsForPoints(event)`** is true for every event. Check-in refuses a
-  false answer as `event_unavailable`, and `AdminEvent.countsForPoints` carries
-  it. The QR page and `checkinBlocker` don't know about it yet; fine while it
-  can't be false, to revisit if a real rule is added.
+- **`acceptsCheckIn(event)`** (renamed from `countsForPoints` in review) is true
+  for every event. It is in `checkinBlocker` next to archived, as
+  `not_accepted`; check-in refuses it as `event_unavailable`, and the agreement
+  between the QR page, the volunteer page and check-in is tested. The admin
+  event list carries nothing for it.
 - **`src/lib/liveUnknown.test.ts`** lists every marker tag and checks each has a
   checklist item here naming it.
 
@@ -413,7 +417,9 @@ needs its member. PR 7 is last because it carries the version bump.
 ## Future enhancements
 
 - **Shared events.** SML may share events with partner organizations; decide
-  then whether shared events (`shared_from` set) earn points.
+  then whether shared events (`shared_from` set) are accepted for check-in
+  (`acceptsCheckIn`). If the Board wants partner events recorded without
+  points, that is a separate rule added then.
 
 ## Go-live checklist (live TidyHQ)
 

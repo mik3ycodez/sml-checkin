@@ -249,12 +249,16 @@ so the app is built against a **mock TidyHQ**.
   exact request format for custom fields. Keep both isolated so they're easy to
   change. The custom field PATCH follows the spec's shape,
   `custom_fields: { <id>: { value } }`, and sends the points field only.
-- `countsForPoints(event)` (`src/lib/tidyhq/countsForPoints.ts`) is the one
-  place that decides whether an event earns points (true for every event today,
-  shared ones included). Check-in refuses an event it rejects as
-  `event_unavailable`, and the admin event list carries its answer. A false
-  answer isn't yet reflected in `checkinBlocker` or the QR page; no event can
-  return false until a real rule exists.
+- `acceptsCheckIn(event)` (`src/lib/tidyhq/acceptsCheckIn.ts`) is the one rule
+  for whether an event takes check-ins at all (true for every event today,
+  shared ones included). It sits in `checkinBlocker` next to archived, as the
+  reason `not_accepted`, so the admin event page's QR code, the volunteer page
+  and check-in (`event_unavailable`) all refuse together. If the Board later
+  wants partner events recorded without points, that is a separate rule added
+  then.
+- The points PATCH (`updateContact`) accepts any 2xx and returns nothing, like
+  the group add, until go-live checklist item 13 confirms the reply: a point
+  that was written is never reported as a failure over the reply's shape.
 
 ## Stack
 

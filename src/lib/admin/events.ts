@@ -1,6 +1,5 @@
 import { seattleDaysAgo, seattleDaysFromNow } from "../dates";
 import type { TidyClient } from "../tidyhq/client";
-import { countsForPoints } from "../tidyhq/countsForPoints";
 import { findEventGroup } from "../tidyhq/eventGroups";
 import { parseTime, validRange } from "../tidyhq/timeRange";
 
@@ -20,8 +19,6 @@ export interface AdminEvent {
   location: string | null;
   /** False if the event has no attendance group, so check-in can't work. */
   hasGroup: boolean;
-  /** Whether checking in earns points (`countsForPoints`). */
-  countsForPoints: boolean;
   /** Archived in TidyHQ. Listed, but with no link. */
   archived: boolean;
   /** The end isn't after the start, so the event's own times can't open check-in. */
@@ -67,7 +64,6 @@ export async function getAdminEvents(
       startAt: e.start_at!,
       location: blankToNull(e.location),
       hasGroup: findEventGroup(e) !== null,
-      countsForPoints: countsForPoints(e),
       archived: e.archived,
       invalidTimes: validRange(e.start_at, e.end_at) === null,
     };

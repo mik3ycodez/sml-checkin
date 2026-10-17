@@ -467,13 +467,9 @@ export function runTidyClientContract(
       });
 
       describe("updateContact", () => {
-        it("persists a points update and returns the contact", async () => {
+        it("persists a points update", async () => {
           const { client } = open();
-          const updated = await client.updateContact(
-            "c_dante",
-            buildPointsPatch(3),
-          );
-          expect(readPoints(updated)).toBe(3);
+          await client.updateContact("c_dante", buildPointsPatch(3));
           expect(readPoints(await client.getContact("c_dante"))).toBe(3);
         });
 
@@ -515,6 +511,7 @@ export function runTidyClientContract(
           const { client } = open();
           const note = await client.addNote("c_jordan", "Staff check-in: Bar");
           expect(note.text).toBe("Staff check-in: Bar");
+          expect(note.created_at).toBe(CONTRACT_NOW.toISOString());
           expect(note.author_id).toBe(MOCK_ADMIN_CONTACT_ID);
           const contact = await client.getContact("c_jordan");
           expect(contact.notes.map((n) => n.text)).toEqual([

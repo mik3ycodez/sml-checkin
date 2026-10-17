@@ -203,10 +203,8 @@ export function createFakeTidyServer(
           return reply(422, { errors: { [bad]: "must be a Custom-Field" } });
         }
         const patch = (req.body ?? {}) as ContactPatch;
-        return reply(
-          200,
-          toV2Contact(await mock.updateContact(parts[1], patch)),
-        );
+        await mock.updateContact(parts[1], patch);
+        return reply(200, toV2Contact(await mock.getContact(parts[1])));
       }
       // POST /contacts/{id}/notes: { text }; answers the Note, 201.
       if (req.method === "POST" && parts[2] === "notes" && parts.length === 3) {

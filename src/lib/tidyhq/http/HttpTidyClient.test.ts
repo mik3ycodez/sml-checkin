@@ -379,23 +379,38 @@ describe("HttpTidyClient", () => {
       },
     );
 
-    it("refuses a PATCH answer that isn't a contact, and a note answer that isn't a note", async () => {
+    it("refuses a note answer that isn't a note", async () => {
       const { server, client } = build();
       server.intercept((req) =>
-        req.method === "PATCH" || req.method === "POST"
-          ? Response.json({ ok: true })
-          : undefined,
+        req.method === "POST" ? Response.json({ ok: true }) : undefined,
       );
-      expect(
-        isTidyError(
-          await client.updateContact("c_marcus", {}).catch((e) => e),
-          502,
-        ),
-      ).toBe(true);
       expect(
         isTidyError(await client.addNote("c_marcus", "x").catch((e) => e), 502),
       ).toBe(true);
     });
+
+    // The points write counts as done on any 2xx, like the group add, until
+    // go-live checklist item 13 confirms what the PATCH answers: a point that
+    // was written must not be reported as a failure over the reply's shape.
+    it.each([
+      ["a 204 with no body", () => new Response(null, { status: 204 })],
+      ["a 200 with an empty body", () => new Response("", { status: 200 })],
+      [
+        "a 200 with a body that isn't a contact",
+        () => Response.json({ ok: 1 }),
+      ],
+    ])(
+      "counts a points PATCH answered with %s as success",
+      async (_n, reply) => {
+        const { server, client } = build();
+        server.intercept((req) =>
+          req.method === "PATCH" ? reply() : undefined,
+        );
+        await expect(
+          client.updateContact("c_marcus", buildPointsPatch(2)),
+        ).resolves.toBeUndefined();
+      },
+    );
 
     // The v1 spec says the group PUT answers 204, but checklist item 16 hasn't
     // confirmed it, so any 2xx counts. A wrong guess here would report an

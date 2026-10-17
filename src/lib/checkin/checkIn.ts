@@ -21,7 +21,7 @@ import {
 import type { TidyClient } from "../tidyhq/client";
 import { contactName } from "../tidyhq/contactName";
 import { findContact } from "../tidyhq/contacts";
-import { countsForPoints } from "../tidyhq/countsForPoints";
+import { acceptsCheckIn } from "../tidyhq/acceptsCheckIn";
 import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
 import { isTidyError, type TidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
@@ -193,7 +193,7 @@ export type CheckInAssessment =
  * after the window closes, after their membership lapses, or after the event
  * is archived, still sees it. An archived event refuses new check-ins even
  * with an open window, so a QR code printed earlier stops working. An event
- * that doesn't count for points (`countsForPoints`) is refused the same way.
+ * that fails `acceptsCheckIn` is refused the same way (`checkinBlocker` agrees).
  */
 export async function assessCheckIn(
   client: TidyClient,
@@ -258,7 +258,7 @@ export async function assessCheckInFor(
   }
 
   const total = readPoints(contact);
-  if (event.archived || !countsForPoints(event)) {
+  if (event.archived || !acceptsCheckIn(event)) {
     return { status: "event_unavailable", name, eventName, total };
   }
 

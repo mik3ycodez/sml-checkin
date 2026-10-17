@@ -49,8 +49,12 @@ export interface TidyClient {
   /** `GET /v2/contacts/{id}` */
   getContact(contactId: string): Promise<Contact>;
 
-  /** `PATCH /v2/contacts/{id}` */
-  updateContact(contactId: string, patch: ContactPatch): Promise<Contact>;
+  /**
+   * `PATCH /v2/contacts/{id}`. Returns nothing: the live client accepts any 2xx
+   * (LIVE-UNKNOWN(custom-field-format), go-live checklist item 13), so a point
+   * that was written is never reported as failed over the shape of the reply.
+   */
+  updateContact(contactId: string, patch: ContactPatch): Promise<void>;
 
   /** `POST /v2/contacts/{id}/notes` */
   addNote(contactId: string, text: string): Promise<Note>;

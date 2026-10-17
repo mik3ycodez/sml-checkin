@@ -23,7 +23,6 @@ export interface MockSeed {
   checkinWindows: Record<string, EventCheckinWindow>;
 }
 
-/** Contact id used as the author of notes written with the admin token. */
 /** Each seed event's attendance group (see `Event.attendance_group_id`). */
 const EVENT_GROUPS: Record<string, string> = {
   ev_pub_night: "grp_pub_night",
@@ -33,6 +32,7 @@ const EVENT_GROUPS: Record<string, string> = {
   ev_leather_brunch: "grp_leather_brunch",
 };
 
+/** Contact id used as the author of notes written with the admin token. */
 export const MOCK_ADMIN_CONTACT_ID = "c_admin";
 
 const HOUR_MS = 60 * 60 * 1000;

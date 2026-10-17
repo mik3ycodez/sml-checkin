@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { buildPointsPatch, readPoints } from "../customFields";
 import { getCheckinWindow, isCheckinOpen } from "../checkinWindow";
 import { expectTidyError, runTidyClientContract } from "../contract";
-import { resolveEventGroup } from "../eventGroups";
+import { findEventGroup } from "../eventGroups";
 import { issueMockToken, MockTidyClient } from "./MockTidyClient";
 import { createSeed } from "./seed";
 
@@ -136,8 +136,9 @@ describe("MockTidyClient", () => {
 
     it("maps every seed event to an existing group", async () => {
       for (const event of await client.listEvents()) {
-        const groupId = resolveEventGroup(event);
-        await expect(client.listGroupContacts(groupId)).resolves.toBeDefined();
+        const groupId = findEventGroup(event);
+        expect(groupId, event.id).not.toBeNull();
+        await expect(client.listGroupContacts(groupId!)).resolves.toBeDefined();
       }
     });
   });

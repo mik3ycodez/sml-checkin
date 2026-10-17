@@ -30,6 +30,8 @@ const WINDOW_PROBLEM: Record<IgnoredWindowReason, string> = {
 const NO_QR: Record<NoQrReason, string> = {
   archived:
     "This event is archived in TidyHQ, so it has no check-in QR code. Unarchive it in TidyHQ if it's still running.",
+  not_accepted:
+    "This event doesn't take check-ins, so it has no check-in QR code.",
   no_group:
     "This event has no attendance group, so check-in can't record anyone and there is no QR code.",
   never_opens:

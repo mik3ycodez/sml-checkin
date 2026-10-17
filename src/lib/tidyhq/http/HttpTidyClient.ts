@@ -164,18 +164,16 @@ export class HttpTidyClient implements TidyClient {
     return raw.map(parseGroup);
   }
 
-  async updateContact(
-    contactId: string,
-    patch: ContactPatch,
-  ): Promise<Contact> {
-    return parseV2Contact(
-      await tidyRequest({
-        ...this.common("v2", `/contacts/${contactId}`),
-        method: "PATCH",
-        body: patch,
-        expect: "record",
-      }),
-    );
+  async updateContact(contactId: string, patch: ContactPatch): Promise<void> {
+    // Any 2xx counts, as with the group add: the spec says the PATCH answers
+    // the updated Contact, but until go-live checklist item 13 confirms it, a
+    // write that happened must not be reported as a failure over the reply.
+    await tidyRequest({
+      ...this.common("v2", `/contacts/${contactId}`),
+      method: "PATCH",
+      body: patch,
+      expect: "none",
+    });
   }
 
   async addNote(contactId: string, text: string): Promise<Note> {

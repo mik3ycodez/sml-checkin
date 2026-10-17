@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TidyError } from "./errors";
-import { findEventGroup, resolveEventGroup } from "./eventGroups";
+import { findEventGroup } from "./eventGroups";
 
 describe("findEventGroup", () => {
   it("returns the attendance group the event carries", () => {
@@ -21,22 +20,5 @@ describe("findEventGroup", () => {
       group_id: "g_tickets",
     };
     expect(findEventGroup(event)).toBeNull();
-  });
-});
-
-describe("resolveEventGroup", () => {
-  it("returns the group", () => {
-    expect(resolveEventGroup({ attendance_group_id: "grp_a" })).toBe("grp_a");
-  });
-
-  it("throws 404 for an event with no group", () => {
-    let error: unknown;
-    try {
-      resolveEventGroup({});
-    } catch (e) {
-      error = e;
-    }
-    expect(error).toBeInstanceOf(TidyError);
-    expect((error as TidyError).status).toBe(404);
   });
 });
