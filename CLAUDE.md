@@ -17,7 +17,7 @@ system of record; this app is a thin layer on top of it.
   View only; all changes and renewals happen in TidyHQ.
 - **Admin side (SML Board / social coordinator):** event list pulled from TidyHQ,
   check-in QR per event, live attendee list, manual check-in by name search
-  (logged as a staff check-in), points adjustments, simple reports.
+  (logged as a staff check-in), simple reports.
 
 ## Out of scope for MVP
 
@@ -37,8 +37,15 @@ system of record; this app is a thin layer on top of it.
 - Points: **1 point per event attended.** Keep point values in one config spot,
   since rules may expand later.
 - The stored TidyHQ points field is the source of truth. It includes
-  balances migrated from WildApricot and (later) admin adjustments, so
+  balances migrated from WildApricot and any corrections made in TidyHQ, so
   attendance is never used to recalculate or verify points.
+- **The app edits nothing in TidyHQ beyond a check-in.** It writes exactly
+  three things, all during a check-in: the member's place in the event's
+  group, `POINTS_PER_CHECKIN` added to the stored total, and the staff note
+  (staff check-ins only). Points corrections and every other change to member
+  data happen in TidyHQ, by people SML appoints. Admin points adjustments are
+  dropped, not deferred: TidyHQ already has the permissions, history and audit
+  a correction needs.
 - On a new check-in (member not already in the event's group), add the
   member to the group first, then add `POINTS_PER_CHECKIN` to
   the stored total. If they're already in the group, award nothing and change
@@ -51,7 +58,10 @@ system of record; this app is a thin layer on top of it.
   entered as plain whole numbers. The app tolerates surrounding spaces and
   commas (`1,234`), but treats decimals, negatives, or other text as an
   unreadable total: check-in is refused (`points_unreadable`) and the field is
-  never overwritten. A blank field counts as 0.
+  never overwritten. A blank field counts as 0. **In live mode, a points field
+  missing from the response (as opposed to blank) is also unreadable**
+  (`points_unreadable`) until the go-live checklist confirms how TidyHQ sends
+  unanswered fields; mock mode treats missing as blank.
 - **Rewards (display-only).** Club colors at 18 points (`REWARDS` in
   `points.ts`). The Board hands them out and marks them issued in a TidyHQ
   custom field (`readRewardIssued`); this app only reads it. Issued wins over

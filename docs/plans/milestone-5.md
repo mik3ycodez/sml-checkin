@@ -1,0 +1,404 @@
+# Milestone 5: Live-ready prep
+
+**Status:** Approved. PR 1 in review.
+
+## Context
+
+Milestones 1 to 4 built the whole app against `MockTidyClient`. SML's TidyHQ
+plan is at its app-integration limit until an upgrade early next year, so we
+still can't call the real API. This milestone gets everything ready for that
+day: a real `HttpTidyClient` and live sign-in, built and tested against the
+published API with no real network; startup config that fails closed; and the
+read-only leftovers from milestone 4.
+
+When this milestone is done, going live should be: register the app in
+TidyHQ, set the env settings, verify the go-live checklist against live data,
+and change only the files the checklist names.
+
+Not in this milestone: anything that needs live access to decide (the event
+to group link, the custom field format, the check-in window source, the
+"already checked in" shortcut). Those stay isolated and on the checklist.
+
+## Decisions
+
+### The app never edits TidyHQ records beyond check-in
+
+Decided before this plan. The app writes exactly three things, all during a
+check-in:
+
+1. adds the member to the event's attendance group,
+2. adds `POINTS_PER_CHECKIN` to the stored points total,
+3. writes the staff note (staff check-ins only).
+
+Points corrections and every other change to member data happen in TidyHQ,
+by people SML appoints. **Admin points adjustments are dropped, not
+deferred.** Reasons: the stored points field is the source of truth, and
+TidyHQ already has the permissions, history and audit that a correction
+needs; building a second place to edit it would need its own reason and audit
+design, for something the Board can already do.
+
+PR 1 records this in CLAUDE.md and the milestone 4 plan.
+
+### `HttpTidyClient` rules
+
+- **Two tokens, never mixed.** The member's OAuth token is used for exactly
+  one call, `GET /v2/contacts/me`, and nothing else. Every other call uses
+  `TIDYHQ_ADMIN_TOKEN`, server-side. Both go in an
+  `Authorization: Bearer <token>` header, never in a URL (v1 also accepts an
+  `access_token` query parameter; we don't use it, because URLs end up in
+  logs).
+- **Fixed hosts.** `https://api.tidyhq.com/v2`, `https://api.tidyhq.com/v1`
+  and `https://accounts.tidyhq.com/oauth/...` are constants. Tests inject a
+  `fetch` function through the constructor; there is no env setting for the
+  API base URL, so a bad setting can't send the admin token to another host.
+- **Every list follows every page.** v2 lists are plain arrays with
+  `limit`/`offset` and no total. The client asks for 100 per page and stops
+  only at an **empty page**, not a short one: if TidyHQ caps the page size
+  below what we ask for, "stop at a short page" would silently return one
+  page as if it were everything. That costs one extra request per list and
+  is worth it (a missing page of an event group would award points twice).
+  Results are de-duplicated by id. A hard cap (200 pages) throws instead of
+  returning a partial list.
+- **Errors become `TidyError`, always.** HTTP statuses pass through as
+  `TidyError(status)`: 401, 403, 404, 422, 429, 5xx. Our own failures get
+  gateway statuses so callers can treat them like TidyHQ being down: timeout
+  → 504, network error → 502, a 2xx with a body that isn't the expected
+  JSON shape (not an array where a list is expected, no `id` on a record) → 502. A 401 on the admin token is logged as a configuration problem ("admin
+  token rejected"), since it means the token is wrong or expired, not that a
+  member did something.
+- **Timeouts suited to event Wi-Fi.** The weak link is the member's phone to
+  our server, so our server must answer quickly with a clear "try again"
+  rather than hang while the phone gives up. Each TidyHQ request gets 8
+  seconds (`REQUEST_TIMEOUT_MS`, one constant, `AbortSignal.timeout`).
+- **Retries: reads once, writes never.** A `GET` that times out, fails on
+  the network, or gets 502/503/504 is retried once after a short pause. 429
+  is not retried (it's TidyHQ asking us to slow down; the page says
+  "temporarily unavailable"). Writes are never retried automatically: a
+  retried note would be written twice, and a group add or points write that
+  timed out may have happened anyway. That matches the existing rule: a
+  failure between the group add and the points write may miss a point, but
+  never double-awards. The member's next tap finds them in the group and
+  awards nothing.
+- **Never log secrets.** Log lines and error messages carry the method, the
+  path with ids (contact and event ids are already logged elsewhere), the
+  status, and TidyHQ's `message` field cut to 200 characters. Never headers,
+  tokens, OAuth codes, client secrets, request bodies, or query strings
+  (`search_terms` holds members' names). A test drives every error path with
+  a recognizable fake token and secret and fails if either appears in any
+  thrown message or console output.
+- **A blank search sends nothing.** `searchContacts("")` returns `[]` without
+  calling TidyHQ, since a blank `search_terms` may well mean "everyone".
+- **Our ordering and filters, not TidyHQ's.** `listEvents` sends
+  `after`/`before` (the spec's meaning matches ours: ends after, starts
+  before) and then still sorts by start time itself, as the mock does,
+  because the spec doesn't promise an order.
+
+### The known unknowns stay in one place each
+
+Each gets a marked comment (`// LIVE-UNKNOWN:`), so
+`grep -rn LIVE-UNKNOWN src` lists every one, and a go-live checklist item.
+
+1. **How an event links to its attendance group:** `eventGroups.ts`, as
+   now. Until it's verified, **live mode links no event to a group**, so
+   every live event shows "no attendance group" on the admin page and refuses
+   check-in. That fails closed. The tempting guess, the spec's
+   `Event.group_id`, is a group "kept in step with the event's attendees"
+   (ticket holders). If TidyHQ's sync removes a member we added, their next
+   scan would look like a new check-in and award a second point, which
+   breaks the one rule we must never break. So we don't guess. The mock keeps
+   its explicit map.
+2. **The custom field request format:** `customFields.ts`, as now.
+   `HttpTidyClient.updateContact` sends the body `buildPointsPatch` builds,
+   unchanged, so the format lives in one file. The spec says the PATCH body
+   is a `Contact`, which suggests `custom_fields: { <id>: { value } }` rather
+   than our current `{ <id>: "<value>" }`; PR 4 follows the spec's shape and
+   the checklist verifies it. The field ids (`POINTS_FIELD_ID`,
+   `COLORS_ISSUED_FIELD_ID`) stay placeholders until go-live.
+3. **Also unknown, and not in your list:** where the admin-set **check-in
+   window** lives in TidyHQ (`getEventCheckinWindow`). Live mode returns
+   `null` (no window set), so check-in uses the event's own start and end,
+   which is the existing fallback. Marked the same way. If TidyHQ's event
+   data turns out to carry check-in times, live mode uses them instead; that's
+   go-live checklist item 4.
+
+### Decisions settled in review
+
+1. **Hosting stays a go-live decision.** Build to work on a long-running Node
+   server or serverless. Set a 30-second limit (`maxDuration`) on the check-in
+   and report routes regardless, since a check-in makes several TidyHQ calls
+   and an 8 s timeout with one retry could outlast a serverless default.
+2. **In live mode, a points field missing from the response is unreadable**
+   (check-in refused with `points_unreadable`, field never written), until
+   the go-live checklist confirms how TidyHQ sends unanswered fields. A blank
+   value still counts as 0. This protects against the admin token not seeing
+   the field (a real balance overwritten with 1). Recorded in CLAUDE.md.
+   Mock mode keeps treating a missing field as blank.
+3. **Check-in times:** if TidyHQ's event data provides check-in times, live
+   mode uses them; otherwise it falls back to the event's start and end.
+   Go-live checklist item.
+4. **Production refuses `TIDYHQ_MODE=mock`** unless an explicit demo setting
+   (`DEMO_MODE=on`) is set. Demo mode shows a visible "Demo data" banner on
+   every page.
+5. **Shared events count for points like any other.** Any event that appears
+   in SML's TidyHQ is point-applicable, including ones with `shared_from` set.
+   The rule lives in one small named function, `countsForPoints(event)`, used
+   by check-in and the admin event list, so it's easy to change later. Go-live
+   checklist: confirm no events have `shared_from` set. Future enhancement
+   below.
+6. **Retries:** reads once, writes never (as in the `HttpTidyClient` rules).
+7. **No test TidyHQ organisation is available,** so the checklist runs on
+   go-live day, ordered to keep that day safe: read-only checks first, then
+   one test check-in on a Board member's own contact at an unpublished test
+   event, verified in TidyHQ, before members use the app.
+
+### Startup config fails closed in live mode
+
+`TIDYHQ_MODE=live` refuses to start, in any `NODE_ENV`, unless
+`TIDYHQ_CLIENT_ID`, `TIDYHQ_CLIENT_SECRET` and `TIDYHQ_ADMIN_TOKEN` are set,
+not blank, and not the `.env.example` placeholder text. The error names the
+missing setting, never a value. Live mode also refuses to start with `E2E`
+set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
+`ADMIN_GROUP_ID` and `HELPER_GROUP_ID` stay optional, as decided in milestone
+4: a missing admin setting must not take down member check-in.
+
+`NODE_ENV=production` with `TIDYHQ_MODE=mock` also refuses to start, unless
+`DEMO_MODE=on` (decision 4).
+
+## Design choices (and why)
+
+- **One request layer, then thin methods.** `tidyRequest` (in
+  `src/lib/tidyhq/http/`) owns the auth header, timeout, retry, error
+  mapping, paging and safe logging. Each `HttpTidyClient` method is then a
+  few lines naming a path. The hard parts get tested once, thoroughly.
+- **A fake TidyHQ server, built over the mock.** For tests, a `fetch`
+  function that answers TidyHQ's paths (v1 and v2) by calling a
+  `MockTidyClient` and wrapping the result the way the spec says: JSON
+  bodies, `limit`/`offset` paging, Bearer token checks, `{ "message" }` error
+  bodies. It pages at **2 items** by default, so every seed list spans
+  several pages; that's how the paging rule finally gets tested (the mock
+  alone can't page). It can also inject failures (a status, a timeout, a
+  non-JSON body) on a chosen request.
+- **A shared contract suite.** `runTidyClientContract(name, makeClient)` is
+  one set of tests that runs twice: against `MockTidyClient` directly, and
+  against `HttpTidyClient` talking to the fake server. Same seed, same
+  expectations, so the two can't drift: if the mock learns a behavior, the
+  HTTP client has to match it, and the reverse. Because the fake server sits
+  on the mock, the contract checks the HTTP client's translation (paths,
+  paging, auth, errors), and the go-live checklist checks the mock's
+  assumptions against real TidyHQ.
+- **Plus fixture tests from the spec's shapes.** Hand-written responses
+  copied from the spec's schemas (a v2 `Contact` with `custom_fields`, a
+  `Membership`, an `Event` with `group_id` and `shared_from`, an `Error`)
+  check that the client reads the real field names, including nulls the
+  mock never produces.
+- **An org-wide memberships read, not one per contact.** The spec has
+  `GET /v2/memberships`: every membership in the organisation, and by default
+  only activated, partial and expired ones, which are exactly the ones that
+  can be inconsistent. So the report is two paged reads (memberships and
+  contacts, for names) instead of one memberships read per contact. That's
+  why it was deferred in milestone 4, and it no longer needs to be slow.
+- **Seed changes are separate from new screens.** Adding a seed member or
+  event can change counts and lists other specs assert on, so that churn
+  lands in its own PR, reviewed on its own.
+
+## Pull requests (in order)
+
+### PR 1 🔍 In review (#34): Docs: the app edits nothing beyond check-in
+
+- CLAUDE.md: remove "points adjustments" from the admin side and from the
+  points rule ("(later) admin adjustments" becomes corrections made in
+  TidyHQ); add the rule under Key decisions: the app writes only the group
+  add, the +1 point and the staff note; corrections and all other member
+  data changes happen in TidyHQ by appointed people.
+- `docs/plans/milestone-4.md`: in Deferred, change "Points adjustments" to
+  dropped, with the reason. Also fix its stale status line (PR 7 merged as
+  #32, so milestone 4 is complete in 0.4.0).
+- `docs/plans/milestone-5.md` itself, with review decisions applied.
+- No code.
+
+### PR 2: TidyHQ request layer (test-first)
+
+- `src/lib/tidyhq/http/request.ts`: `tidyRequest` and `tidyRequestAll`
+  (paging), following the rules above: Bearer header, fixed hosts, 8 s
+  timeout, one retry for reads, error mapping (including 404, 429, timeout
+  504, network 502, bad body 502), empty-page paging stop with the page cap
+  and de-duplication, safe logging.
+- Tests with fake `fetch` responses only: every status, timeout, network
+  error, non-JSON body, paging over several pages, a server that caps page
+  size, the page cap, retry once and only for reads, and the secrets test.
+- No `TidyClient` methods yet; nothing uses it.
+
+### PR 3: `HttpTidyClient` reads, the fake server, and the contract suite
+
+- `src/lib/tidyhq/http/fakeTidyServer.ts` (test-only) and
+  `src/lib/tidyhq/contract.ts` (`runTidyClientContract`).
+- Move the behaviors `MockTidyClient.test.ts` already pins down (404s, 401
+  for a bad token, active-only lists, blank search) into the contract where
+  they're about the interface, and keep mock-only ones (reset, sign-in list)
+  where they are. Moved tests are listed in the PR description.
+- `HttpTidyClient`: `getMe`, `searchContacts`, `listAllContacts`,
+  `getContact`, `getMemberships`, `getMembershipLevel`, `listEvents`,
+  `getEvent`, `listGroupContacts`, `listContactGroups` (v1 for the group
+  endpoints). Fixture tests from the spec's shapes.
+- The v1 docs pages are JavaScript-rendered and I couldn't read their paging
+  details while planning. This PR confirms from them whether
+  `GET /v1/groups/{id}/contacts` and `GET /v1/contacts/{id}/groups` page,
+  and how, and the contract tests whatever they say.
+
+### PR 4: `HttpTidyClient` writes, and the unknowns marked
+
+- `updateContact` (`PATCH /v2/contacts/{id}`), `addNote`
+  (`POST /v2/contacts/{id}/notes`), `addContactToGroup`
+  (`PUT /v1/groups/{groupID}/contacts/{contactID}`), and
+  `getEventCheckinWindow` (returns `null` in live mode, marked).
+- `buildPointsPatch` moves to the spec's `Custom-Field` body shape, with the
+  mock accepting the same shape (contract covers it).
+- `eventGroups.ts`: a live-mode rule that links no event, marked. Tests that
+  check-in, the QR page and the volunteer page all report "no attendance
+  group" for a live event, which they already agree on via `checkinBlocker`.
+- Contract additions: group add is idempotent, an unknown custom field is
+  422, a note on an unknown contact is 404, writes are never retried.
+- `countsForPoints(event)` (decision 5): returns true for every event, in one
+  small file; check-in and the admin event list call it. Tests cover both
+  callers, including an event with `shared_from` set.
+- Live mode reads a points field missing from the response as unreadable
+  (decision 2). Tests: missing key refuses with `points_unreadable` and
+  writes nothing; blank still counts as 0.
+- Every `LIVE-UNKNOWN` marker gets a test that names it, so removing a
+  marker without resolving it is visible in review.
+
+### PR 5: Live sign-in and startup config
+
+- `HttpTidyOAuth`: `authorizeUrl` builds
+  `https://accounts.tidyhq.com/oauth/authorize` with `client_id`,
+  `redirect_uri`, `response_type=code`, `state` and `domain_prefix`;
+  `exchangeCode` posts to `https://accounts.tidyhq.com/oauth/token`
+  (`grant_type=authorization_code`, with the client secret, server-side) and
+  returns the access token. TidyHQ's "bad code" response becomes
+  `TidyError(401)`, as the interface promises. The code, token and secret
+  are never logged.
+- `createTidyServices("live")` builds `HttpTidyClient` and `HttpTidyOAuth`
+  instead of throwing. The mock sign-in page and reset route already refuse
+  outside mock mode; a test confirms they still do.
+- `liveConfig()`: the fail-closed checks above, called from
+  `instrumentation.ts`. Tests for each missing, blank and placeholder
+  setting.
+- Production refuses mock mode unless `DEMO_MODE=on`; demo mode renders a
+  "Demo data" banner in the root layout, so it shows on every page. Tests for
+  both. Outside production, mock mode without `DEMO_MODE` shows no banner.
+- `maxDuration = 30` on the check-in and report routes.
+- `.env.example`: every setting documented with placeholders only, including
+  which are secrets, which are live-only, and that the placeholders are
+  rejected in live mode.
+- No e2e: Playwright runs mock mode only (there is no TidyHQ to run against).
+
+### PR 6: Mock seed additions, with e2e
+
+- A member whose only counted membership is `expired` with a future end
+  date (an inconsistent record).
+- An event with no attendance group, open for check-in now.
+- E2E for the screens they unlock, lean, one spec file each:
+  - The no-group event: the admin event page shows the reason instead of a
+    QR code; the member check-in page refuses; a volunteer can't open its
+    staff page.
+  - The inconsistent member: self check-in is refused; an admin's staff
+    check-in view shows the inconsistent-membership warning; a volunteer
+    sees only the generic line (volunteer privacy).
+- Existing specs whose counts or lists change get updated; each one is
+  named in the PR description with why.
+
+### PR 7: Inconsistent memberships report, and 0.5.0
+
+- `listAllMemberships()` on `TidyClient` (`GET /v2/memberships`, default
+  filter, every page), in both clients and the contract.
+- `/admin/reports/memberships`, admins only (not volunteers), linked from
+  the admin home next to the colors report. Uses `findInconsistentMemberships`
+  as check-in does. Lists each affected member (name via `contactName`, the
+  problem in words, membership id) so someone can fix it in TidyHQ.
+  Read-only. A TidyHQ failure shows "temporarily unavailable" with a retry
+  link, never a partial list, like the colors report.
+- E2E using PR 6's inconsistent member.
+- `package.json` to 0.5.0; this plan's status and CLAUDE.md updated.
+
+**Dependencies:** PR 1 first (it's the decision). PRs 2→3→4→5 build the
+client in order. PR 6 can go any time; it's before PR 7 because PR 7's e2e
+needs its member. PR 7 is last because it carries the version bump.
+
+## Deferred
+
+- **Cheaper "already checked in" check** (`listContactGroups` instead of
+  the event's whole attendee list): still waits for live data, as in
+  milestone 4.
+- **Short-lived group membership cache** for the admin and volunteer
+  checks: only if live rate limits demand it (milestone 4's "Ideas").
+
+## Future enhancements
+
+- **Shared events.** SML may share events with partner organizations; decide
+  then whether shared events (`shared_from` set) earn points.
+
+## Go-live checklist (live TidyHQ)
+
+The milestone 4 checklist (settings table and items) still applies; it moves
+here and this list adds to it. No test TidyHQ organisation is available, so
+this runs on go-live day. It is ordered to keep that day safe: **Part A**
+only reads, **Part B** makes one write, and members don't use the app until
+both pass.
+
+### Part A: read-only checks
+
+1. **The admin token can see the points and colors-issued fields.** The spec
+   says `custom_fields` includes only answers visible to the token's
+   contact. If the token can't see the points field, it would look blank,
+   blank counts as 0, and the first check-in would overwrite a real balance
+   with 1. Check with a contact whose balance is known.
+2. **Missing versus blank.** Whether a contact with no answer for a field
+   omits the key or returns a blank value. Live mode currently refuses
+   check-in on a missing key (decision 2); if TidyHQ omits the key for
+   unanswered fields, that rule would refuse every member who has never had
+   points, and `readPoints` must change.
+3. **Event to group link** (`eventGroups.ts`, `LIVE-UNKNOWN`). Decide how
+   SML links an event to its attendance group. Proving that a contact the
+   app adds stays in the group for a day after the event needs a write, so
+   that part is Part B and a follow-up the next day.
+4. **Check-in time fields.** Whether TidyHQ's event data provides check-in
+   times (`getEventCheckinWindow`, `LIVE-UNKNOWN`). If so, use them;
+   otherwise keep the fallback to the event's start and end.
+5. **`shared_from`.** Confirm no events have it set.
+6. **Custom field ids.** Set the real ids (`POINTS_FIELD_ID`,
+   `COLORS_ISSUED_FIELD_ID`).
+7. Paging: on a list longer than one page (`listAllContacts`, a big event
+   group), the client's count matches TidyHQ's admin screen. Confirm v1's
+   group endpoints page the way PR 3 implemented.
+8. Errors: a wrong id gives 404, a bad admin token gives 401, and what a 429
+   looks like (`Retry-After`?). Learn the real rate limit and check that a
+   busy door (several check-ins a minute, plus the 30-second attendee
+   refresh) stays under it.
+9. The admin token: whose account it acts as (notes' author), and whether it
+   expires. If it expires, a refresh flow is needed before go-live.
+10. Sign-in: the real authorize and token responses, that `domain_prefix=sml`
+    is right, and that a reused code is refused.
+11. Events: `GET /v2/events` is marked experimental in the spec, so recheck
+    its shape.
+12. `GET /v2/memberships` returns the same memberships as the per-contact
+    reads for a few known members (the report depends on it).
+
+### Part B: one test check-in
+
+On a Board member's own contact, at an unpublished test event in TidyHQ:
+
+13. **Custom field request format** (`customFields.ts`, `LIVE-UNKNOWN`).
+    Check in once, confirm the stored points value went up by exactly
+    `POINTS_PER_CHECKIN`, and that the same PATCH left every other field on
+    the contact unchanged (names, email, other custom fields).
+14. The contact is in the test event's group, verified in TidyHQ. A second
+    scan awards nothing. The next day, confirm TidyHQ's sync hasn't removed
+    them (if it does, points get awarded twice).
+15. A staff check-in writes its note, with the right author and content.
+16. Real-world latency: a full check-in from a phone at the venue finishes
+    well inside the 8 s per request timeout. Adjust `REQUEST_TIMEOUT_MS` if
+    not.
+17. `grep -rn LIVE-UNKNOWN src` comes back empty.
+
+Then remove the test event and undo the test contact's point by hand in
+TidyHQ.
