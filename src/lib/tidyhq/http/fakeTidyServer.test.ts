@@ -24,7 +24,7 @@ describe("fake TidyHQ server", () => {
     it("returns 2 items a page, however many are asked for", async () => {
       const { get } = setup();
       const page = await (
-        await get(`${V2}/contacts?limit=100&offset=0`)
+        await get(`${V2}/contacts?search_terms=example.com&limit=100&offset=0`)
       ).json();
       expect(page.map((c: { id: string }) => c.id)).toEqual([
         "c_marcus",
@@ -35,24 +35,32 @@ describe("fake TidyHQ server", () => {
     it("honors offset, and returns an empty page past the end", async () => {
       const { get } = setup();
       const second = await (
-        await get(`${V2}/contacts?limit=100&offset=2`)
+        await get(`${V2}/contacts?search_terms=example.com&limit=100&offset=2`)
       ).json();
       expect(second.map((c: { id: string }) => c.id)).toEqual([
         "c_jordan",
         "c_sam",
       ]);
-      expect(await (await get(`${V2}/contacts?offset=500`)).json()).toEqual([]);
+      expect(
+        await (
+          await get(`${V2}/contacts?search_terms=example.com&offset=500`)
+        ).json(),
+      ).toEqual([]);
     });
 
     it("uses a smaller limit when asked for one", async () => {
       const { get } = setup();
-      const page = await (await get(`${V2}/contacts?limit=1&offset=0`)).json();
+      const page = await (
+        await get(`${V2}/contacts?search_terms=example.com&limit=1&offset=0`)
+      ).json();
       expect(page).toHaveLength(1);
     });
 
     it("pages by the size it was built with", async () => {
       const { get } = setup({ pageSize: 5 });
-      const page = await (await get(`${V2}/contacts?limit=100`)).json();
+      const page = await (
+        await get(`${V2}/contacts?search_terms=example.com&limit=100`)
+      ).json();
       expect(page).toHaveLength(5);
     });
 
@@ -150,14 +158,14 @@ describe("fake TidyHQ server", () => {
 
     it("records every request, with its token", async () => {
       const { server, get } = setup();
-      await get(`${V2}/contacts?limit=2&offset=0`);
+      await get(`${V2}/contacts?search_terms=example.com&limit=2&offset=0`);
       expect(server.requests).toEqual([
         expect.objectContaining({
           method: "GET",
           version: "v2",
           path: "/contacts",
           token: FAKE_ADMIN_TOKEN,
-          url: `${V2}/contacts?limit=2&offset=0`,
+          url: `${V2}/contacts?search_terms=example.com&limit=2&offset=0`,
         }),
       ]);
       expect(server.requests[0].query.get("offset")).toBe("0");

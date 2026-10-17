@@ -56,26 +56,6 @@ describe("MockTidyClient", () => {
     });
   });
 
-  describe("listAllContacts", () => {
-    it("returns every contact however many there are (the real client follows all pages)", async () => {
-      const seed = createSeed();
-      const template = seed.contacts[0];
-      for (let i = 0; i < 650; i++) {
-        seed.contacts.push({ ...structuredClone(template), id: `c_bulk_${i}` });
-      }
-      const all = await new MockTidyClient(seed).listAllContacts();
-      expect(all).toHaveLength(seed.contacts.length);
-    });
-
-    it("returns copies callers can't use to change the mock", async () => {
-      const first = await client.listAllContacts();
-      first[0].display_name = "Changed";
-      expect((await client.listAllContacts())[0].display_name).not.toBe(
-        "Changed",
-      );
-    });
-  });
-
   describe("searchContacts", () => {
     it("returns copies, so callers can't change the mock", async () => {
       const [found] = await client.searchContacts("Dante");

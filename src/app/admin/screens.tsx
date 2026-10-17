@@ -4,7 +4,7 @@ import { SECONDARY, SignedInAs } from "../memberUi";
 import type { AdminEvent, AdminEvents } from "@/lib/admin/events";
 import { seattleTimeLabel } from "@/lib/dates";
 import { checkinPath } from "../memberPaths";
-import { ADMIN_PATH, adminEventPath, COLORS_REPORT_PATH } from "./paths";
+import { ADMIN_PATH, adminEventPath } from "./paths";
 
 // Plain server-rendered markup, like the member pages: no client JavaScript.
 
@@ -91,12 +91,6 @@ export function AdminHomeScreen({
           )}
         </>
       )}
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xl font-semibold">Reports</h2>
-        <a href={COLORS_REPORT_PATH} className={SECONDARY}>
-          Club colors owed
-        </a>
-      </section>
       <SignedInAs name={name} returnTo={ADMIN_PATH} />
     </div>
   );

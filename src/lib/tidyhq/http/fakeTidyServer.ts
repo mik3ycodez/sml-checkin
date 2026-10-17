@@ -99,10 +99,8 @@ export function createFakeTidyServer(
     if (req.version === "v2") {
       if (req.path === "/contacts") {
         const search = req.query.get("search_terms");
-        const found =
-          search === null
-            ? await mock.listAllContacts()
-            : await mock.searchContacts(search);
+        if (search === null) throw noRoute();
+        const found = await mock.searchContacts(search);
         return reply(200, page(found, req.query).map(toV2Contact));
       }
       if (parts[0] === "contacts" && parts.length === 2) {

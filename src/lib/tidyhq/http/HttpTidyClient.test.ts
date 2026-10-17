@@ -55,7 +55,7 @@ describe("HttpTidyClient", () => {
   describe("paging", () => {
     it("asks for page after page until an empty one", async () => {
       const { server, client } = build();
-      expect(await client.listAllContacts()).toHaveLength(12);
+      expect(await client.searchContacts("example.com")).toHaveLength(12);
       const offsets = server.requests.map((r) => r.query.get("offset"));
       // 12 contacts at 2 a page: six full pages, then the empty one.
       expect(offsets).toEqual(["0", "2", "4", "6", "8", "10", "12"]);
@@ -99,7 +99,7 @@ describe("HttpTidyClient", () => {
     it("treats a list that isn't a list as TidyHQ failing", async () => {
       const { server, client } = build();
       server.intercept(() => Response.json({ contacts: [] }));
-      const error = await client.listAllContacts().catch((e) => e);
+      const error = await client.searchContacts("Marcus").catch((e) => e);
       expect(isTidyError(error, 502)).toBe(true);
     });
   });
@@ -115,7 +115,6 @@ describe("HttpTidyClient", () => {
       await client.listEvents();
       await client.getEvent("ev_tonight");
       await client.searchContacts("Marcus");
-      await client.listAllContacts();
       await client.listGroupContacts("grp_members");
       await client.listContactGroups("c_marcus");
 
@@ -129,7 +128,7 @@ describe("HttpTidyClient", () => {
       const { server, client } = build();
       const member = issueMockToken("c_marcus");
       await client.getMe(member);
-      await client.listAllContacts();
+      await client.searchContacts("Marcus");
       await client.listGroupContacts("grp_members");
       for (const req of server.requests) {
         expect(req.url).not.toContain(member);

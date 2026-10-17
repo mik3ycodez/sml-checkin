@@ -399,7 +399,7 @@ and skips the colors add (logged each time).
 - **`src/lib/liveUnknown.test.ts`** lists every marker tag and checks each has a
   checklist item here naming it.
 
-### PR 5 🔍 In review: Docs: colors eligibility moves into TidyHQ
+### PR 5 ✅ Done (#38): Docs: colors eligibility moves into TidyHQ
 
 - This plan: the colors decision above, the report removal, the dropped
   memberships report, the PRs re-split, and the go-live items.
@@ -409,7 +409,7 @@ and skips the colors add (logged each time).
   code in PRs 6 and 7, so it never describes behavior that isn't there.
 - No code.
 
-### PR 6: Remove the colors owed report
+### PR 6 🔍 In review: Remove the colors owed report
 
 - Delete `/admin/reports/colors` (page, screens, tests), the admin home
   "Reports" link and `COLORS_REPORT_PATH`, `getColorsOwed` and its tests,
