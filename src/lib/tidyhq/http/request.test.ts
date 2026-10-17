@@ -453,6 +453,150 @@ describe("tidyRequest: retries", () => {
   );
 });
 
+describe("tidyRequest: input checks", () => {
+  it.each([
+    "/events/../contacts/5",
+    "/events/%2e%2e/contacts",
+    "/contacts/5%2Fnotes",
+    "/contacts/5#frag",
+    "/contacts\\5",
+    "/contacts/",
+    "/contacts/a b",
+    "/contacts/5/",
+    "/events/.",
+    "//evil.example/x",
+    "events/1",
+  ])("refuses the path %j before calling TidyHQ", async (path) => {
+    const f = fakeFetch(json({ id: 1 }));
+    const err = await catchError(
+      tidyRequest({
+        ...base(f.fetch),
+        version: "v2",
+        method: "GET",
+        path,
+        expect: "record",
+      }),
+    );
+    expect(isTidyError(err)).toBe(true);
+    expect(f.calls).toHaveLength(0);
+  });
+
+  it("allows ordinary ids", async () => {
+    const f = fakeFetch(json({ id: 1 }));
+    await tidyRequest({
+      ...base(f.fetch),
+      version: "v1",
+      method: "GET",
+      path: "/groups/abc-1_2/contacts/42",
+      expect: "record",
+    });
+    expect(f.calls).toHaveLength(1);
+  });
+
+  it.each(["", "   "])(
+    "refuses the blank token %j locally as 401",
+    async (token) => {
+      const f = fakeFetch(json({ id: 1 }));
+      const err = await catchError(
+        tidyRequest({
+          ...base(f.fetch),
+          token,
+          version: "v2",
+          method: "GET",
+          path: "/contacts/me",
+          expect: "record",
+        }),
+      );
+      expect(isTidyError(err, 401)).toBe(true);
+      expect(f.calls).toHaveLength(0);
+    },
+  );
+
+  it("doesn't accept a body on a GET", () => {
+    const f = fakeFetch(json({ id: 1 }));
+    void (() =>
+      // @ts-expect-error a GET has no body
+      tidyRequest({
+        ...base(f.fetch),
+        version: "v2",
+        method: "GET",
+        path: "/contacts/1",
+        body: { a: 1 },
+        expect: "record",
+      }));
+  });
+});
+
+describe("tidyRequest: echoed request data", () => {
+  it("takes query and body text out of TidyHQ's message", async () => {
+    const f = fakeFetch(
+      json(
+        {
+          message:
+            "search_terms 'Ann Smith' invalid; note 'Checked in Ann' rejected; nested 'deep value'",
+        },
+        422,
+      ),
+    );
+    const err = (await catchError(
+      tidyRequest({
+        ...base(f.fetch),
+        method: "POST",
+        version: "v2",
+        path: "/contacts/5/notes",
+        query: { search_terms: "Ann Smith" },
+        body: { note: "Checked in Ann", more: { x: "deep value" } },
+        expect: "record",
+      }),
+    )) as Error;
+    for (const text of [err.message, logged.join("\n")]) {
+      expect(text).not.toContain("Ann Smith");
+      expect(text).not.toContain("Checked in Ann");
+      expect(text).not.toContain("deep value");
+    }
+    expect(err.message).toContain("invalid");
+  });
+});
+
+describe("tidyRequest: unread bodies", () => {
+  it("cancels the body when none is expected", async () => {
+    const res = new Response("ignored");
+    const cancel = vi.spyOn(res.body!, "cancel");
+    const fn = (async () => res) as unknown as typeof fetch;
+    await tidyRequest({
+      ...base(fn),
+      version: "v1",
+      method: "PUT",
+      path: "/groups/1/contacts/2",
+      expect: "none",
+    });
+    expect(cancel).toHaveBeenCalled();
+  });
+
+  it("cancels an error body it couldn't read", async () => {
+    const cancel = vi.fn(async () => {});
+    const res = {
+      ok: false,
+      status: 500,
+      json: async () => {
+        throw new SyntaxError("bad");
+      },
+      body: { cancel },
+    } as unknown as Response;
+    const fn = (async () => res) as unknown as typeof fetch;
+    await catchError(
+      tidyRequest({
+        ...base(fn),
+        version: "v2",
+        method: "POST",
+        path: "/x/1",
+        expect: "record",
+      }),
+    );
+    expect(cancel).toHaveBeenCalled();
+  });
+});
+
 describe("tidyRequestAll: paging", () => {
   /** A fetch that serves `items` honoring limit/offset, at most `cap` per page. */
   function server(items: Array<{ id: number }>, cap = PAGE_SIZE) {
@@ -531,8 +675,26 @@ describe("tidyRequestAll: paging", () => {
   });
 
   it("treats numeric and string ids as the same record", async () => {
-    const f = fakeFetch(json([{ id: 1 }]), json([{ id: "1" }]), json([]));
-    expect(await all(f.fetch)).toHaveLength(1);
+    const f = fakeFetch(
+      json([{ id: 1 }]),
+      json([{ id: "1" }, { id: 2 }]),
+      json([]),
+    );
+    expect(await all(f.fetch)).toHaveLength(2);
+  });
+
+  it("throws as soon as a page adds nothing new", async () => {
+    const f = fakeFetch(json([{ id: 1 }, { id: 2 }]));
+    const err = await catchError(all(f.fetch));
+    expect(isTidyError(err, 502)).toBe(true);
+    expect(f.calls).toHaveLength(2);
+  });
+
+  it("logs hitting the page cap", async () => {
+    let n = 0;
+    const f = fakeFetch(() => json([{ id: ++n }]));
+    await catchError(all(f.fetch));
+    expect(logged.join("\n")).toContain("too many pages");
   });
 
   it("throws at the page cap instead of returning a partial list", async () => {
@@ -543,13 +705,6 @@ describe("tidyRequestAll: paging", () => {
     expect(isTidyError(err, 502)).toBe(true);
     expect(f.calls).toHaveLength(MAX_PAGES);
     expect(MAX_PAGES).toBe(200);
-  });
-
-  it("throws, not loops forever, when the server ignores offset", async () => {
-    const f = fakeFetch(json([{ id: 1 }, { id: 2 }]));
-    const err = await catchError(all(f.fetch));
-    expect(isTidyError(err, 502)).toBe(true);
-    expect(f.calls.length).toBeLessThanOrEqual(MAX_PAGES);
   });
 
   it("fails the whole read if any page fails, never a partial list", async () => {
@@ -602,12 +757,13 @@ describe("secrets never leak", () => {
         const err = await catchError(
           tidyRequest({
             ...base(f.fetch),
-            method,
             version: "v2",
             path: "/contacts/5",
             query: { search_terms: "Secret Member" },
-            body: { note: "a request body" },
             expect: expectKind,
+            ...(method === "GET"
+              ? { method }
+              : { method, body: { note: "a request body" } }),
           }),
         );
         const text = `${(err as Error).name} ${(err as Error).message} ${(err as Error).stack ?? ""} ${JSON.stringify(err, Object.getOwnPropertyNames(err))}`;

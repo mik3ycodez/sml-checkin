@@ -34,11 +34,12 @@ type Common = {
 };
 
 export type TidyRequestOptions = Common & {
-  method: TidyMethod;
-  body?: unknown;
   /** "none" accepts any 2xx body (a group add may return nothing). */
   expect: "record" | "list" | "none";
-};
+} & (
+    | { method: "GET"; body?: never }
+    | { method: Exclude<TidyMethod, "GET">; body?: unknown }
+  );
 
 const defaultSleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -50,17 +51,44 @@ function isTimeout(error: unknown): boolean {
   );
 }
 
-/** TidyHQ's `message`, cut short, with our own secrets taken out. */
-function safeMessage(body: unknown, token: string): string {
+/** Every string in a request body, so an echo of it can be taken out. */
+function collectStrings(value: unknown, out: string[] = []): string[] {
+  if (typeof value === "string") out.push(value);
+  else if (Array.isArray(value)) value.forEach((v) => collectStrings(v, out));
+  else if (typeof value === "object" && value !== null) {
+    Object.values(value).forEach((v) => collectStrings(v, out));
+  }
+  return out;
+}
+
+/**
+ * TidyHQ's `message`, cut short, with the token and anything we sent (query
+ * and body text, such as a member's name) taken out in case it is echoed.
+ */
+function safeMessage(body: unknown, options: TidyRequestOptions): string {
   if (typeof body !== "object" || body === null) return "";
   const message = (body as { message?: unknown }).message;
   if (typeof message !== "string") return "";
-  return message
-    .split(token)
-    .join("[token]")
-    .replace(/bearer\s+\S+/gi, "[token]")
-    .slice(0, MAX_MESSAGE_CHARS);
+  const sent = [
+    ...Object.values(options.query ?? {}).filter((v) => typeof v === "string"),
+    ...collectStrings(options.body),
+  ].filter((v): v is string => v.length >= 3);
+  let out = message.split(options.token).join("[token]");
+  for (const value of sent) out = out.split(value).join("[removed]");
+  return out.replace(/bearer\s+\S+/gi, "[token]").slice(0, MAX_MESSAGE_CHARS);
 }
+
+/** Frees the connection for a body we won't read. */
+function discard(res: Response) {
+  try {
+    void res.body?.cancel().catch(() => {});
+  } catch {
+    // already consumed or locked: nothing to free
+  }
+}
+
+/** One path segment: an id or a resource name, nothing that moves the path. */
+const SEGMENT = /^[A-Za-z0-9_-]+$/;
 
 function hasId(value: unknown): boolean {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -86,8 +114,19 @@ export async function tidyRequest(
   options: TidyRequestOptions,
 ): Promise<unknown> {
   const { method, version, path } = options;
-  if (!path.startsWith("/") || path.startsWith("//") || path.includes("?")) {
+  // Ids come from forms and URLs; refuse anything that could re-aim an
+  // admin-token request ("..", "%2F", "#", "?", backslashes, blanks).
+  if (
+    !path.startsWith("/") ||
+    !path
+      .slice(1)
+      .split("/")
+      .every((part) => SEGMENT.test(part))
+  ) {
     throw new TidyError(500, "TidyHQ request has an invalid path");
+  }
+  if (options.token.trim() === "") {
+    throw new TidyError(401, `TidyHQ ${method} /${version}${path}: no token`);
   }
   const label = `${method} /${version}${path}`;
   const sleep = options.sleep ?? defaultSleep;
@@ -153,16 +192,20 @@ async function tryOnce(
     if (!res.ok) {
       let message = "";
       try {
-        message = safeMessage(await res.json(), token);
+        message = safeMessage(await res.json(), options);
       } catch {
         // an error page, not JSON: the status is enough
+        discard(res);
       }
       const retryable =
         res.status === 502 || res.status === 503 || res.status === 504;
       return fail(res.status, message ? `: ${message}` : "", retryable);
     }
 
-    if (expect === "none") return { ok: true, data: undefined };
+    if (expect === "none") {
+      discard(res);
+      return { ok: true, data: undefined };
+    }
 
     let data: unknown;
     try {
@@ -204,17 +247,26 @@ export async function tidyRequestAll(options: Common): Promise<unknown[]> {
       query: { ...options.query, limit: PAGE_SIZE, offset },
     })) as Array<{ id: string | number }>;
     if (batch.length === 0) return items;
+    let added = 0;
     for (const item of batch) {
       const key = String(item.id);
       if (!seen.has(key)) {
         seen.add(key);
         items.push(item);
+        added++;
       }
+    }
+    if (added === 0) {
+      // Only repeats: the server is ignoring `offset`. Stop now, not at the cap.
+      throw tooMany(options, "keeps repeating the same items");
     }
     offset += batch.length;
   }
-  throw new TidyError(
-    502,
-    `TidyHQ GET /${options.version}${options.path} has too many pages`,
-  );
+  throw tooMany(options, "has too many pages");
+}
+
+function tooMany(options: Common, why: string): TidyError {
+  const request = `GET /${options.version}${options.path}`;
+  console.error("tidyhq list has too many pages", { request, why });
+  return new TidyError(502, `TidyHQ ${request} ${why}`);
 }
