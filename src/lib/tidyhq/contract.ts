@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { TidyClient } from "./client";
-import { buildPointsPatch, POINTS_FIELD_ID, readPoints } from "./customFields";
+import {
+  buildPointsPatch,
+  COLORS_ISSUED_FIELD_ID,
+  POINTS_FIELD_ID,
+  readPoints,
+  readRewardIssued,
+} from "./customFields";
 import { TidyError } from "./errors";
 import { findEventGroup } from "./eventGroups";
 import { createSeed, MOCK_ADMIN_CONTACT_ID, type MockSeed } from "./mock/seed";
@@ -41,6 +47,14 @@ export interface ContractDifferences {
    * checklist confirms how TidyHQ sends unanswered fields.
    */
   missingPointsUnreadable: boolean;
+  /**
+   * A colors-issued field missing from a contact: the mock reads it as not
+   * issued; the live client marks it, so `readRewardIssued` says unreadable
+   * and check-in never adds the member to the colors group, until the
+   * checklist confirms how TidyHQ sends unanswered fields
+   * (LIVE-UNKNOWN(missing-issued-field)).
+   */
+  missingIssuedUnreadable: boolean;
   /**
    * The mock has admin-set check-in windows; live has no known source for
    * them yet (`getEventCheckinWindow`, LIVE-UNKNOWN(checkin-window)) and always says null.
@@ -525,6 +539,21 @@ export function runTidyClientContract(
         expect(readPoints(found)).toBe(
           harness.differences.missingPointsUnreadable ? null : 0,
         );
+      });
+
+      it("a colors-issued field missing from a contact", async () => {
+        const harness = open((seed) => {
+          delete seed.contacts.find((c) => c.id === "c_dante")!.custom_fields[
+            COLORS_ISSUED_FIELD_ID
+          ];
+        });
+        const expected = harness.differences.missingIssuedUnreadable
+          ? null
+          : false;
+        const dante = await harness.client.getContact("c_dante");
+        expect(readRewardIssued(dante, "club_colors")).toBe(expected);
+        const [found] = await harness.client.searchContacts("Dante");
+        expect(readRewardIssued(found, "club_colors")).toBe(expected);
       });
 
       it("a blank points field is 0 either way", async () => {

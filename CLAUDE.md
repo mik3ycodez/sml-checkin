@@ -71,18 +71,30 @@ system of record; this app is a thin layer on top of it.
   nothing about the reward rather than guess.
 - **Colors-eligible group (a real write).** On a **new** check-in, after a
   successful points write, `addToColorsGroup` (`checkIn.ts`) adds the member
-  to "App Color Eligible" when the new total is at least the threshold in
-  `REWARDS` (never a hard-coded 18), `readRewardIssued` is readable and not
-  issued, and they aren't already in the group (`isInGroup`). It runs on every
+  to "App Color Eligible" when `rewardStatus` says the club colors reward is
+  "qualified" at the new total (the `club_colors` entry in `REWARDS`, found by
+  id, never a hard-coded 18 or the lowest across rewards; the same rule
+  `/me` and the confirmation use, via `rewardStatusAfter`), so the issued
+  field must be readable and not issued, and they aren't already in the group
+  (`isInGroup`). It runs on every
   qualifying check-in, so a member missed once is added at the next
   (self-healing); members already in the group aren't written again. Skips
   (points write failed, issued unreadable, `COLORS_GROUP_ID` unset or
   invalid, "already in group" read failed) and a failed add are logged with
-  the contact id and reason only and swallowed: never fails a check-in or
+  the contact id and reason (plus the TidyHQ status or error name for a
+  failure, never a token or note text) and swallowed; "points write failed"
+  is logged only when the add would otherwise have happened: never fails a check-in or
   touches points, and a failed add isn't retried. Same for self and staff
   check-ins; the staff note stays last. `COLORS_GROUP_ID` is read by
   `colorsGroup` like `ADMIN_GROUP_ID`, with a mock seed group fallback; unset
-  never blocks check-in or startup. **Membership standing is not part of the
+  never blocks check-in or startup. `checkIn` takes the resulting
+  `colorsGroup` setting as a required input (callers use
+  `colorsGroupFromEnv()`), so an unset id is decided in config, not forgotten
+  by a caller. **In live mode a missing colors-issued field is unreadable**
+  (`LIVE-UNKNOWN(missing-issued-field)`, go-live item 2a), like points, so
+  the add is skipped (and `/me` says nothing about colors) and a token that
+  can't see the field never fills the group; mock mode treats missing as not
+  issued. **Membership standing is not part of the
   rule:** the app only records that a member reached 18+ through check-in, and
   the Board checks good standing, balances and current membership in TidyHQ
   before handing out colors. The Board's process: hand over colors, mark
@@ -220,7 +232,8 @@ so the app is built against a **mock TidyHQ**.
 - `HttpTidyClient` (`src/lib/tidyhq/http/`) implements every `TidyClient`
   method. Its writes go through the same request layer and are **never
   retried**. **Live-only rules live in this client, not in shared code**:
-  its v2 contact parser marks a missing points field (so `readPoints` says
+  its v2 contact parser marks a missing points field and a missing
+  colors-issued field (so `readPoints` and `readRewardIssued` say
   unreadable), and its event parser leaves `attendance_group_id` unset (so
   `findEventGroup` finds no group and check-in refuses); `readPoints` and
   `findEventGroup` stay pure and never read `TIDYHQ_MODE`. The mock does the

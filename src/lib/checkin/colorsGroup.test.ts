@@ -100,6 +100,18 @@ describe("adding to the colors group at check-in", () => {
     }
   });
 
+  it("takes the threshold from the club colors reward, not the cheapest reward", async () => {
+    const cheaper = { id: "cheap_perk", name: "a perk", pointsRequired: 5 };
+    (REWARDS as unknown as unknown[]).unshift(cheaper);
+    try {
+      const client = clientAt(6);
+      await checkIn(client, input);
+      expect(await inColors(client)).toEqual([]);
+    } finally {
+      (REWARDS as unknown as unknown[]).shift();
+    }
+  });
+
   it("adds a member already over the threshold (self-healing)", async () => {
     const client = clientAt(THRESHOLD + 5);
     await checkIn(client, input);
@@ -166,6 +178,27 @@ describe("adding to the colors group at check-in", () => {
     expect(await inColors(client)).toEqual(["c_dante"]);
   });
 
+  it("stays quiet about the colors group when the points write fails for someone who wouldn't be added anyway", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    for (const client of [
+      clientAt(2),
+      clientAt(THRESHOLD, (seed) =>
+        setField(seed, "c_dante", COLORS_ISSUED_FIELD_ID, "yes"),
+      ),
+    ]) {
+      vi.spyOn(client, "updateContact").mockRejectedValue(
+        new TidyError(503, "down"),
+      );
+      await expect(checkIn(client, input)).rejects.toMatchObject({
+        step: "points_write",
+      });
+      expect(await inColors(client)).toEqual([]);
+    }
+    expect(
+      log.mock.calls.filter(([m]) => String(m).includes("colors")),
+    ).toEqual([]);
+  });
+
   it("skips and logs when the points write failed, with the member still in the event group", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const client = clientAt(THRESHOLD - 1);
@@ -224,7 +257,11 @@ describe("adding to the colors group at check-in", () => {
     expect(add).not.toHaveBeenCalledWith(MOCK_COLORS_GROUP_ID, "c_dante");
     expect(log).toHaveBeenCalledWith(
       expect.stringContaining("colors"),
-      expect.objectContaining({ contactId: "c_dante", reason: "read_failed" }),
+      expect.objectContaining({
+        contactId: "c_dante",
+        reason: "read_failed",
+        error: "TidyError 503: down",
+      }),
     );
   });
 
@@ -247,8 +284,31 @@ describe("adding to the colors group at check-in", () => {
     expect(dante.notes).toHaveLength(1);
     expect(log).toHaveBeenCalledWith(
       expect.stringContaining("colors"),
-      expect.objectContaining({ contactId: "c_dante", reason: "add_failed" }),
+      expect.objectContaining({
+        contactId: "c_dante",
+        reason: "add_failed",
+        error: "TidyError 500: boom",
+      }),
     );
+  });
+
+  it("logs a non-TidyHQ error by its name only", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const client = clientAt(THRESHOLD);
+    const real = client.addContactToGroup.bind(client);
+    vi.spyOn(client, "addContactToGroup").mockImplementation(async (g, c) => {
+      if (g === MOCK_COLORS_GROUP_ID) throw new TypeError("secret-ish detail");
+      return real(g, c);
+    });
+    await checkIn(client, input);
+    const [, details] = log.mock.calls.find(([m]) =>
+      String(m).includes("colors"),
+    )!;
+    expect(details).toEqual({
+      contactId: "c_dante",
+      reason: "add_failed",
+      error: "TypeError",
+    });
   });
 
   it("logs the contact id and reason only", async () => {

@@ -20,6 +20,7 @@ runTidyClientContract("MockTidyClient", (seed) => ({
   differences: {
     eventGroupLinked: true,
     missingPointsUnreadable: false,
+    missingIssuedUnreadable: false,
     checkinWindows: true,
   },
 }));
