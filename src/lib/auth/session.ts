@@ -2,6 +2,10 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { secureCookieOptions } from "./cookieOptions";
+import {
+  MIN_SESSION_SECRET_LENGTH,
+  sessionSecretProblem,
+} from "./sessionSecret";
 
 // The member session holds only the TidyHQ contact id and an expiry, signed
 // with HMAC-SHA256. The member's OAuth token is never stored.
@@ -10,7 +14,6 @@ import { secureCookieOptions } from "./cookieOptions";
 
 export const SESSION_COOKIE = "sml_session";
 export const SESSION_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
-const MIN_SECRET_LENGTH = 32;
 
 export type Session = {
   contactId: string;
@@ -75,17 +78,18 @@ function isSession(value: unknown): value is Session {
 /** `SESSION_SECRET` from the environment. Throws if it is missing or weak. */
 export function getSessionSecret(): string {
   const secret = process.env.SESSION_SECRET;
-  if (!secret) {
+  const problem = sessionSecretProblem(secret);
+  if (problem === "missing") {
     throw new Error(
       "SESSION_SECRET is not set. Add a random value to .env.local (see .env.example).",
     );
   }
-  if (secret.length < MIN_SECRET_LENGTH) {
+  if (problem) {
     throw new Error(
-      `SESSION_SECRET must be at least ${MIN_SECRET_LENGTH} characters long.`,
+      `SESSION_SECRET must be at least ${MIN_SESSION_SECRET_LENGTH} characters long.`,
     );
   }
-  return secret;
+  return secret!;
 }
 
 /**

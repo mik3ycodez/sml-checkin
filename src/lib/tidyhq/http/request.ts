@@ -1,3 +1,9 @@
+import {
+  MIN_ATTEMPT_MS,
+  REQUEST_TIMEOUT_MS,
+  remainingMs,
+  requestTimeoutMs,
+} from "../budget";
 import { TidyError } from "../errors";
 
 /** Fixed hosts: no setting can point the admin token somewhere else. */
@@ -6,8 +12,7 @@ const HOSTS = {
   v2: "https://api.tidyhq.com/v2",
 } as const;
 
-/** Per request, so our server answers before a member's phone gives up. */
-export const REQUEST_TIMEOUT_MS = 8000;
+export { REQUEST_TIMEOUT_MS };
 export const PAGE_SIZE = 100;
 /** Past this we throw rather than return a partial list. */
 export const MAX_PAGES = 200;
@@ -98,6 +103,12 @@ function hasId(value: unknown): boolean {
   return (typeof id === "string" && id !== "") || typeof id === "number";
 }
 
+/** A retry that can't finish inside the time budget would only eat what's left. */
+function timeForRetry(): boolean {
+  const left = remainingMs();
+  return left === null || left > RETRY_PAUSE_MS + MIN_ATTEMPT_MS;
+}
+
 type Attempt =
   | { ok: true; data: unknown }
   | { ok: false; error: TidyError; retryable: boolean };
@@ -106,8 +117,8 @@ type Attempt =
  * One TidyHQ call. Returns the parsed body, or throws a `TidyError`: TidyHQ's
  * own status for HTTP errors, 504 for a timeout, 502 for a network failure or
  * a body of the wrong shape. Reads that time out, fail on the network or get a
- * 502/503/504 are retried once; writes never are, since the first attempt may
- * have happened. Messages and logs carry the method, path (ids), status and
+ * 502/503/504 are retried once, if the time budget allows (`withBudget`);
+ * writes never are, since the first attempt may have happened. Messages and logs carry the method, path (ids), status and
  * TidyHQ's message, and never tokens, bodies or query strings.
  */
 export async function tidyRequest(
@@ -133,7 +144,7 @@ export async function tidyRequest(
   const mayRetry = method === "GET";
 
   let attempt = await tryOnce(options, label);
-  if (!attempt.ok && attempt.retryable && mayRetry) {
+  if (!attempt.ok && attempt.retryable && mayRetry && timeForRetry()) {
     await sleep(RETRY_PAUSE_MS);
     attempt = await tryOnce(options, label);
   }
@@ -180,13 +191,19 @@ async function tryOnce(
     error: new TidyError(status, `TidyHQ ${label} failed (${status})${detail}`),
   });
 
+  // Inside a time budget, no request outlives it, and no write is cut short.
+  const timeoutMs = requestTimeoutMs(REQUEST_TIMEOUT_MS, {
+    write: method !== "GET",
+  });
+  if (timeoutMs === null) return fail(504, ": out of time");
+
   try {
     const res = await options.fetch(url, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       redirect: "error",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
 
     if (!res.ok) {
@@ -269,4 +286,56 @@ function tooMany(options: Common, why: string): TidyError {
   const request = `GET /${options.version}${options.path}`;
   console.error("tidyhq list has too many pages", { request, why });
   return new TidyError(502, `TidyHQ ${request} ${why}`);
+}
+
+const ACCOUNTS_TOKEN_URL = "https://accounts.tidyhq.com/oauth/token";
+
+/**
+ * The one POST to TidyHQ's accounts server: swapping a sign-in code for the
+ * member's token. A form body, no Bearer header (the secret is in the form),
+ * and never retried: a code works once. Returns the status and the parsed JSON
+ * body (undefined if it wasn't JSON) for the caller to judge.
+ *
+ * Throws `TidyError` 504 for a timeout or spent budget and 502 for a network
+ * failure. Those messages are fixed text: the form holds the client secret and
+ * the code, and a caught error or a reply may echo them, so neither is ever
+ * put in a message or a log here.
+ */
+export async function tidyTokenPost(options: {
+  fetch: typeof fetch;
+  form: Record<string, string>;
+}): Promise<{ status: number; body: unknown }> {
+  // A POST: given its full time or not sent, so a code isn't spent on an
+  // exchange we then abandon.
+  const timeoutMs = requestTimeoutMs(REQUEST_TIMEOUT_MS, { write: true });
+  if (timeoutMs === null) {
+    throw new TidyError(504, "TidyHQ sign-in failed (504): out of time");
+  }
+  let res: Response;
+  try {
+    res = await options.fetch(ACCOUNTS_TOKEN_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+      body: new URLSearchParams(options.form).toString(),
+      redirect: "error",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (e) {
+    if (isTimeout(e)) {
+      throw new TidyError(504, "TidyHQ sign-in failed (504): timed out");
+    }
+    throw new TidyError(502, "TidyHQ sign-in failed (502): network error");
+  }
+  try {
+    return { status: res.status, body: await res.json() };
+  } catch (e) {
+    if (isTimeout(e)) {
+      throw new TidyError(504, "TidyHQ sign-in failed (504): timed out");
+    }
+    discard(res);
+    return { status: res.status, body: undefined };
+  }
 }

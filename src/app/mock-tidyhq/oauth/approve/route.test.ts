@@ -67,5 +67,6 @@ describe("POST /mock-tidyhq/oauth/approve", () => {
     vi.stubEnv("TIDYHQ_MODE", "live");
     const response = await approve(VALID);
     expect(response.status).toBe(404);
+    expect((globalThis as { __tidy?: unknown }).__tidy).toBeUndefined();
   });
 });

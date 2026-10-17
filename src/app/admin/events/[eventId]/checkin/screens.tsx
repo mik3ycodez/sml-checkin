@@ -126,7 +126,7 @@ function resultLine(notice: TapOutcome | null, verdict: StaffVerdict) {
     return `Checked in. +${notice.points} ${notice.points === 1 ? "point" : "points"}.`;
   }
   if (notice?.kind === "point_not_saved") {
-    return "Checked in, but the point didn't save. Tell a Board member.";
+    return "Checked in, but the point couldn't be confirmed. Tell a Board member to check their total in TidyHQ before adding anything.";
   }
   if (notice?.kind === "repeat") {
     return "Already checked in. No point awarded.";

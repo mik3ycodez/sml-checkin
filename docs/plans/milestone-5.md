@@ -451,7 +451,7 @@ and skips the colors add (logged each time).
   good standing, balances and current membership in TidyHQ before handing
   out colors.
 
-### PR 8: Live sign-in and startup config
+### PR 8 🔍 In review (#41): Live sign-in and startup config
 
 - `HttpTidyOAuth`: `authorizeUrl` builds
   `https://accounts.tidyhq.com/oauth/authorize` with `client_id`,
@@ -491,7 +491,65 @@ and skips the colors add (logged each time).
   `HELPER_GROUP_ID`: the "App Color Eligible" group, optional, blank for
   development (mock falls back to the seed group), and unset in live mode
   means check-in skips the colors add.
-- No e2e: Playwright runs mock mode only (there is no TidyHQ to run against).
+- No e2e of live mode: Playwright runs mock mode only (there is no TidyHQ to
+  run against).
+
+As built (decisions the plan left open):
+
+- **The token POST lives in the request layer** (`tidyTokenPost` in
+  `request.ts`): same timeout, `redirect: "error"` and budget handling as
+  `tidyRequest`, but a form body, no Bearer header, no retry, and fixed error
+  text only (never anything the server sent or a caught error's message).
+  `HttpTidyOAuth` maps the reply: 2xx with an `access_token` is the token;
+  400, 401 and 403 are `TidyError(401)`; anything else is 502/504. An
+  `invalid_client` reply also logs which settings to check.
+  `LIVE-UNKNOWN(oauth-token-exchange)`, checklist item 10.
+- **The budget is ambient** (`budget.ts`, an `AsyncLocalStorage` kept on
+  `globalThis` because Next.js bundles routes separately), not a parameter, so
+  `TidyClient` and the contract suite are unchanged. `tidyRequest` and
+  `tidyTokenPost` read it through one helper, `requestTimeoutMs`: a read's
+  timeout is the smaller of 8 s and the time left, a write's is 8 s or it
+  isn't sent (review of #41), nothing is sent with 0.5 s or less left, and a retry is skipped unless there is time
+  for its pause and a fresh attempt. Both actions start it (24 s, inside the
+  30 s limit), so the volunteer access check counts too; `checkIn` starts one
+  of its own if called without, and a nested budget can only shorten.
+- **`maxDuration = 30` is set on the two pages that hold the check-in forms**
+  (`/checkin/[eventId]` and the staff check-in page): a server action takes
+  its page's limit, and `"use server"` files can't export it. A test reads
+  both files and checks the budget fits.
+- **After the points write, out of time never fails the check-in.** The
+  colors add (read and add) is skipped and logged as `budget_exhausted`,
+  checked before the read and again before the add. **The staff note**: a
+  staff check-in holds back `NOTE_RESERVE_MS` (8 s, a full request) for it, so the colors
+  steps run to that point and no later. The note is the only record of who
+  checked a member in, and nothing recovers it, while the colors add heals at
+  the next check-in. If the budget is spent anyway, the note is **skipped and
+  logged** (`staff check-in note skipped`, ids and reason, never the text):
+  that check-in then looks like a self check-in in TidyHQ. Accepted: it needs
+  a TidyHQ stall long enough to eat the whole budget after the point was
+  written. A missed colors add or note never double-awards: the member is in
+  the group, so a retry says "already checked in".
+- **Startup** (`checkStartupConfig`, from `instrumentation.ts`): live mode
+  needs `APP_ORIGIN` (https; http only for localhost, in any environment),
+  `TIDYHQ_CLIENT_ID`, `TIDYHQ_CLIENT_SECRET`, `TIDYHQ_ADMIN_TOKEN` and
+  `SESSION_SECRET` (32+ characters), none missing, blank or a `.env.example`
+  placeholder. It lists every bad setting at once and never prints a value.
+  `ADMIN_GROUP_ID`, `HELPER_GROUP_ID` and `COLORS_GROUP_ID` stay optional, as
+  CLAUDE.md already said of the admin group (live mode warns at startup if
+  `ADMIN_GROUP_ID` is unset). The live settings are validated once, by
+  `createTidyServices`. A test parses `.env.example` so a
+  new placeholder can't slip past.
+- **Demo mode.** Production refuses mock mode unless `DEMO_MODE=on`; the root
+  layout (`await connection()`, so it is read per request, never baked in at
+  build) shows a "Demo data" banner on every page when it is on. `DEMO_MODE=on`
+  with `TIDYHQ_MODE=live` is refused: the banner would sit on real members.
+  Anything but `on`, `off` or blank is refused. Every production start,
+  demo included, checks `SESSION_SECRET`.
+- **E2E now runs as a demo**: Playwright serves a production build (`next
+start`), which refuses mock data, so `playwright.config.ts` sets
+  `DEMO_MODE=on`. Mock behavior is unchanged; every page gains the banner, and
+  one lean spec (`e2e/demo.spec.ts`) checks it, in the no-JavaScript project
+  too.
 
 ### PR 9: Mock seed additions, with e2e, and 0.5.0
 
@@ -616,8 +674,12 @@ three groups exist in TidyHQ.
    refresh) stays under it.
 9. The admin token: whose account it acts as (notes' author), and whether it
    expires. If it expires, a refresh flow is needed before go-live.
-10. Sign-in: the real authorize and token responses, that `domain_prefix=sml`
-    is right, and that a reused code is refused.
+10. Sign-in (`LIVE-UNKNOWN(oauth-token-exchange)`): the real authorize and
+    token responses, that `domain_prefix=sml` is right, and that a reused code
+    is refused. `HttpTidyOAuth` sends a form-encoded POST to
+    `accounts.tidyhq.com/oauth/token` and expects JSON with `access_token`;
+    it treats 400, 401 and 403 as a bad code. Confirm all three (and what an
+    `invalid_client` reply looks like: the app logs which settings to check).
 11. Events: `GET /v2/events` is marked experimental in the spec, so recheck
     its shape.
 12. (Dropped with the inconsistent memberships report; number kept so

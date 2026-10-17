@@ -16,6 +16,7 @@ const KNOWN = [
   "group-put-response",
   "missing-issued-field",
   "missing-points-field",
+  "oauth-token-exchange",
 ];
 
 function sourceFiles(dir: string): string[] {

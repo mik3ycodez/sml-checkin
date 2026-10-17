@@ -17,6 +17,7 @@ import {
 } from "@/lib/checkin/tapNotice";
 import { colorsGroupFromEnv } from "@/lib/checkin/colorsGroup";
 import { getTidyClient } from "@/lib/tidyhq";
+import { CHECKIN_BUDGET_MS, withBudget } from "@/lib/tidyhq/budget";
 import { requireVolunteer } from "../../../../requireVolunteer";
 import { staffCheckinPath, staffMemberPath } from "../../../paths";
 
@@ -33,6 +34,17 @@ import { staffCheckinPath, staffMemberPath } from "../../../paths";
  * redirects, and the page re-reads TidyHQ, so a refresh never posts again.
  */
 export async function staffCheckInAction(
+  eventId: unknown,
+  formData: FormData,
+): Promise<never> {
+  // One time budget from the first read, the access check included, so the
+  // whole request ends before the route's limit.
+  return withBudget(CHECKIN_BUDGET_MS, () =>
+    runStaffCheckInAction(eventId, formData),
+  );
+}
+
+async function runStaffCheckInAction(
   eventId: unknown,
   formData: FormData,
 ): Promise<never> {
@@ -62,7 +74,8 @@ export async function staffCheckInAction(
   } catch (error) {
     if (!(error instanceof CheckInFailure)) throw error;
     logCheckinFailure({ eventId, contactId: member, failure: error });
-    // Nothing was written, so trying again is safe.
+    // Nothing was written (a write is never started without its full time),
+    // so trying again is safe.
     if (error.step !== "points_write") {
       redirect(
         staffMemberPath(eventId, member, {
@@ -71,8 +84,9 @@ export async function staffCheckInAction(
         }),
       );
     }
-    // In the group without the point. Trying again would only say "already
-    // checked in", so the page says to tell a Board member.
+    // In the group, the point unconfirmed. Trying again would only say
+    // "already checked in", so the page says to tell a Board member, who
+    // checks the total in TidyHQ before adding anything.
     result = { status: "point_not_saved" };
   }
   if (result.status === "unknown_contact") redirect(page);

@@ -140,7 +140,9 @@ describe("StatusScreen", () => {
         kind: "point_not_saved",
         membershipNotice: { kind: "balance_due" },
       });
-      expect(text).toContain("You're checked in, but your point didn't save");
+      expect(text).toContain(
+        "You're checked in, but we couldn't confirm your point",
+      );
       expect(text).toContain("You have a balance due.");
     });
 
@@ -234,12 +236,18 @@ describe("StatusScreen", () => {
     });
   });
 
-  describe("checked in, but the point didn't save", () => {
+  describe("checked in, but the point couldn't be confirmed", () => {
     const { html, text } = render(CHECKED_IN, { kind: "point_not_saved" });
 
-    it("asks the member to tell a Board member", () => {
-      expect(text).toContain("You're checked in, but your point didn't save");
+    it("says the check-in is saved, and sends a Board member to check the total before adding anything", () => {
+      expect(text).toContain(
+        "You're checked in, but we couldn't confirm your point",
+      );
       expect(text).toContain("Please tell a Board member.");
+      expect(text).toContain(
+        "They should check your total in TidyHQ before adding anything",
+      );
+      expect(text).not.toContain("didn't save");
     });
 
     it("doesn't offer to try again, or show a total that's missing the point", () => {

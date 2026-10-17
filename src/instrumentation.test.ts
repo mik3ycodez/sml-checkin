@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { register } from "./instrumentation";
 
+const GOOD_SECRET = "k3Jv9Qe2mXz0Lw8RtYb5Nc1Hd7Fa4GuS6pIoVxZ";
+
 describe("register (server startup checks)", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_RUNTIME", "nodejs");
     vi.stubEnv("TIDYHQ_MODE", "mock");
     vi.stubEnv("APP_ORIGIN", "");
+    vi.stubEnv("DEMO_MODE", "");
+    vi.stubEnv("SESSION_SECRET", GOOD_SECRET);
   });
 
   afterEach(() => {
@@ -18,9 +22,54 @@ describe("register (server startup checks)", () => {
     await expect(register()).resolves.toBeUndefined();
   });
 
-  it("refuses to start in a mode that isn't implemented yet", async () => {
+  it("refuses to start in live mode with settings missing, naming them", async () => {
     vi.stubEnv("TIDYHQ_MODE", "live");
-    await expect(register()).rejects.toThrow(/not implemented/);
+    const error = await register().catch((e: unknown) => e as Error);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toMatch(/TIDYHQ_CLIENT_SECRET/);
+  });
+
+  it("validates the live settings once, not once per check", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("TIDYHQ_MODE", "live");
+    vi.stubEnv("APP_ORIGIN", "https://checkin.sml-test.invalid");
+    vi.stubEnv("SESSION_SECRET", "");
+    const error = await register().catch((e: unknown) => e as Error);
+    const text = (error as Error).message;
+    expect(text.match(/TIDYHQ_MODE=live cannot start/g)).toHaveLength(1);
+    expect(text).toContain("SESSION_SECRET");
+  });
+
+  it("starts in live mode with a complete configuration", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("TIDYHQ_MODE", "live");
+    vi.stubEnv("APP_ORIGIN", "https://checkin.sml-test.invalid");
+    vi.stubEnv("TIDYHQ_CLIENT_ID", "cid_9f2c41d7aa");
+    vi.stubEnv("TIDYHQ_CLIENT_SECRET", "cs_live_2b7e90aa11");
+    vi.stubEnv("TIDYHQ_ADMIN_TOKEN", "at_live_77c0ffee12");
+    vi.stubEnv("SESSION_SECRET", "k3Jv9Qe2mXz0Lw8RtYb5Nc1Hd7Fa4GuS6pIoVxZ");
+    await expect(register()).resolves.toBeUndefined();
+  });
+
+  it("refuses to start in production on mock data unless DEMO_MODE=on", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_ORIGIN", "https://checkin.sml-test.invalid");
+    await expect(register()).rejects.toThrow(/DEMO_MODE/);
+    vi.stubEnv("DEMO_MODE", "on");
+    await expect(register()).resolves.toBeUndefined();
+  });
+
+  it("refuses to start a production demo without a usable SESSION_SECRET", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEMO_MODE", "on");
+    vi.stubEnv("APP_ORIGIN", "https://checkin.sml-test.invalid");
+    vi.stubEnv("SESSION_SECRET", "");
+    await expect(register()).rejects.toThrow(/SESSION_SECRET/);
+    vi.stubEnv(
+      "SESSION_SECRET",
+      "replace-with-output-of-openssl-rand-base64-32",
+    );
+    await expect(register()).rejects.toThrow(/SESSION_SECRET.*placeholder/);
   });
 
   it("refuses to start in production without TIDYHQ_MODE", async () => {
@@ -32,17 +81,20 @@ describe("register (server startup checks)", () => {
 
   it("refuses to start in production without APP_ORIGIN", async () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEMO_MODE", "on");
     await expect(register()).rejects.toThrow(/APP_ORIGIN must be set/);
   });
 
   it("refuses to start in production with a plain-http APP_ORIGIN", async () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEMO_MODE", "on");
     vi.stubEnv("APP_ORIGIN", "http://checkin.example.org");
     await expect(register()).rejects.toThrow(/APP_ORIGIN must use https/);
   });
 
   it("starts in production with an http localhost APP_ORIGIN", async () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEMO_MODE", "on");
     vi.stubEnv("APP_ORIGIN", "http://localhost:3100");
     await expect(register()).resolves.toBeUndefined();
   });
@@ -55,6 +107,7 @@ describe("register (server startup checks)", () => {
 
   it("starts in production with both set", async () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEMO_MODE", "on");
     vi.stubEnv("APP_ORIGIN", "https://checkin.example.org");
     await expect(register()).resolves.toBeUndefined();
   });

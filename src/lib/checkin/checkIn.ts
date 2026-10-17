@@ -26,7 +26,16 @@ import { contactName } from "../tidyhq/contactName";
 import { findContact } from "../tidyhq/contacts";
 import { acceptsCheckIn } from "../tidyhq/acceptsCheckIn";
 import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
-import { isTidyError, type TidyError } from "../tidyhq/errors";
+import {
+  budgetSpent,
+  CHECKIN_BUDGET_MS,
+  CRITICAL_WRITES_MS,
+  NOTE_RESERVE_MS,
+  remainingMs,
+  withBudget,
+  withReserve,
+} from "../tidyhq/budget";
+import { isTidyError, TidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
 import { isInGroup } from "../tidyhq/groups";
 import { staffNoteText, type StaffActor } from "./staffNote";
@@ -318,8 +327,28 @@ export async function assessCheckInFor(
  * add happens before the points write, so a failure in between may miss a
  * point but a retry can never award it twice. An unreadable stored total is
  * never overwritten; the member isn't checked in until it's fixed.
+ *
+ * The whole check-in shares one time budget (`CHECKIN_BUDGET_MS`), so a slow
+ * TidyHQ can't push it past the route's 30 seconds: past it, a step fails as
+ * a TidyHQ failure (504) like an outage would. Writes are never cut short: the
+ * group add and the points write each get their full timeout, so before the
+ * group add there must be room for both (`CRITICAL_WRITES_MS`), or nothing is
+ * written and the failure is a `group_add` one, safe to retry. Once the point is written,
+ * running out of time never fails the check-in: the colors add is skipped
+ * and logged (it heals at the next check-in), and the staff note keeps
+ * `NOTE_RESERVE_MS` of its own so the colors steps can't use it up; if the
+ * budget is spent anyway, the note is skipped and logged, never the check-in.
+ * A caller that already started a budget (the actions do, to count the access
+ * checks too) shortens this one, never extends it.
  */
-export async function checkIn(
+export function checkIn(
+  client: TidyClient,
+  input: CheckInInput,
+): Promise<CheckInResult> {
+  return withBudget(CHECKIN_BUDGET_MS, () => runCheckIn(client, input));
+}
+
+async function runCheckIn(
   client: TidyClient,
   input: CheckInInput,
 ): Promise<CheckInResult> {
@@ -330,6 +359,17 @@ export async function checkIn(
   if (assessment.status !== "ready") return assessment;
   const { name, eventName, groupId, stored } = assessment;
   const { membershipNotice: notice, rewards } = assessment;
+
+  // Both critical writes get their full timeout or nothing is written: the
+  // group add alone would put the member in the group, and a points write we
+  // then had to cut short could land but be reported as failed.
+  const left = remainingMs();
+  if (left !== null && left < CRITICAL_WRITES_MS) {
+    throw new CheckInFailure(
+      "group_add",
+      new TidyError(504, "Not enough time left to write the check-in"),
+    );
+  }
 
   await step("group_add", () => client.addContactToGroup(groupId, contactId));
   const pointsAwarded = POINTS_PER_CHECKIN;
@@ -356,11 +396,14 @@ export async function checkIn(
     await writeStaffNote(client, noteInput);
     throw error;
   }
-  await addToColorsGroup(client, {
-    contactId,
-    eligibility: colorsEligibility(rewards, stored, pointsAwarded),
-    group: colorsGroup,
-  });
+  // A staff check-in's note comes after this, so its share is held back.
+  await withReserve(input.method === "staff" ? NOTE_RESERVE_MS : 0, () =>
+    addToColorsGroup(client, {
+      contactId,
+      eligibility: colorsEligibility(rewards, stored, pointsAwarded),
+      group: colorsGroup,
+    }),
+  );
   // Last, so a failed note can't affect the group or the points.
   await writeStaffNote(client, noteInput);
   return {
@@ -449,10 +492,15 @@ async function addToColorsGroup(
     return logColorsSkip(contactId, "issued_unreadable");
   if ("problem" in group)
     return logColorsSkip(contactId, `group_${group.problem}`);
+  if (budgetSpent()) return logColorsSkip(contactId, "budget_exhausted");
   try {
     if (await isInGroup(client, group.id, contactId)) return;
   } catch (error) {
     return logColorsSkip(contactId, "read_failed", error);
+  }
+  // The read may have used up the time the add needs (a write is never cut short).
+  if (budgetSpent({ write: true })) {
+    return logColorsSkip(contactId, "budget_exhausted");
   }
   try {
     await client.addContactToGroup(group.id, contactId);
@@ -466,7 +514,7 @@ async function addToColorsGroup(
  * member is in the group (and, unless the points write failed, has their
  * point), so any failure is logged and swallowed: surfacing it would show
  * an error for a check-in that worked. That includes errors that aren't from
- * TidyHQ. Logs ids and the error, never the note text.
+ * TidyHQ, and running out of the time budget (skipped and logged). Logs ids and the error, never the note text.
  */
 async function writeStaffNote(
   client: TidyClient,
@@ -486,6 +534,14 @@ async function writeStaffNote(
   },
 ): Promise<void> {
   if (!staff) return;
+  if (budgetSpent({ write: true })) {
+    console.error("staff check-in note skipped", {
+      eventId,
+      contactId,
+      reason: "budget_exhausted",
+    });
+    return;
+  }
   try {
     await client.addNote(
       contactId,

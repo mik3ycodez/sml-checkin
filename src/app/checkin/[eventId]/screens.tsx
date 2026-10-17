@@ -190,14 +190,18 @@ function CheckedIn({
         </Screen>
       );
     case "point_not_saved":
-      // No total: it's missing the point. No "try again": it would only say
-      // "already checked in". A Board member can add the point in TidyHQ.
+      // No total: the point is unconfirmed. No "try again": it would only say
+      // "already checked in". The write may have landed, so a Board member
+      // checks the total in TidyHQ before adding anything.
       return (
         <Screen
           event={event}
-          title="You're checked in, but your point didn't save"
+          title="You're checked in, but we couldn't confirm your point"
         >
-          <Note>Please tell a Board member.</Note>
+          <Note>
+            Please tell a Board member. They should check your total in TidyHQ
+            before adding anything.
+          </Note>
           {notice.membershipNotice && (
             <MembershipNoticeBlock notice={notice.membershipNotice} now={now} />
           )}

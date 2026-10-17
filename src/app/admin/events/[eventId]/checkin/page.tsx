@@ -5,6 +5,7 @@ import { membershipWarnings, staffVerdict } from "@/lib/checkin/staffVerdict";
 import { readTapNotice, STAFF_NOTICE_COOKIE } from "@/lib/checkin/tapNotice";
 import type { CheckinBlocker } from "@/lib/tidyhq/checkinWindow";
 import { getTidyClient } from "@/lib/tidyhq";
+import { CHECKIN_BUDGET_MS, withBudget } from "@/lib/tidyhq/budget";
 import { contactName } from "@/lib/tidyhq/contactName";
 import { searchMembers } from "@/lib/tidyhq/contacts";
 import { loadOrNull } from "../../../../loadOrNull";
@@ -56,12 +57,28 @@ function UnknownEvent({ eventId }: { eventId: string }) {
 const first = (value: string | string[] | undefined) =>
   typeof value === "string" ? value : "";
 
+// The route limit for this page and the check-in action its form posts to
+// (an action takes its page's limit). A check-in's time budget is sized for it:
+// `ROUTE_MAX_DURATION_SECONDS` in `lib/tidyhq/budget.ts`, kept equal by a test.
+export const maxDuration = 30;
+
+// The render has the same time budget, the access check included, so a slow
+// TidyHQ shows the notices below before the platform's own 504 can.
 export default async function StaffCheckInPage({
   params,
   searchParams,
 }: PageProps<"/admin/events/[eventId]/checkin">) {
   const { eventId } = await params;
   const query = await searchParams;
+  return withBudget(CHECKIN_BUDGET_MS, () =>
+    renderStaffCheckIn(eventId, query),
+  );
+}
+
+async function renderStaffCheckIn(
+  eventId: string,
+  query: Record<string, string | string[] | undefined>,
+) {
   const here = staffCheckinPath(eventId);
   const staff = await requireVolunteer(here);
   const client = getTidyClient();

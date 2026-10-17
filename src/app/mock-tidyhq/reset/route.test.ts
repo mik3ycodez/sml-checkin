@@ -48,5 +48,6 @@ describe("POST /mock-tidyhq/reset", () => {
     vi.stubEnv("TIDYHQ_MODE", "live");
     const response = await POST();
     expect(response.status).toBe(404);
+    expect((globalThis as { __tidy?: unknown }).__tidy).toBeUndefined();
   });
 });

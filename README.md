@@ -16,7 +16,11 @@ See [CLAUDE.md](CLAUDE.md) for the full scope and design decisions.
 The app currently runs against an in-memory **mock TidyHQ** with seed members
 and events (`src/lib/tidyhq/mock/seed.ts`), until SML's TidyHQ plan allows
 another app integration. Data resets whenever the server restarts. The client is
-chosen by `TIDYHQ_MODE` (`mock`, the default, or `live`, not yet implemented).
+chosen by `TIDYHQ_MODE` (`mock`, the default, or `live`). Live mode is built
+but not yet pointed at SML's TidyHQ (go-live is milestone 5's checklist): it
+refuses to start unless every credential in `.env.example` is filled in. A
+production server refuses mock mode unless `DEMO_MODE=on`, which puts a "Demo
+data" banner on every page.
 
 ## Getting started
 

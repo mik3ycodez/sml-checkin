@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MIN_ATTEMPT_MS, withBudget } from "../budget";
 import { isTidyError } from "../errors";
 import {
   MAX_PAGES,
@@ -813,5 +814,124 @@ describe("secrets never leak", () => {
     expect(out).toContain("GET");
     expect(out).toContain("/v2/events/42");
     expect(out).toContain("404");
+  });
+});
+
+describe("tidyRequest: overall time budget", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const read = (f: typeof fetch) =>
+    tidyRequest({
+      ...base(f),
+      version: "v2",
+      method: "GET",
+      path: "/contacts/1",
+      expect: "record",
+    });
+
+  it("does not call TidyHQ once the budget is spent", async () => {
+    const f = fakeFetch(json({ id: "1" }));
+    const error = await withBudget(MIN_ATTEMPT_MS, () =>
+      catchError(read(f.fetch)),
+    );
+    expect(isTidyError(error, 504)).toBe(true);
+    expect(f.calls).toHaveLength(0);
+  });
+
+  it("limits a request's timeout to the time left", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const f = fakeFetch(json({ id: "1" }));
+    await withBudget(3_000, () => read(f.fetch));
+    expect(timeout).toHaveBeenCalledWith(3_000);
+  });
+
+  it("keeps the usual timeout when there is plenty of time, or no budget", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const f = fakeFetch(json({ id: "1" }));
+    await withBudget(24_000, () => read(f.fetch));
+    await read(f.fetch);
+    expect(timeout).toHaveBeenNthCalledWith(1, REQUEST_TIMEOUT_MS);
+    expect(timeout).toHaveBeenNthCalledWith(2, REQUEST_TIMEOUT_MS);
+  });
+
+  it("skips the retry when too little time is left for it", async () => {
+    const f = fakeFetch(
+      () => {
+        vi.advanceTimersByTime(7_400);
+        return json({}, 503);
+      },
+      json({ id: "1" }),
+    );
+    const error = await withBudget(8_000, () => catchError(read(f.fetch)));
+    expect(isTidyError(error, 503)).toBe(true);
+    expect(f.calls).toHaveLength(1);
+  });
+
+  it("still retries when there is time for it", async () => {
+    const f = fakeFetch(
+      () => {
+        vi.advanceTimersByTime(1_000);
+        return json({}, 503);
+      },
+      json({ id: "1" }),
+    );
+    await withBudget(8_000, () => read(f.fetch));
+    expect(f.calls).toHaveLength(2);
+  });
+
+  it("is shared by every page of a list, not given to each", async () => {
+    let page = 0;
+    const f = fakeFetch(() => {
+      vi.advanceTimersByTime(2_000);
+      return json([{ id: ++page }]);
+    });
+    const error = await withBudget(5_000, () =>
+      catchError(
+        tidyRequestAll({
+          ...base(f.fetch),
+          version: "v2",
+          path: "/contacts",
+        }),
+      ),
+    );
+    expect(isTidyError(error, 504)).toBe(true);
+    expect(f.calls.length).toBeLessThan(5);
+  });
+
+  describe("writes", () => {
+    const write = (f: typeof fetch) =>
+      tidyRequest({
+        ...base(f),
+        version: "v2",
+        method: "PATCH",
+        path: "/contacts/1",
+        body: { custom_fields: {} },
+        expect: "record",
+      });
+
+    it("are never started with less than a full attempt left", async () => {
+      const f = fakeFetch(json({ id: "1" }));
+      const error = await withBudget(REQUEST_TIMEOUT_MS - 1, () =>
+        catchError(write(f.fetch)),
+      );
+      expect(isTidyError(error, 504)).toBe(true);
+      expect(f.calls).toHaveLength(0);
+    });
+
+    it("never have their timeout shortened", async () => {
+      const timeout = vi.spyOn(AbortSignal, "timeout");
+      const f = fakeFetch(json({ id: "1" }));
+      await withBudget(REQUEST_TIMEOUT_MS, () => write(f.fetch));
+      await withBudget(24_000, () => write(f.fetch));
+      expect(timeout).toHaveBeenNthCalledWith(1, REQUEST_TIMEOUT_MS);
+      expect(timeout).toHaveBeenNthCalledWith(2, REQUEST_TIMEOUT_MS);
+    });
+  });
+
+  it("changes nothing without a budget", async () => {
+    const f = fakeFetch(json({ id: "1" }));
+    await read(f.fetch);
+    expect(f.calls).toHaveLength(1);
   });
 });
