@@ -391,9 +391,15 @@ Fixing review findings:
 
 - Fix test-first. Evaluate each finding instead of applying it blindly; push
   back with a reason when the reviewer is wrong.
-- Reply to every inline review comment with "Fixed in <commit>" or "Left as is:
-  <reason>".
+- Reply to AND resolve every inline review comment with "Fixed in <commit>" or
+  "Left as is: <reason>".
 - After fixes, rerun the full e2e suite, not just the changed spec.
+
+Shell commands:
+
+- Never use heredocs or `cat >` in shell commands (they hang waiting for
+  input). Write files with the Write tool, and run `gh pr create`
+  non-interactively with `--title` and `--body-file`.
 
 Before opening any PR, check:
 

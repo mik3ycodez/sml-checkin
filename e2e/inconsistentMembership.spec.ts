@@ -39,5 +39,7 @@ test("a volunteer sees only the generic line", async ({ page }) => {
     page.getByText("Can't check in here. Please see a Board member."),
   ).toBeVisible();
   // (Not role=alert: Next's route announcer is always one, and empty.)
-  await expect(page.getByText(/membership|expired|m_kai/i)).toHaveCount(0);
+  await expect(
+    page.getByText(/membership|expired|renew|balance|grace|m_kai|kai@/i),
+  ).toHaveCount(0);
 });

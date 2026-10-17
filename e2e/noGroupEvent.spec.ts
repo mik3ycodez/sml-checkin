@@ -14,8 +14,11 @@ test("the admin event page gives the reason instead of a QR code", async ({
   await expect(
     page.getByText(/no attendance group, so check-in can't record anyone/),
   ).toBeVisible();
-  await expect(page.locator("svg")).toHaveCount(0);
+  await expect(page.getByRole("img", { name: /QR code/ })).toHaveCount(0);
   await expect(page.getByText(/check-in is open/i)).toHaveCount(0);
+  await expect(page.getByText(/using the event's start and end/i)).toHaveCount(
+    0,
+  );
 });
 
 test("a member's check-in is refused", async ({ page }) => {
