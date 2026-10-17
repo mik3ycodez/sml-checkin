@@ -9,7 +9,7 @@ import { parseMockAuthorizeRequest } from "@/lib/tidyhq/mock/MockTidyOAuth";
  * real TidyHQ does after a sign-in. Mock mode only.
  */
 export async function POST(request: NextRequest) {
-  // Checked before building the services, which throw in live mode.
+  // Checked before building the services, so live mode never builds mock ones.
   if (getTidyMode() !== "mock") {
     return new NextResponse("Not found", { status: 404 });
   }

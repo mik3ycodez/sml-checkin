@@ -9,11 +9,21 @@ const DEFAULT_DOMAIN_PREFIX = "sml";
 export function tidyhqSiteUrl(
   prefix: string | undefined = process.env.TIDYHQ_DOMAIN_PREFIX,
 ): string {
+  return `https://${tidyhqDomainPrefix(prefix)}.tidyhq.com`;
+}
+
+/**
+ * The checked `TIDYHQ_DOMAIN_PREFIX` (default `sml`), lowercased. Also what
+ * sign-in sends as `domain_prefix`.
+ */
+export function tidyhqDomainPrefix(
+  prefix: string | undefined = process.env.TIDYHQ_DOMAIN_PREFIX,
+): string {
   const label = prefix?.trim().toLowerCase() || DEFAULT_DOMAIN_PREFIX;
   if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)) {
     throw new Error(
       `TIDYHQ_DOMAIN_PREFIX must be a TidyHQ subdomain such as "sml", got "${prefix}"`,
     );
   }
-  return `https://${label}.tidyhq.com`;
+  return label;
 }

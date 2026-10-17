@@ -1,4 +1,7 @@
 import type { TidyClient } from "./client";
+import { HttpTidyClient } from "./http/HttpTidyClient";
+import { HttpTidyOAuth } from "./http/HttpTidyOAuth";
+import { liveConfig, type Env } from "./liveConfig";
 import { MockTidyClient } from "./mock/MockTidyClient";
 import { MockTidyOAuth } from "./mock/MockTidyOAuth";
 import type { TidyOAuth } from "./oauth";
@@ -54,12 +57,26 @@ export type TidyServices =
   | { mode: "mock"; client: MockTidyClient; oauth: MockTidyOAuth }
   | { mode: "live"; client: TidyClient; oauth: TidyOAuth };
 
-/** Everything that talks to TidyHQ, for one mode. The only mode switch. */
-export function createTidyServices(mode: TidyMode): TidyServices {
+/**
+ * Everything that talks to TidyHQ, for one mode. The only mode switch. Live
+ * mode reads its credentials from `env` and throws, naming the setting, if
+ * one is missing or still a placeholder.
+ */
+export function createTidyServices(
+  mode: TidyMode,
+  env: Env = process.env,
+): TidyServices {
   if (mode === "live") {
-    throw new Error(
-      "TIDYHQ_MODE=live is not implemented yet (HttpTidyClient, live OAuth)",
-    );
+    const config = liveConfig(env);
+    return {
+      mode: "live",
+      client: new HttpTidyClient({ adminToken: config.adminToken }),
+      oauth: new HttpTidyOAuth({
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
+        domainPrefix: config.domainPrefix,
+      }),
+    };
   }
   return {
     mode: "mock",

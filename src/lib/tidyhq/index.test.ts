@@ -5,6 +5,8 @@ import {
   getTidyOAuth,
   parseTidyMode,
 } from ".";
+import { HttpTidyClient } from "./http/HttpTidyClient";
+import { HttpTidyOAuth } from "./http/HttpTidyOAuth";
 import { MockTidyClient } from "./mock/MockTidyClient";
 import { MockTidyOAuth } from "./mock/MockTidyOAuth";
 
@@ -53,8 +55,27 @@ describe("createTidyServices", () => {
     expect(services.oauth).toBeInstanceOf(MockTidyOAuth);
   });
 
-  it("throws in live mode until the live implementations exist", () => {
-    expect(() => createTidyServices("live")).toThrow(/not implemented/);
+  const LIVE_ENV = {
+    TIDYHQ_MODE: "live",
+    NODE_ENV: "production",
+    APP_ORIGIN: "https://checkin.sml-test.invalid",
+    TIDYHQ_CLIENT_ID: "cid_9f2c41d7aa",
+    TIDYHQ_CLIENT_SECRET: "cs_live_2b7e90aa11",
+    TIDYHQ_ADMIN_TOKEN: "at_live_77c0ffee12",
+    SESSION_SECRET: "k3Jv9Qe2mXz0Lw8RtYb5Nc1Hd7Fa4GuS6pIoVxZ",
+  };
+
+  it("creates the HTTP client and live OAuth together in live mode", () => {
+    const services = createTidyServices("live", LIVE_ENV);
+    expect(services.mode).toBe("live");
+    expect(services.client).toBeInstanceOf(HttpTidyClient);
+    expect(services.oauth).toBeInstanceOf(HttpTidyOAuth);
+  });
+
+  it("refuses to build live services from an incomplete configuration", () => {
+    expect(() =>
+      createTidyServices("live", { ...LIVE_ENV, TIDYHQ_CLIENT_SECRET: "" }),
+    ).toThrow(/TIDYHQ_CLIENT_SECRET/);
   });
 });
 

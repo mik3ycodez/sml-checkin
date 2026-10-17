@@ -8,7 +8,7 @@ import { getTidyMode, getTidyServices } from "@/lib/tidyhq";
  * default mode, so mock alone would leave this open on a demo or staging site.
  */
 export async function POST() {
-  // Checked before building the services, which throw in live mode.
+  // Checked before building the services, so live mode never builds mock ones.
   if (process.env.E2E !== "1" || getTidyMode() !== "mock") {
     return new NextResponse("Not found", { status: 404 });
   }

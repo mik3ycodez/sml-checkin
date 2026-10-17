@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function MockAuthorizePage({
   searchParams,
 }: PageProps<"/mock-tidyhq/oauth/authorize">) {
-  // Checked before building the services, which throw in live mode.
+  // Checked before building the services, so live mode never builds mock ones.
   if (getTidyMode() !== "mock") notFound();
   const tidy = getTidyServices();
   if (tidy.mode !== "mock") notFound();
