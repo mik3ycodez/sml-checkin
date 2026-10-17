@@ -17,6 +17,7 @@ import {
 } from "@/lib/checkin/tapNotice";
 import { colorsGroupFromEnv } from "@/lib/checkin/colorsGroup";
 import { getTidyClient } from "@/lib/tidyhq";
+import { CHECKIN_BUDGET_MS, withBudget } from "@/lib/tidyhq/budget";
 import { requireVolunteer } from "../../../../requireVolunteer";
 import { staffCheckinPath, staffMemberPath } from "../../../paths";
 
@@ -33,6 +34,17 @@ import { staffCheckinPath, staffMemberPath } from "../../../paths";
  * redirects, and the page re-reads TidyHQ, so a refresh never posts again.
  */
 export async function staffCheckInAction(
+  eventId: unknown,
+  formData: FormData,
+): Promise<never> {
+  // One time budget from the first read, the access check included, so the
+  // whole request ends before the route's limit.
+  return withBudget(CHECKIN_BUDGET_MS, () =>
+    runStaffCheckInAction(eventId, formData),
+  );
+}
+
+async function runStaffCheckInAction(
   eventId: unknown,
   formData: FormData,
 ): Promise<never> {

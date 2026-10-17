@@ -29,6 +29,7 @@ import {
   type TapOutcome,
 } from "@/lib/checkin/tapNotice";
 import { getTidyClient, TidyError } from "@/lib/tidyhq";
+import { CHECKIN_BUDGET_MS, remainingMs } from "@/lib/tidyhq/budget";
 import { checkInAction } from "./actions";
 
 const SECRET = "test-secret-that-is-at-least-32-characters-long";
@@ -76,6 +77,23 @@ describe("checkInAction", () => {
     expect(await submit("ev_tonight")).toBe("/checkin/ev_tonight/result");
     const members = await getTidyClient().listGroupContacts("grp_social_night");
     expect(members.map((c) => c.id)).toContain("c_dante");
+  });
+
+  it("runs the whole tap inside one time budget", async () => {
+    signInAs("c_dante");
+    const client = getTidyClient();
+    const real = client.getEvent.bind(client);
+    const seen: Array<number | null> = [];
+    vi.spyOn(client, "getEvent").mockImplementation(async (id) => {
+      seen.push(remainingMs());
+      return real(id);
+    });
+    await submit("ev_tonight");
+    expect(seen.length).toBeGreaterThan(0);
+    for (const left of seen) {
+      expect(left).not.toBeNull();
+      expect(left).toBeLessThanOrEqual(CHECKIN_BUDGET_MS);
+    }
   });
 
   it("extends the session after a check-in", async () => {

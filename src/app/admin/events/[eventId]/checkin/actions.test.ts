@@ -29,6 +29,7 @@ import {
   type TapOutcome,
 } from "@/lib/checkin/tapNotice";
 import { getTidyClient, TidyError } from "@/lib/tidyhq";
+import { CHECKIN_BUDGET_MS, remainingMs } from "@/lib/tidyhq/budget";
 import { staffCheckInAction } from "./actions";
 
 const SECRET = "test-secret-that-is-at-least-32-characters-long";
@@ -95,6 +96,24 @@ describe("staffCheckInAction", () => {
       expect.any(String),
       expect.objectContaining({ httpOnly: true, path: PAGE }),
     );
+  });
+
+  it("runs the access check and the check-in inside one time budget", async () => {
+    signInAs("c_pat");
+    const client = getTidyClient();
+    const real = client.listGroupContacts.bind(client);
+    const seen: Array<number | null> = [];
+    vi.spyOn(client, "listGroupContacts").mockImplementation(async (id) => {
+      seen.push(remainingMs());
+      return real(id);
+    });
+    await submit("ev_tonight", { member: "c_dante" });
+    // The first read is the guard's, before checkIn starts: it counts too.
+    expect(seen.length).toBeGreaterThan(1);
+    for (const left of seen) {
+      expect(left).not.toBeNull();
+      expect(left).toBeLessThanOrEqual(CHECKIN_BUDGET_MS);
+    }
   });
 
   it("lets an admin check a member in, noting the admin role", async () => {

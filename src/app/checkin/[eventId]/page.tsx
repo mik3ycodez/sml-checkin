@@ -8,6 +8,11 @@ import { eventTitle, StatusScreen } from "./screens";
 // prefetching can't check anyone in. A member who's already checked in, or
 // can't check in (expired, not open yet), sees why instead of the button.
 
+// The route limit for this page and the check-in action its form posts to
+// (an action takes its page's limit). A check-in's time budget is sized for it:
+// `ROUTE_MAX_DURATION_SECONDS` in `lib/tidyhq/budget.ts`, kept equal by a test.
+export const maxDuration = 30;
+
 export default async function CheckInPage({
   params,
 }: PageProps<"/checkin/[eventId]">) {

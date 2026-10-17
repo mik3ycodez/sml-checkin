@@ -19,6 +19,7 @@ import {
 } from "@/lib/checkin/tapNotice";
 import { colorsGroupFromEnv } from "@/lib/checkin/colorsGroup";
 import { getTidyClient } from "@/lib/tidyhq";
+import { CHECKIN_BUDGET_MS, withBudget } from "@/lib/tidyhq/budget";
 import { checkinPath } from "../../memberPaths";
 import { problemPath, resultPath, signInPath } from "./screens";
 
@@ -32,6 +33,12 @@ import { problemPath, resultPath, signInPath } from "./screens";
  * member sees a friendly screen rather than a crash.
  */
 export async function checkInAction(eventId: unknown): Promise<never> {
+  // One time budget for everything the tap does, so it ends before the
+  // route's limit however slowly TidyHQ answers.
+  return withBudget(CHECKIN_BUDGET_MS, () => runCheckInAction(eventId));
+}
+
+async function runCheckInAction(eventId: unknown): Promise<never> {
   if (typeof eventId !== "string" || eventId === "") redirect("/");
   const page = checkinPath(eventId);
 
