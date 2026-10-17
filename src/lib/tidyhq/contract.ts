@@ -28,7 +28,11 @@ function seedWith(change?: (seed: MockSeed) => void): MockSeed {
   return seed;
 }
 
-async function expectTidyError(promise: Promise<unknown>, status: number) {
+/** Shared with the mock's own tests. */
+export async function expectTidyError(
+  promise: Promise<unknown>,
+  status: number,
+) {
   const error = await promise.catch((e: unknown) => e);
   expect(error).toBeInstanceOf(TidyError);
   expect((error as TidyError).status).toBe(status);
@@ -241,6 +245,33 @@ export function runTidyClientContract(
         ]);
       });
 
+      it("orders by the moment each starts, whatever offset its text uses, and puts an event with no start last", async () => {
+        const { client } = open((seed) => {
+          const template = seed.events.find((e) => e.id === "ev_bar_night")!;
+          // 18:00Z written with an offset, so as text it sorts before 17:30Z.
+          seed.events = [
+            {
+              ...template,
+              id: "ev_offset",
+              start_at: "2026-11-20T10:00:00-08:00",
+              end_at: "2026-11-20T12:00:00-08:00",
+            },
+            {
+              ...template,
+              id: "ev_utc",
+              start_at: "2026-11-20T17:30:00Z",
+              end_at: "2026-11-20T19:00:00Z",
+            },
+            { ...template, id: "ev_nostart", start_at: null, end_at: null },
+          ];
+        });
+        expect(ids(await client.listEvents())).toEqual([
+          "ev_utc",
+          "ev_offset",
+          "ev_nostart",
+        ]);
+      });
+
       it("filters to events that end after `after`", async () => {
         const upcoming = await open().client.listEvents({
           after: CONTRACT_NOW,
@@ -312,12 +343,15 @@ export function runTidyClientContract(
         expect(new Set(ids(contacts)).size).toBe(9);
       });
 
-      it("leaves out inactive contacts, as TidyHQ does by default", async () => {
+      it('includes inactive contacts: check-in\'s "already checked in" test reads this list', async () => {
         const { client } = open((seed) => {
           seed.contacts.find((c) => c.id === "c_jordan")!.status = "inactive";
         });
         const contacts = await client.listGroupContacts("grp_pub_night");
-        expect(ids(contacts)).toEqual(["c_marcus"]);
+        expect(sortedIds(contacts)).toEqual(["c_jordan", "c_marcus"]);
+        expect(contacts.find((c) => c.id === "c_jordan")!.status).toBe(
+          "inactive",
+        );
       });
 
       it("404s on an unknown group", async () => {

@@ -56,7 +56,10 @@ export async function readGroupMembers(
 ): Promise<{ members: Contact[] } | { failure: GroupReadFailure }> {
   if ("problem" in group) return { failure: { reason: group.problem } };
   try {
-    return { members: await client.listGroupContacts(group.id) };
+    // Group lists include inactive contacts (check-in needs them), but access
+    // is for active people: a deactivated Board member or volunteer is out.
+    const members = await client.listGroupContacts(group.id);
+    return { members: members.filter((c) => c.status === "active") };
   } catch (error) {
     return {
       failure: isTidyError(error)

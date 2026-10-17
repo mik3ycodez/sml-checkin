@@ -342,7 +342,7 @@ describe("v2 Event", () => {
     expect(e.public).toBe(false);
   });
 
-  it("lists events sorted by start, a null start first, as the mock does", async () => {
+  it("lists events sorted by start, an event with no start last", async () => {
     const list = await clientFor({
       "/v2/events": [
         { ...event, id: "b", start_at: "2026-11-01T00:00:00Z" },
@@ -350,7 +350,7 @@ describe("v2 Event", () => {
         { ...event, id: "a", start_at: "2026-10-01T00:00:00Z" },
       ],
     }).listEvents();
-    expect(list.map((e) => e.id)).toEqual(["n", "a", "b"]);
+    expect(list.map((e) => e.id)).toEqual(["a", "b", "n"]);
   });
 });
 

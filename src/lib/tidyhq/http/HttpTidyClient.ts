@@ -1,3 +1,4 @@
+import { sortEventsByStart } from "../eventOrder";
 import type { ListEventsOptions, TidyClient } from "../client";
 import type {
   Contact,
@@ -117,9 +118,7 @@ export class HttpTidyClient implements TidyClient {
     if (options.before) query.before = options.before.toISOString();
     const raw = await this.list("v2", "/events", query);
     // The spec promises no order, so sort here, as the mock does.
-    return raw
-      .map(parseEvent)
-      .sort((a, b) => (a.start_at ?? "").localeCompare(b.start_at ?? ""));
+    return sortEventsByStart(raw.map(parseEvent));
   }
 
   async getEvent(eventId: string): Promise<Event> {
@@ -127,7 +126,12 @@ export class HttpTidyClient implements TidyClient {
   }
 
   async listGroupContacts(groupId: string): Promise<Contact[]> {
-    const raw = await this.list("v1", `/groups/${groupId}/contacts`);
+    // v1 leaves out inactive contacts unless asked. We ask: check-in tells
+    // "already checked in" from this list, and an inactive contact can still
+    // sign in and tap again.
+    const raw = await this.list("v1", `/groups/${groupId}/contacts`, {
+      show_all: "true",
+    });
     return raw.map((c) => parseContact(c, "v1"));
   }
 

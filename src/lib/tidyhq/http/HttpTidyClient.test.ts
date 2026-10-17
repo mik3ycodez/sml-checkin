@@ -171,6 +171,14 @@ describe("HttpTidyClient", () => {
       ]);
     });
 
+    it("asks for inactive contacts too in a group list, so check-in sees them", async () => {
+      const { server, client } = build();
+      await client.listGroupContacts("grp_members");
+      for (const req of server.requests) {
+        expect(req.query.get("show_all")).toBe("true");
+      }
+    });
+
     it("sends a blank search nowhere, since a blank search_terms may mean everyone", async () => {
       const { server, client } = build();
       expect(await client.searchContacts("")).toEqual([]);

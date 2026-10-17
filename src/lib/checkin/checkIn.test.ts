@@ -76,6 +76,42 @@ describe("checkIn", () => {
     expect(await storedPoints(client, "c_dante")).toBe(1);
   });
 
+  it("awards an inactive contact one point however many times they tap", async () => {
+    // A contact TidyHQ marks inactive can still sign in and hold a current
+    // membership. Group lists must still show them, or they'd never look
+    // checked in and every tap would add a point.
+    const client = seededClient((seed) => {
+      seed.contacts.find((c) => c.id === "c_dante")!.status = "inactive";
+    });
+    const tap = () =>
+      checkIn(client, {
+        eventId: "ev_tonight",
+        contactId: "c_dante",
+        now: NOW,
+      });
+    expect(await tap()).toMatchObject({ status: "checked_in", total: 1 });
+    expect(await tap()).toMatchObject({
+      status: "already_checked_in",
+      total: 1,
+    });
+    expect(await tap()).toMatchObject({ status: "already_checked_in" });
+    expect(await storedPoints(client, "c_dante")).toBe(1);
+  });
+
+  it("sees an inactive contact already in the group as checked in", async () => {
+    const client = seededClient((seed) => {
+      seed.contacts.find((c) => c.id === "c_dante")!.status = "inactive";
+      seed.groupMembers.grp_social_night = ["c_dante"];
+    });
+    const result = await checkIn(client, {
+      eventId: "ev_tonight",
+      contactId: "c_dante",
+      now: NOW,
+    });
+    expect(result).toMatchObject({ status: "already_checked_in", total: 0 });
+    expect(await storedPoints(client, "c_dante")).toBe(0);
+  });
+
   it("adds to the member's existing total", async () => {
     const client = seededClient();
     const result = await checkIn(client, {

@@ -79,9 +79,10 @@ export interface TidyClient {
    * `GET /v1/groups/{groupID}/contacts`. Must return every contact in the
    * group, following all pages: check-in uses this to tell whether a member
    * is already checked in, so a missing page would award points again.
-   * Active contacts only (v1's default), and identity only: v1's contact
-   * list sends no custom field values or notes, so read points and the like
-   * with `getContact`.
+   * Includes inactive contacts (v1 needs `show_all=true`): an inactive contact
+   * can still sign in, and must show as already checked in. Identity only:
+   * v1's contact list sends no custom field values or notes, so read points
+   * and the like with `getContact`.
    */
   listGroupContacts(groupId: string): Promise<Contact[]>;
 

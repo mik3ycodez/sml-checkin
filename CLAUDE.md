@@ -220,8 +220,10 @@ so the app is built against a **mock TidyHQ**.
   - `PUT /v1/groups/{groupID}/contacts/{contactID}` (attendance; v2 can't write groups)
   - `GET /v1/contacts/{contactID}/groups` (a member's groups, archived ones
     included, for recent events)
-  - `GET /v1/groups/{groupID}/contacts` (an event group's members: active
-    contacts only, identity only. v1 sends no custom field values, so read
+  - `GET /v1/groups/{groupID}/contacts` (an event group's members, sent
+    with `show_all=true` so inactive contacts are included: check-in's
+    "already checked in" test reads it, and an inactive contact can still
+    sign in. Admin and volunteer access filter back to active. Identity only. v1 sends no custom field values, so read
     points with `GET /v2/contacts/{id}`, never from this list)
 - Unknown until live access: how an event links to its contact group, and the
   exact request format for custom fields. Keep both isolated so they're easy to

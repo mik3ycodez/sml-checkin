@@ -124,7 +124,13 @@ export function createFakeTidyServer(
         parts[2] === "contacts" &&
         parts.length === 3
       ) {
-        const members = page(await mock.listGroupContacts(parts[1]), req.query);
+        // Like v1: inactive contacts only with show_all=true.
+        const everyone = await mock.listGroupContacts(parts[1]);
+        const shown =
+          req.query.get("show_all") === "true"
+            ? everyone
+            : everyone.filter((c) => c.status === "active");
+        const members = page(shown, req.query);
         // The mock's group lists carry no field data, but v1's list has the
         // field definitions, so build each from the whole contact.
         const whole = await Promise.all(

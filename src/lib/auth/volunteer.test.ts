@@ -55,6 +55,18 @@ describe("volunteerAccess", () => {
   const access = (client: MockTidyClient, contactId: string) =>
     volunteerAccess(client, contactId, HELPERS, ADMINS);
 
+  it.each(["c_pat", "c_casey"])(
+    "turns away %s once deactivated, though still in their group",
+    async (contactId) => {
+      const seed = createSeed(NOW);
+      seed.contacts.find((c) => c.id === contactId)!.status = "inactive";
+      const client = new MockTidyClient(seed, () => NOW);
+      expect(await access(client, contactId)).toEqual({
+        status: "not_volunteer",
+      });
+    },
+  );
+
   it("admits a volunteer, as a volunteer", async () => {
     expect(await access(seededClient(), "c_pat")).toEqual({
       status: "volunteer",
@@ -73,7 +85,7 @@ describe("volunteerAccess", () => {
   it("says admin for someone in both groups", async () => {
     const client = seededClient();
     client.listGroupContacts = async () =>
-      [{ id: "c_both", display_name: "Both Roles" }] as never;
+      [{ id: "c_both", display_name: "Both Roles", status: "active" }] as never;
     expect(await access(client, "c_both")).toEqual({
       status: "admin",
       name: "Both Roles",

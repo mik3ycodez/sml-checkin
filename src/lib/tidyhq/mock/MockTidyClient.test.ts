@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildPointsPatch, POINTS_FIELD_ID, readPoints } from "../customFields";
 import { getCheckinWindow, isCheckinOpen } from "../checkinWindow";
-import { runTidyClientContract } from "../contract";
-import { TidyError } from "../errors";
+import { expectTidyError, runTidyClientContract } from "../contract";
 import { resolveEventGroup } from "../eventGroups";
 import { issueMockToken, MockTidyClient } from "./MockTidyClient";
 import { createSeed, MOCK_ADMIN_CONTACT_ID } from "./seed";
@@ -13,12 +12,6 @@ function daysBetween(from: Date, isoDate: string): number {
   return Math.round(
     (new Date(isoDate).getTime() - from.getTime()) / 86_400_000,
   );
-}
-
-async function expectTidyError(promise: Promise<unknown>, status: number) {
-  const error = await promise.catch((e: unknown) => e);
-  expect(error).toBeInstanceOf(TidyError);
-  expect((error as TidyError).status).toBe(status);
 }
 
 runTidyClientContract("MockTidyClient", (seed) => ({

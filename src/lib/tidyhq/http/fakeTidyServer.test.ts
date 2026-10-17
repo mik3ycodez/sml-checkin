@@ -56,6 +56,29 @@ describe("fake TidyHQ server", () => {
       expect(page).toHaveLength(5);
     });
 
+    it("leaves inactive contacts out of a v1 group list unless show_all is sent", async () => {
+      const server = createFakeTidyServer(
+        new MockTidyClient(
+          (() => {
+            const seed = createSeed(new Date("2026-10-12T18:00:00Z"));
+            seed.contacts.find((c) => c.id === "c_jordan")!.status = "inactive";
+            return seed;
+          })(),
+        ),
+        { pageSize: 10 },
+      );
+      const read = async (query: string) =>
+        (
+          await (
+            await server.fetch(`${V1}/groups/grp_pub_night/contacts${query}`, {
+              headers: { Authorization: `Bearer ${FAKE_ADMIN_TOKEN}` },
+            })
+          ).json()
+        ).map((c: { id: string }) => c.id);
+      expect(await read("")).toEqual(["c_marcus"]);
+      expect(await read("?show_all=true")).toEqual(["c_marcus", "c_jordan"]);
+    });
+
     it("pages the v1 lists too", async () => {
       const { get } = setup();
       const groups = await (
