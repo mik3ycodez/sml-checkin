@@ -1,6 +1,6 @@
 # Milestone 5: Live-ready prep
 
-**Status:** Approved. PR 1 in review.
+**Status:** Approved. PR 1 merged (#34); PR 2 in review (#35).
 
 ## Context
 
@@ -203,7 +203,7 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
 
 ## Pull requests (in order)
 
-### PR 1 🔍 In review (#34): Docs: the app edits nothing beyond check-in
+### PR 1 ✅ Done (#34): Docs: the app edits nothing beyond check-in
 
 - CLAUDE.md: remove "points adjustments" from the admin side and from the
   points rule ("(later) admin adjustments" becomes corrections made in
@@ -216,7 +216,7 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
 - `docs/plans/milestone-5.md` itself, with review decisions applied.
 - No code.
 
-### PR 2: TidyHQ request layer (test-first)
+### PR 2 🔍 In review (#35): TidyHQ request layer (test-first)
 
 - `src/lib/tidyhq/http/request.ts`: `tidyRequest` and `tidyRequestAll`
   (paging), following the rules above: Bearer header, fixed hosts, 8 s
@@ -256,6 +256,9 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
 - `eventGroups.ts`: a live-mode rule that links no event, marked. Tests that
   check-in, the QR page and the volunteer page all report "no attendance
   group" for a live event, which they already agree on via `checkinBlocker`.
+- Tighten the write responses once known: `tidyRequest`'s `expect: "none"`
+  (any 2xx body accepted) becomes the real shape for each write, as soon as
+  go-live checklist item 16 (what the v1 group `PUT` returns) is confirmed.
 - Contract additions: group add is idempotent, an unknown custom field is
   422, a note on an unknown contact is 404, writes are never retried.
 - `countsForPoints(event)` (decision 5): returns true for every event, in one
@@ -276,7 +279,10 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
   (`grant_type=authorization_code`, with the client secret, server-side) and
   returns the access token. TidyHQ's "bad code" response becomes
   `TidyError(401)`, as the interface promises. The code, token and secret
-  are never logged.
+  are never logged. A test drives every error path with a recognizable fake
+  client secret and fails if it appears in any log or thrown error,
+  including when the server echoes it back in its response (PR 2's request
+  layer can't cover this: it never holds the secret).
 - `createTidyServices("live")` builds `HttpTidyClient` and `HttpTidyOAuth`
   instead of throwing. The mock sign-in page and reset route already refuse
   outside mock mode; a test confirms they still do.
@@ -286,7 +292,16 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
 - Production refuses mock mode unless `DEMO_MODE=on`; demo mode renders a
   "Demo data" banner in the root layout, so it shows on every page. Tests for
   both. Outside production, mock mode without `DEMO_MODE` shows no banner.
-- `maxDuration = 30` on the check-in and report routes.
+- `maxDuration = 30` on the check-in and report routes, plus **an overall
+  time budget per operation** (check-in, each report) so the total can never
+  exceed the route limit: one deadline for the whole operation, shared by
+  every TidyHQ call and page in it, which also shortens or skips the retry
+  when little time is left. Past the budget the operation fails with the
+  same "temporarily unavailable" a TidyHQ outage shows. PR 2's per-request
+  8 s timeout (plus one retry, plus paging) can otherwise add up to more than
+  30 s. Test: a fake TidyHQ that answers slowly makes check-in and the
+  colors report fail cleanly with "temporarily unavailable" before the
+  limit (fake timers, no real waiting).
 - `.env.example`: every setting documented with placeholders only, including
   which are secrets, which are live-only, and that the placeholders are
   rejected in live mode.
@@ -369,7 +384,11 @@ both pass.
    `COLORS_ISSUED_FIELD_ID`).
 7. Paging: on a list longer than one page (`listAllContacts`, a big event
    group), the client's count matches TidyHQ's admin screen. Confirm v1's
-   group endpoints page the way PR 3 implemented.
+   group endpoints page the way PR 3 implemented. **Also confirm TidyHQ's
+   list order stays stable while paging** (the same order for every `offset`,
+   and a member added or removed mid-read doesn't shift others). Offset
+   paging can skip an item if it doesn't, and a skipped attendee would be
+   checked in a second time and given a second point.
 8. Errors: a wrong id gives 404, a bad admin token gives 401, and what a 429
    looks like (`Retry-After`?). Learn the real rate limit and check that a
    busy door (several check-ins a minute, plus the 30-second attendee
@@ -395,10 +414,13 @@ On a Board member's own contact, at an unpublished test event in TidyHQ:
     scan awards nothing. The next day, confirm TidyHQ's sync hasn't removed
     them (if it does, points get awarded twice).
 15. A staff check-in writes its note, with the right author and content.
-16. Real-world latency: a full check-in from a phone at the venue finishes
+16. **What the v1 group `PUT` returns** (the response status and body for a
+    new member and for one already in the group). PR 4 tightens
+    `expect: "none"` to match.
+17. Real-world latency: a full check-in from a phone at the venue finishes
     well inside the 8 s per request timeout. Adjust `REQUEST_TIMEOUT_MS` if
     not.
-17. `grep -rn LIVE-UNKNOWN src` comes back empty.
+18. `grep -rn LIVE-UNKNOWN src` comes back empty.
 
 Then remove the test event and undo the test contact's point by hand in
 TidyHQ.
