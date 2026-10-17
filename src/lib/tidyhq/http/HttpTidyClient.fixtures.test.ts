@@ -209,13 +209,15 @@ describe("v2 Contact points field (LIVE-UNKNOWN missing-points-field)", () => {
     expect(readPoints(await client.getContact("7"))).toBe(12);
   });
 
-  it("marks every v2 contact the client returns", async () => {
+  it("marks a contact with no custom fields on every v2 read: one, me, and the search list", async () => {
     const client = clientFor({
-      "/v2/contacts": [{ ...base, custom_fields: {} }],
+      "/v2/contacts/7": { ...base, custom_fields: {} },
       "/v2/contacts/me": { ...base, custom_fields: {} },
+      "/v2/contacts": [{ ...base, custom_fields: {} }],
     });
-    expect(readPoints((await client.listAllContacts())[0])).toBeNull();
+    expect(readPoints(await client.getContact("7"))).toBeNull();
     expect(readPoints(await client.getMe("member-token"))).toBeNull();
+    expect(readPoints((await client.searchContacts("Pat"))[0])).toBeNull();
   });
 
   it("leaves v1 group members alone: v1 never carries values, and nothing reads points there", async () => {

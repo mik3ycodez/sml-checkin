@@ -37,15 +37,6 @@ export interface TidyClient {
    */
   searchContacts(query: string): Promise<Contact[]>;
 
-  /**
-   * `GET /v2/contacts`: every active contact (the endpoint's default; inactive
-   * ones need `all=true`, which we don't send). Must follow all pages
-   * (`limit`/`offset`): the colors owed report would otherwise present a
-   * partial list as complete. Reports only; member-facing code never lists
-   * everyone.
-   */
-  listAllContacts(): Promise<Contact[]>;
-
   /** `GET /v2/contacts/{id}` */
   getContact(contactId: string): Promise<Contact>;
 

@@ -95,40 +95,6 @@ export function runTidyClientContract(
       });
     });
 
-    describe("listAllContacts", () => {
-      it("lists every active contact, and no inactive ones", async () => {
-        const { client } = open((seed) => {
-          seed.contacts[1].status = "inactive";
-        });
-        const all = await client.listAllContacts();
-        expect(all).toHaveLength(11);
-        expect(ids(all)).not.toContain("c_dante");
-      });
-
-      it("returns every contact however many pages that takes", async () => {
-        const { client } = open((seed) => {
-          for (let i = 0; i < 25; i++) {
-            seed.contacts.push({
-              ...structuredClone(seed.contacts[0]),
-              id: `c_bulk_${i}`,
-            });
-          }
-        });
-        const all = await client.listAllContacts();
-        expect(all).toHaveLength(37);
-        expect(new Set(ids(all)).size).toBe(37);
-      });
-
-      it("returns whole contacts, with their custom fields", async () => {
-        const { client } = open();
-        const taylor = (await client.listAllContacts()).find(
-          (c) => c.id === "c_taylor",
-        )!;
-        expect(taylor.display_name).toBe("Taylor Brandt");
-        expect(taylor.custom_fields.cf_sml_points.value).toBe("18");
-      });
-    });
-
     describe("searchContacts", () => {
       it("finds a member by first name", async () => {
         const found = await open().client.searchContacts("Dante");
@@ -553,11 +519,10 @@ export function runTidyClientContract(
         expect(readPoints(dante)).toBe(
           harness.differences.missingPointsUnreadable ? null : 0,
         );
-        // Every list that carries v2 contacts agrees.
-        const listed = (await harness.client.listAllContacts()).find(
-          (c) => c.id === "c_dante",
-        )!;
-        expect(readPoints(listed)).toBe(
+        // The v2 list path agrees with the single read.
+        const [found] = await harness.client.searchContacts("Dante");
+        expect(found.id).toBe("c_dante");
+        expect(readPoints(found)).toBe(
           harness.differences.missingPointsUnreadable ? null : 0,
         );
       });

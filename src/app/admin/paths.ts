@@ -8,9 +8,6 @@ export { adminEventPath, staffCheckinPath };
 /** The admin home page. */
 export const ADMIN_PATH = "/admin";
 
-/** The club colors owed report. */
-export const COLORS_REPORT_PATH = "/admin/reports/colors";
-
 /** Where `requireAdmin` sends anyone it turns away. */
 export const ADMIN_DENIED_PATH = "/admin/denied";
 

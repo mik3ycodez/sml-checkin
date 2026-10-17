@@ -392,14 +392,9 @@ and skips the colors add (logged each time).
   `not_accepted`; check-in refuses it as `event_unavailable`, and the agreement
   between the QR page, the volunteer page and check-in is tested. The admin
   event list carries nothing for it.
-- **Colors owed report, live:** if checklist item 2 finds TidyHQ omits unanswered
-  fields, every contact without points would land in the report's "Needs
-  checking" list (the missing-points marker). Left as is; the report is
-  removed in PR 6.
-- **`src/lib/liveUnknown.test.ts`** lists every marker tag and checks each has a
-  checklist item here naming it.
+- **Colors owed report, live:** removed in PR 6.
 
-### PR 5 🔍 In review: Docs: colors eligibility moves into TidyHQ
+### PR 5 ✅ Done (#38): Docs: colors eligibility moves into TidyHQ
 
 - This plan: the colors decision above, the report removal, the dropped
   memberships report, the PRs re-split, and the go-live items.
@@ -409,7 +404,7 @@ and skips the colors add (logged each time).
   code in PRs 6 and 7, so it never describes behavior that isn't there.
 - No code.
 
-### PR 6: Remove the colors owed report
+### PR 6 🔍 In review: Remove the colors owed report
 
 - Delete `/admin/reports/colors` (page, screens, tests), the admin home
   "Reports" link and `COLORS_REPORT_PATH`, `getColorsOwed` and its tests,
@@ -536,6 +531,19 @@ the colors read and add. PR 9 is last because it carries the version bump.
   then whether shared events (`shared_from` set) are accepted for check-in
   (`acceptsCheckIn`). If the Board wants partner events recorded without
   points, that is a separate rule added then.
+- **1.1: what real data taught us** (after go-live). Milestone 5 builds for
+  unknowns; once live data answers them, simplify:
+  - **Delete disproven branches.** For every `LIVE-UNKNOWN` answered on
+    go-live day, remove the marker if confirmed, or the code path if
+    disproven (and its checklist item and tests).
+  - **Measure before optimizing.** TidyHQ calls and time per check-in at a
+    real event, and which screens are actually used (staff check-in
+    included). Optimize only what the numbers point at.
+  - **Prune tests.** Remove unit tests the contract suite already covers, and
+    decide which e2e specs need all three browser projects.
+  - **Slim CLAUDE.md** to current rules only, moving decision history into the
+    plan docs.
+  - **Shrink the mock** to what local development and e2e need.
 
 ## Go-live checklist (live TidyHQ)
 

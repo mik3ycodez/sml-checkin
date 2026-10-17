@@ -116,11 +116,6 @@ export class HttpTidyClient implements TidyClient {
     return raw.map(parseV2Contact);
   }
 
-  async listAllContacts(): Promise<Contact[]> {
-    const raw = await this.list("v2", "/contacts");
-    return raw.map(parseV2Contact);
-  }
-
   async getContact(contactId: string): Promise<Contact> {
     return parseV2Contact(await this.record("v2", `/contacts/${contactId}`));
   }
