@@ -32,6 +32,9 @@ export default defineConfig({
     timeout: 180_000,
     env: {
       TIDYHQ_MODE: "mock",
+      // `next start` is a production server, which refuses mock data unless
+      // it is a demo. So the suite runs as one, and shows the banner.
+      DEMO_MODE: "on",
       // Turns on POST /mock-tidyhq/reset. Set nowhere else.
       E2E: "1",
       // http, so cookies aren't Secure: WebKit won't store those over http.

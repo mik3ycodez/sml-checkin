@@ -138,7 +138,8 @@ system of record; this app is a thin layer on top of it.
   writes a TidyHQ contact note with the event, which staff member did it (their
   role, name and contact id), and when;
   a self check-in writes no note, so a check-in with no note was a self
-  check-in. A self check-in's time isn't recorded (TidyHQ's API documents no
+  check-in (except when the time budget ran out, below). A self check-in's
+  time isn't recorded (TidyHQ's API documents no
   timestamp for group membership); that gap is accepted. A failed note is
   logged and never fails the check-in or touches points.
 - **The admin event page's attendee list** is the event group's members
@@ -250,6 +251,40 @@ so the app is built against a **mock TidyHQ**.
   client has and the other lacks must fail a test: add new `TidyClient`
   behavior to the contract, not to one client's own test file. Mock-only
   behavior (reset, the sign-in list, copies) stays in the mock's file.
+- **Live sign-in and startup.** `HttpTidyOAuth` (`src/lib/tidyhq/http/`)
+  builds the real authorize URL (`domain_prefix` from `TIDYHQ_DOMAIN_PREFIX`,
+  default `sml`) and swaps the code for the member's token server-side, with
+  the client secret, through `tidyTokenPost` in the request layer (never
+  retried). The token only calls `GET /v2/contacts/me` and is never stored in
+  a cookie, session or log; the existing state-cookie check stays. **The
+  client secret, code and token never appear in a log or error**: messages
+  are fixed text, never anything the server sent back (it may echo them) or a
+  caught error's message. `createTidyServices("live", env)` builds both from
+  `liveConfig`. `checkStartupConfig` (`instrumentation.ts`) refuses to start
+  in live mode if `APP_ORIGIN` (https, localhost excepted),
+  `TIDYHQ_CLIENT_ID`, `TIDYHQ_CLIENT_SECRET`, `TIDYHQ_ADMIN_TOKEN` or
+  `SESSION_SECRET` (32+ characters) is missing, blank or a `.env.example`
+  placeholder, naming the setting and never printing a value. The group ids
+  (`ADMIN_GROUP_ID`, `HELPER_GROUP_ID`, `COLORS_GROUP_ID`) are optional and
+  never block startup. **Production refuses `TIDYHQ_MODE=mock` unless
+  `DEMO_MODE=on`**, and demo mode shows a "Demo data" banner on every page
+  (server-rendered, so it shows with JavaScript off); `DEMO_MODE=on` with live
+  is refused. The e2e suite runs as a demo for that reason.
+- **One time budget per check-in** (`src/lib/tidyhq/budget.ts`, 24 s inside
+  the 30 s route limit; `maxDuration = 30` is on the two pages that hold the
+  check-in forms, and a test keeps them equal). Both actions start it, so the
+  volunteer access check counts, and `checkIn` starts its own if called
+  without. It is ambient (`AsyncLocalStorage` on `globalThis`), read by the
+  request layer: a request's timeout is capped to the time left, nothing is
+  sent with 0.5 s or less left, and a retry is skipped without time for it.
+  Past the budget, a step fails like a TidyHQ outage ("temporarily
+  unavailable"). **After the points write, running out of time never fails
+  the check-in**: the colors add is skipped and logged (`budget_exhausted`;
+  it heals at the next check-in), and a staff check-in holds back 4 s
+  (`NOTE_RESERVE_MS`) so the colors steps can't use up the note's time. If
+  the budget is spent anyway, **the staff note is skipped and logged**, so
+  that check-in looks like a self check-in in TidyHQ; accepted. Never
+  double-awards.
 - Mock sign-in: a fake TidyHQ sign-in page that lists seed members to pick from,
   then follows the same redirect/callback flow as the real OAuth.
 - Endpoints the app relies on:
