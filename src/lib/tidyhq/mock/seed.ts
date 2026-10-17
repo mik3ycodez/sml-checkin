@@ -228,6 +228,16 @@ export function createSeed(now: Date = new Date()): MockSeed {
       4,
       "The Eagle, Seattle",
     ),
+    // Open now, but with no attendance group (not in EVENT_GROUPS): check-in
+    // can't record anyone, so every screen refuses it.
+    event(
+      "ev_no_group",
+      "Pop-up Meetup",
+      // Half an hour after Social Night, so event order never ties.
+      new Date(now.getTime() - HOUR_MS / 2),
+      4,
+      "Volunteer Park",
+    ),
     event(
       "ev_bootblack_social",
       "Bootblack Social",
@@ -293,6 +303,9 @@ export function createSeed(now: Date = new Date()): MockSeed {
       contact("c_casey", "Casey", "Moreno", 3),
       // A door volunteer, in the App Check-In Volunteers group but not App Admin.
       contact("c_pat", "Pat", "Rivera", 2),
+      // Only membership is `expired` with a future end date: an inconsistent
+      // record, refused at check-in and flagged to admins.
+      contact("c_kai", "Kai", "Mercer", 0),
     ],
     memberships: [
       membership("m_marcus", "c_marcus", "lvl_full", -120, 245),
@@ -307,6 +320,7 @@ export function createSeed(now: Date = new Date()): MockSeed {
       membership("m_morgan", "c_morgan", "lvl_full", -200, 165),
       membership("m_casey", "c_casey", "lvl_full", -150, 215),
       membership("m_pat", "c_pat", "lvl_full", -110, 255),
+      membership("m_kai", "c_kai", "lvl_full", -100, 265, "expired"),
     ],
     membershipLevels: [
       { id: "lvl_full", name: "Full Member", description: null },

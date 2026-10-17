@@ -1,6 +1,8 @@
 # Milestone 5: Live-ready prep
 
-**Status:** Approved. PRs 1 (#34), 2 (#35), 3 (#36) and 4 (#37) merged.
+**Status:** Complete (0.5.0): PRs 1 to 8 merged, PR 9 in review. The go-live
+checklist below stays open until live TidyHQ access.
+PRs 1 (#34), 2 (#35), 3 (#36) and 4 (#37) merged.
 Re-planned after PR 4: colors eligibility moves into TidyHQ, the colors
 report is removed, and the inconsistent memberships report is dropped
 (PR 5, this change).
@@ -551,7 +553,7 @@ start`), which refuses mock data, so `playwright.config.ts` sets
   one lean spec (`e2e/demo.spec.ts`) checks it, in the no-JavaScript project
   too.
 
-### PR 9: Mock seed additions, with e2e, and 0.5.0
+### PR 9: Mock seed additions, with e2e, and 0.5.0 (done)
 
 - A member whose only counted membership is `expired` with a future end
   date (an inconsistent record).

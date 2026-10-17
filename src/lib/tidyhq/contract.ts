@@ -163,9 +163,9 @@ export function runTidyClientContract(
       });
 
       it("follows every page of a wide match", async () => {
-        // Every seed email ends in example.com: 12 matches over 6 small pages.
+        // Every seed email ends in example.com: 13 matches over 7 small pages.
         const found = await open().client.searchContacts("example.com");
-        expect(found).toHaveLength(12);
+        expect(found).toHaveLength(13);
       });
 
       it("handles punctuation in a name", async () => {
@@ -248,6 +248,7 @@ export function runTidyClientContract(
         expect(ids(events)).toEqual([
           "ev_pub_night",
           "ev_tonight",
+          "ev_no_group",
           "ev_bootblack_social",
           "ev_bar_night",
           "ev_leather_brunch",
@@ -285,7 +286,7 @@ export function runTidyClientContract(
         const upcoming = await open().client.listEvents({
           after: CONTRACT_NOW,
         });
-        expect(upcoming).toHaveLength(4);
+        expect(upcoming).toHaveLength(5);
         expect(upcoming.every((e) => new Date(e.end_at!) > CONTRACT_NOW)).toBe(
           true,
         );
@@ -293,7 +294,11 @@ export function runTidyClientContract(
 
       it("filters to events that start before `before`", async () => {
         const past = await open().client.listEvents({ before: CONTRACT_NOW });
-        expect(ids(past)).toEqual(["ev_pub_night", "ev_tonight"]);
+        expect(ids(past)).toEqual([
+          "ev_pub_night",
+          "ev_tonight",
+          "ev_no_group",
+        ]);
       });
 
       it("combines `after` and `before`", async () => {
@@ -301,7 +306,7 @@ export function runTidyClientContract(
           after: CONTRACT_NOW,
           before: CONTRACT_NOW,
         });
-        expect(ids(events)).toEqual(["ev_tonight"]);
+        expect(ids(events)).toEqual(["ev_tonight", "ev_no_group"]);
       });
 
       it("gets an event by id", async () => {
@@ -515,7 +520,11 @@ export function runTidyClientContract(
         const events = await harness.client.listEvents();
         expect(events.length).toBeGreaterThan(0);
         for (const event of events) {
-          if (harness.differences.eventGroupLinked) {
+          // The seed's one event with no group stays unlinked in both.
+          if (
+            harness.differences.eventGroupLinked &&
+            event.id !== "ev_no_group"
+          ) {
             expect(findEventGroup(event), event.id).not.toBeNull();
           } else {
             expect(findEventGroup(event), event.id).toBeNull();

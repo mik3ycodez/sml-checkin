@@ -42,6 +42,7 @@ describe("getAdminEvents", () => {
     });
     expect(upcoming.map((e) => e.id)).toEqual([
       "ev_tonight", // in progress: ends after now
+      "ev_no_group", // in progress, and has no attendance group
       "ev_bootblack_social",
       "ev_bar_night",
       "ev_leather_brunch",

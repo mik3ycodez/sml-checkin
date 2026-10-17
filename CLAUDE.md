@@ -300,6 +300,9 @@ so the app is built against a **mock TidyHQ**.
   the budget is spent anyway, **the staff note is skipped and logged**, so
   that check-in looks like a self check-in in TidyHQ; accepted. Never
   double-awards.
+- Mock seed edge cases (for e2e): Kai Mercer (only membership `expired` with
+  a future end date) and Pop-up Meetup (`ev_no_group`, open now, no
+  attendance group).
 - Mock sign-in: a fake TidyHQ sign-in page that lists seed members to pick from,
   then follows the same redirect/callback flow as the real OAuth.
 - Endpoints the app relies on:
