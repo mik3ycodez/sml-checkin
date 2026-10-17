@@ -194,8 +194,17 @@ so the app is built against a **mock TidyHQ**.
   `HttpTidyClient` (real API). Selected by the `TIDYHQ_MODE` env var
   (`mock` | `live`), default `mock`.
 - Mock response shapes must follow TidyHQ's published API:
-  v2 spec at https://api.tidyhq.com/v2/openapi.json, v1 docs at
-  https://docs.tidyhq.com/api/v1/introduction
+  v2 spec at https://api.tidyhq.com/v2/openapi.json, v1 spec at
+  https://api.tidyhq.com/v1/openapi.json (the v1 docs pages are JavaScript
+  and can't be read; the spec is the same content)
+- `HttpTidyClient` (`src/lib/tidyhq/http/`) implements the reads so far; its
+  writes throw "not implemented" until milestone 5, PR 4. **One contract
+  suite** (`runTidyClientContract`, `src/lib/tidyhq/contract.ts`) runs against
+  both clients, the HTTP one through a fake TidyHQ server
+  (`http/fakeTidyServer.ts`, test-only, pages 2 at a time). A behavior one
+  client has and the other lacks must fail a test: add new `TidyClient`
+  behavior to the contract, not to one client's own test file. Mock-only
+  behavior (reset, the sign-in list, copies) stays in the mock's file.
 - Mock sign-in: a fake TidyHQ sign-in page that lists seed members to pick from,
   then follows the same redirect/callback flow as the real OAuth.
 - Endpoints the app relies on:
@@ -211,6 +220,9 @@ so the app is built against a **mock TidyHQ**.
   - `PUT /v1/groups/{groupID}/contacts/{contactID}` (attendance; v2 can't write groups)
   - `GET /v1/contacts/{contactID}/groups` (a member's groups, archived ones
     included, for recent events)
+  - `GET /v1/groups/{groupID}/contacts` (an event group's members: active
+    contacts only, identity only. v1 sends no custom field values, so read
+    points with `GET /v2/contacts/{id}`, never from this list)
 - Unknown until live access: how an event links to its contact group, and the
   exact request format for custom fields. Keep both isolated so they're easy to
   change.
