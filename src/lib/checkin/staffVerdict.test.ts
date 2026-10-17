@@ -22,6 +22,7 @@ const CASES: Record<Shown["status"], Shown> = {
     membershipNotice: { kind: "balance_due" },
     rewards: [],
     rewardStanding: "current",
+    colorsIssued: false,
   },
   already_checked_in: { status: "already_checked_in", ...base, total: 3 },
   not_open: { status: "not_open", ...base, total: 3, opensAt: OPENS },

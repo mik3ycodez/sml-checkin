@@ -4,7 +4,8 @@ import {
   membershipStanding,
   type MembershipNotice,
 } from "../membership";
-import { POINTS_PER_CHECKIN, type CheckInMethod } from "../points";
+import { POINTS_PER_CHECKIN, REWARDS, type CheckInMethod } from "../points";
+import type { GroupSetting } from "../auth/groupAccess";
 import {
   newlyQualified,
   rewardEntries,
@@ -22,7 +23,11 @@ import type { TidyClient } from "../tidyhq/client";
 import { contactName } from "../tidyhq/contactName";
 import { findContact } from "../tidyhq/contacts";
 import { acceptsCheckIn } from "../tidyhq/acceptsCheckIn";
-import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
+import {
+  buildPointsPatch,
+  readPoints,
+  readRewardIssued,
+} from "../tidyhq/customFields";
 import { isTidyError, type TidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
 import { isInGroup } from "../tidyhq/groups";
@@ -37,6 +42,11 @@ export type CheckInInput = {
   eventId: string;
   contactId: string;
   now: Date;
+  /**
+   * The "App Color Eligible" group (`colorsGroup`). Left out, the colors add
+   * is skipped and logged, like an unset `COLORS_GROUP_ID`.
+   */
+  colorsGroup?: GroupSetting;
 } & (
   | { method?: Extract<CheckInMethod, "self"> }
   | { method: Extract<CheckInMethod, "staff">; staff: StaffActor }
@@ -181,6 +191,8 @@ export type CheckInAssessment =
       /** Rewards as of the stored total, before this check-in. */
       rewards: RewardEntry[];
       rewardStanding: RewardStanding;
+      /** Club colors issued; null if the field is unreadable. */
+      colorsIssued: boolean | null;
     };
 
 /**
@@ -295,6 +307,7 @@ export async function assessCheckInFor(
     membershipNotice: membershipNotice(standing),
     rewards: rewardEntries(contact, stored),
     rewardStanding: rewardStanding(standing),
+    colorsIssued: readRewardIssued(contact, "club_colors"),
   };
 }
 
@@ -314,13 +327,13 @@ export async function checkIn(
   client: TidyClient,
   input: CheckInInput,
 ): Promise<CheckInResult> {
-  const { eventId, contactId, now } = input;
+  const { eventId, contactId, now, colorsGroup } = input;
   const assessment = await step("lookup", () =>
     assessCheckIn(client, { eventId, contactId, now }),
   );
   if (assessment.status !== "ready") return assessment;
   const { name, eventName, groupId, stored } = assessment;
-  const { membershipNotice: notice, rewards } = assessment;
+  const { membershipNotice: notice, rewards, colorsIssued } = assessment;
 
   await step("group_add", () => client.addContactToGroup(groupId, contactId));
   const pointsAwarded = POINTS_PER_CHECKIN;
@@ -341,9 +354,16 @@ export async function checkIn(
   } catch (error) {
     // In the group without the point: the note is still how a staff check-in
     // is told from a self one, and who did it. It never touches points.
+    logColorsSkip(contactId, "points_not_written");
     await writeStaffNote(client, noteInput);
     throw error;
   }
+  await addToColorsGroup(client, {
+    contactId,
+    total,
+    issued: colorsIssued,
+    group: colorsGroup ?? { problem: "not_configured" },
+  });
   // Last, so a failed note can't affect the group or the points.
   await writeStaffNote(client, noteInput);
   return {
@@ -360,6 +380,52 @@ export async function checkIn(
       standing: assessment.rewardStanding,
     })),
   };
+}
+
+function logColorsSkip(contactId: string, reason: string): void {
+  console.error("colors group not updated", { contactId, reason });
+}
+
+/**
+ * Records that the member has reached the colors threshold, for the Board's
+ * to-do list: adds them to the "App Color Eligible" group. Runs after a
+ * successful points write on a new check-in. Not gated by membership
+ * standing (the Board checks that in TidyHQ before handing colors out).
+ *
+ * Self-healing: it runs for every qualifying check-in, so a member missed once
+ * is added at their next one. Every skip and failure is logged (contact id
+ * and reason only) and swallowed: the member is checked in with their point,
+ * and this never touches points. A failed add is not retried.
+ */
+async function addToColorsGroup(
+  client: TidyClient,
+  {
+    contactId,
+    total,
+    issued,
+    group,
+  }: {
+    contactId: string;
+    total: number;
+    issued: boolean | null;
+    group: GroupSetting;
+  },
+): Promise<void> {
+  const threshold = Math.min(...REWARDS.map((r) => r.pointsRequired));
+  if (total < threshold || issued === true) return;
+  if (issued === null) return logColorsSkip(contactId, "issued_unreadable");
+  if ("problem" in group)
+    return logColorsSkip(contactId, `group_${group.problem}`);
+  try {
+    if (await isInGroup(client, group.id, contactId)) return;
+  } catch {
+    return logColorsSkip(contactId, "read_failed");
+  }
+  try {
+    await client.addContactToGroup(group.id, contactId);
+  } catch {
+    logColorsSkip(contactId, "add_failed");
+  }
 }
 
 /**

@@ -53,6 +53,9 @@ export const MOCK_ADMIN_GROUP_ID = "grp_app_admin";
 /** The mock's App Check-In Volunteers group, used when `HELPER_GROUP_ID` is unset. */
 export const MOCK_HELPER_GROUP_ID = "grp_app_checkin_volunteers";
 
+/** The mock's App Color Eligible group, used when `COLORS_GROUP_ID` is unset. */
+export const MOCK_COLORS_GROUP_ID = "grp_app_color_eligible";
+
 /** An evening start: 02:00 UTC is 7pm in Seattle (PDT). */
 function eveningOf(now: Date, days: number): Date {
   const date = daysFrom(now, days);
@@ -174,6 +177,8 @@ export function createSeed(now: Date = new Date()): MockSeed {
     [MOCK_ADMIN_GROUP_ID]: ["c_casey"],
     // Door volunteers, who aren't admins.
     [MOCK_HELPER_GROUP_ID]: ["c_pat"],
+    // Members owed club colors; check-in fills it, the Board empties it.
+    [MOCK_COLORS_GROUP_ID]: [],
     grp_social_night: [],
     grp_bootblack_social: [],
     grp_bar_night: [],
@@ -199,6 +204,11 @@ export function createSeed(now: Date = new Date()): MockSeed {
       MOCK_HELPER_GROUP_ID,
       "App Check-In Volunteers",
       "Can check members in at the door (managed in TidyHQ)",
+    ),
+    group(
+      MOCK_COLORS_GROUP_ID,
+      "App Color Eligible",
+      "Reached the club colors points and not yet issued (check-in adds, the Board removes)",
     ),
   ].map((g) => ({ ...g, size: groupMembers[g.id].length }));
 

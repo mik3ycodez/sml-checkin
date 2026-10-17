@@ -17,6 +17,7 @@ import {
   TAP_NOTICE_MAX_AGE_SECONDS,
   type TapOutcome,
 } from "@/lib/checkin/tapNotice";
+import { colorsGroupFromEnv } from "@/lib/checkin/colorsGroup";
 import { getTidyClient } from "@/lib/tidyhq";
 import { checkinPath } from "../../memberPaths";
 import { problemPath, resultPath, signInPath } from "./screens";
@@ -46,6 +47,7 @@ export async function checkInAction(eventId: unknown): Promise<never> {
       eventId,
       contactId,
       now: new Date(),
+      colorsGroup: colorsGroupFromEnv(),
     });
   } catch (error) {
     if (!(error instanceof CheckInFailure)) throw error;

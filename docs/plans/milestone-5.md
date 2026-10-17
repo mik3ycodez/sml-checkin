@@ -421,7 +421,7 @@ and skips the colors add (logged each time).
   (`listAllContacts`) endpoint line.
 - No new behavior, so no new tests; the full e2e suite still passes.
 
-### PR 7: Colors-eligible group add at check-in (test-first)
+### PR 7 ✅ Done: Colors-eligible group add at check-in (test-first)
 
 - `COLORS_GROUP_ID` setting via `groupFromSetting`, with a mock "Eligible
   for Colors" seed group (`MOCK_COLORS_GROUP_ID`) as the mock-mode
@@ -429,7 +429,7 @@ and skips the colors add (logged each time).
 - In `checkIn`, after a successful points write and before the staff note,
   the rule in the decision above. The "already in the group" read uses
   `isInGroup`; both it and the add are logged and swallowed on failure.
-- Unit tests in `checkIn.test.ts`: added at 18 (crossing) and above 18
+- Unit tests in `colorsGroup.test.ts` (new, beside `checkIn.test.ts`): added at 18 (crossing) and above 18
   (self-healing); not added under 18, when issued, when issued is
   unreadable, when already in the group, when the points write failed, or
   when the setting is unset in live mode; an "already checked in" tap
