@@ -6,7 +6,7 @@ import type { TidyOAuth } from "./oauth";
 export type { TidyClient, ListEventsOptions } from "./client";
 export type { TidyOAuth } from "./oauth";
 export { isTidyError, TidyError } from "./errors";
-export { resolveEventGroup } from "./eventGroups";
+export { findEventGroup } from "./eventGroups";
 export {
   getCheckinWindow,
   isCheckinOpen,

@@ -1,6 +1,6 @@
 # Milestone 5: Live-ready prep
 
-**Status:** Approved. PRs 1 (#34) and 2 (#35) merged; PR 3 in review.
+**Status:** Approved. PRs 1 (#34), 2 (#35) and 3 (#36) merged; PR 4 in review.
 
 ## Context
 
@@ -141,8 +141,9 @@ Each gets a marked comment (`// LIVE-UNKNOWN:`), so
    every page.
 5. **Shared events count for points like any other.** Any event that appears
    in SML's TidyHQ is point-applicable, including ones with `shared_from` set.
-   The rule lives in one small named function, `countsForPoints(event)`, used
-   by check-in and the admin event list, so it's easy to change later. Go-live
+   The rule lives in one small named function, `acceptsCheckIn(event)`, part of
+   `checkinBlocker` (so check-in, the QR page and the volunteer page agree),
+   so it's easy to change later. Go-live
    checklist: confirm no events have `shared_from` set. Future enhancement
    below.
 6. **Retries:** reads once, writes never (as in the `HttpTidyClient` rules).
@@ -228,7 +229,7 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
   size, the page cap, retry once and only for reads, and the secrets test.
 - No `TidyClient` methods yet; nothing uses it.
 
-### PR 3 🔍 In review: `HttpTidyClient` reads, the fake server, and the contract suite
+### PR 3 ✅ Done (#36): `HttpTidyClient` reads, the fake server, and the contract suite
 
 - `src/lib/tidyhq/http/fakeTidyServer.ts` (test-only) and
   `src/lib/tidyhq/contract.ts` (`runTidyClientContract`).
@@ -280,7 +281,7 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
   `pending`, which never counts (and is logged); a missing `public` is false.
   All three fail toward refusing check-in, never toward allowing it.
 
-### PR 4: `HttpTidyClient` writes, and the unknowns marked
+### PR 4 🔍 In review: `HttpTidyClient` writes, and the unknowns marked
 
 - `updateContact` (`PATCH /v2/contacts/{id}`), `addNote`
   (`POST /v2/contacts/{id}/notes`), `addContactToGroup`
@@ -296,14 +297,49 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
   go-live checklist item 16 (what the v1 group `PUT` returns) is confirmed.
 - Contract additions: group add is idempotent, an unknown custom field is
   422, a note on an unknown contact is 404, writes are never retried.
-- `countsForPoints(event)` (decision 5): returns true for every event, in one
-  small file; check-in and the admin event list call it. Tests cover both
-  callers, including an event with `shared_from` set.
+- `acceptsCheckIn(event)` (decision 5): returns true for every event, in one
+  small file, used by `checkinBlocker` and so by check-in, the QR page and the
+  volunteer page. Tests cover all three, including an event with `shared_from`
+  set.
 - Live mode reads a points field missing from the response as unreadable
   (decision 2). Tests: missing key refuses with `points_unreadable` and
   writes nothing; blank still counts as 0.
 - Every `LIVE-UNKNOWN` marker gets a test that names it, so removing a
   marker without resolving it is visible in review.
+
+**As built** (where it differs from or settles the list above):
+
+- **The two live-only rules live in `HttpTidyClient`,** not in `readPoints` or
+  `findEventGroup` (which stay pure, with no mode parameter and no
+  `TIDYHQ_MODE` read). The v2 contact parser puts a marker value on a missing
+  points key (`LIVE-UNKNOWN(missing-points-field)`); the event parser leaves
+  `Event.attendance_group_id` unset (`LIVE-UNKNOWN(event-group-link)`). The
+  mock sets `attendance_group_id` from its seed and treats a missing points
+  field as blank. The contract suite pins both as `ContractDifferences`.
+- **Cost of the event-carried link:** the admin event page used to start the
+  attendee read alongside the event read, because the group depended only on
+  the id. It now reads the event first, so the page makes one more serial
+  TidyHQ round trip. The page test that pinned the old overlap was changed.
+- **Write responses:** `addNote` expects a record (the spec defines a `Note`).
+  `updateContact` accepts any 2xx and returns nothing, until checklist item 13
+  confirms the PATCH reply. `addContactToGroup` keeps accepting
+  any 2xx (`LIVE-UNKNOWN(group-put-response)`): v1's spec says 204, but the
+  plan ties tightening it to checklist item 16.
+- **`getEventCheckinWindow`:** neither spec has check-in times on an event, so
+  live returns null without a request (`LIVE-UNKNOWN(checkin-window)`) and
+  check-in uses the event's start and end. It therefore no longer 404s an
+  unknown event on its own; every caller reads the event too.
+- **`acceptsCheckIn(event)`** (renamed from `countsForPoints` in review) is true
+  for every event. It is in `checkinBlocker` next to archived, as
+  `not_accepted`; check-in refuses it as `event_unavailable`, and the agreement
+  between the QR page, the volunteer page and check-in is tested. The admin
+  event list carries nothing for it.
+- **Colors owed report, live:** if checklist item 2 finds TidyHQ omits unanswered
+  fields, every contact without points would land in the report's "Needs
+  checking" list (the missing-points marker). Left as is: the report is being
+  redesigned in a later PR.
+- **`src/lib/liveUnknown.test.ts`** lists every marker tag and checks each has a
+  checklist item here naming it.
 
 ### PR 5: Live sign-in and startup config
 
@@ -385,7 +421,9 @@ needs its member. PR 7 is last because it carries the version bump.
 ## Future enhancements
 
 - **Shared events.** SML may share events with partner organizations; decide
-  then whether shared events (`shared_from` set) earn points.
+  then whether shared events (`shared_from` set) are accepted for check-in
+  (`acceptsCheckIn`). If the Board wants partner events recorded without
+  points, that is a separate rule added then.
 
 ## Go-live checklist (live TidyHQ)
 
@@ -402,17 +440,17 @@ both pass.
    contact. If the token can't see the points field, it would look blank,
    blank counts as 0, and the first check-in would overwrite a real balance
    with 1. Check with a contact whose balance is known.
-2. **Missing versus blank.** Whether a contact with no answer for a field
+2. **Missing versus blank** (`LIVE-UNKNOWN(missing-points-field)`). Whether a contact with no answer for a field
    omits the key or returns a blank value. Live mode currently refuses
    check-in on a missing key (decision 2); if TidyHQ omits the key for
    unanswered fields, that rule would refuse every member who has never had
    points, and `readPoints` must change.
-3. **Event to group link** (`eventGroups.ts`, `LIVE-UNKNOWN`). Decide how
+3. **Event to group link** (`eventGroups.ts`, `LIVE-UNKNOWN(event-group-link)`). Decide how
    SML links an event to its attendance group. Proving that a contact the
    app adds stays in the group for a day after the event needs a write, so
    that part is Part B and a follow-up the next day.
 4. **Check-in time fields.** Whether TidyHQ's event data provides check-in
-   times (`getEventCheckinWindow`, `LIVE-UNKNOWN`). If so, use them;
+   times (`getEventCheckinWindow`, `LIVE-UNKNOWN(checkin-window)`). If so, use them;
    otherwise keep the fallback to the event's start and end.
 5. **`shared_from`.** Confirm no events have it set.
 6. **Custom field ids.** Set the real ids (`POINTS_FIELD_ID`,
@@ -471,7 +509,7 @@ Added by PR 3 (numbered 12a to 12g so earlier references hold):
 
 On a Board member's own contact, at an unpublished test event in TidyHQ:
 
-13. **Custom field request format** (`customFields.ts`, `LIVE-UNKNOWN`).
+13. **Custom field request format** (`customFields.ts`, `LIVE-UNKNOWN(custom-field-format)`).
     Check in once, confirm the stored points value went up by exactly
     `POINTS_PER_CHECKIN`, and that the same PATCH left every other field on
     the contact unchanged (names, email, other custom fields).
@@ -479,7 +517,7 @@ On a Board member's own contact, at an unpublished test event in TidyHQ:
     scan awards nothing. The next day, confirm TidyHQ's sync hasn't removed
     them (if it does, points get awarded twice).
 15. A staff check-in writes its note, with the right author and content.
-16. **What the v1 group `PUT` returns** (the response status and body for a
+16. **What the v1 group `PUT` returns** (`LIVE-UNKNOWN(group-put-response)`; the response status and body for a
     new member and for one already in the group). PR 4 tightens
     `expect: "none"` to match.
 17. Real-world latency: a full check-in from a phone at the venue finishes

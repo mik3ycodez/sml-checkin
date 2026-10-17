@@ -131,7 +131,7 @@ describe("the admin event page", () => {
     await expect(renderFor(client, "ev_tonight")).rejects.toThrow("bug");
   });
 
-  it("starts the attendee read without waiting for the event read", async () => {
+  it("reads the attendee list only after the event, whose group it needs", async () => {
     const client = new MockTidyClient(createSeed(new Date()));
     const log: string[] = [];
     const getEvent = client.getEvent.bind(client);
@@ -147,7 +147,9 @@ describe("the admin event page", () => {
       return list(id);
     };
     await renderFor(client, "ev_tonight");
-    expect(log.indexOf("attendees start")).toBeLessThan(
+    // The attendance group is part of the event (see eventGroups.ts), so the
+    // two reads can't overlap any more.
+    expect(log.indexOf("attendees start")).toBeGreaterThan(
       log.indexOf("event end"),
     );
   });

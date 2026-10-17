@@ -5,7 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { contactName } from "../contactName";
-import { readPoints } from "../customFields";
+import { POINTS_FIELD_ID, readPoints } from "../customFields";
 import { isTidyError } from "../errors";
 import { HttpTidyClient } from "./HttpTidyClient";
 
@@ -127,7 +127,8 @@ describe("v2 Contact", () => {
         custom_fields: { f_x: { id: "f_x", title: "X", type: "string" } },
       },
     }).getContact("1");
-    expect(c.custom_fields).toEqual({});
+    // Only the marker for the missing points field (below), not an invented f_x.
+    expect(Object.keys(c.custom_fields)).toEqual([POINTS_FIELD_ID]);
   });
 
   it("copes with nulls and omissions: names fall back, lists and fields are empty", async () => {
@@ -143,7 +144,7 @@ describe("v2 Contact", () => {
     expect(c.id).toBe("2");
     expect(contactName(c)).toBe("Pat");
     expect(c.email_address).toBe("");
-    expect(c.custom_fields).toEqual({});
+    expect(Object.keys(c.custom_fields)).toEqual([POINTS_FIELD_ID]);
     expect(c.notes).toEqual([]);
     expect(
       contactName(
@@ -156,7 +157,7 @@ describe("v2 Contact", () => {
     const c = await clientFor({
       "/v2/contacts/4": { id: "4", custom_fields: [] },
     }).getContact("4");
-    expect(c.custom_fields).toEqual({});
+    expect(Object.keys(c.custom_fields)).toEqual([POINTS_FIELD_ID]);
   });
 
   it("502s on a record with no id", async () => {
@@ -166,6 +167,63 @@ describe("v2 Contact", () => {
       .getContact("5")
       .catch((e) => e);
     expect(isTidyError(error, 502)).toBe(true);
+  });
+});
+
+describe("v2 Contact points field (LIVE-UNKNOWN missing-points-field)", () => {
+  const base = { id: "7", first_name: "A", last_name: "B", status: "active" };
+  const field = (value: unknown) => ({
+    cf_sml_points: {
+      id: "cf_sml_points",
+      title: "Points",
+      type: "string",
+      value,
+    },
+  });
+
+  it("marks a points key that is missing, so it reads as unreadable", async () => {
+    const client = clientFor({
+      "/v2/contacts/7": { ...base, custom_fields: {} },
+    });
+    expect(readPoints(await client.getContact("7"))).toBeNull();
+  });
+
+  it("marks it when the contact has no custom_fields at all", async () => {
+    const client = clientFor({ "/v2/contacts/7": base });
+    expect(readPoints(await client.getContact("7"))).toBeNull();
+  });
+
+  it("reads a null or blank value as 0: the key is there, just unanswered", async () => {
+    for (const value of [null, "", "  "]) {
+      const client = clientFor({
+        "/v2/contacts/7": { ...base, custom_fields: field(value) },
+      });
+      expect(readPoints(await client.getContact("7"))).toBe(0);
+    }
+  });
+
+  it("reads a real value as it is", async () => {
+    const client = clientFor({
+      "/v2/contacts/7": { ...base, custom_fields: field("12") },
+    });
+    expect(readPoints(await client.getContact("7"))).toBe(12);
+  });
+
+  it("marks every v2 contact the client returns", async () => {
+    const client = clientFor({
+      "/v2/contacts": [{ ...base, custom_fields: {} }],
+      "/v2/contacts/me": { ...base, custom_fields: {} },
+    });
+    expect(readPoints((await client.listAllContacts())[0])).toBeNull();
+    expect(readPoints(await client.getMe("member-token"))).toBeNull();
+  });
+
+  it("leaves v1 group members alone: v1 never carries values, and nothing reads points there", async () => {
+    const client = clientFor({
+      "/v1/groups/5/contacts": [{ ...base, custom_fields: [] }],
+    });
+    const [member] = await client.listGroupContacts("5");
+    expect(member.custom_fields).toEqual({});
   });
 });
 
@@ -294,6 +352,12 @@ describe("v2 Event", () => {
       created_at: "2026-09-01T00:00:00Z",
       updated_at: "2026-09-02T00:00:00Z",
     });
+  });
+
+  it("leaves the attendance group unset, group_id or not (LIVE-UNKNOWN event-group-link)", async () => {
+    const e = await clientFor({ "/v2/events/9001": event }).getEvent("9001");
+    expect(e.group_id).toBe("444");
+    expect(e).not.toHaveProperty("attendance_group_id");
   });
 
   it("reads shared_from when an event was shared in", async () => {

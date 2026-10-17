@@ -1,30 +1,20 @@
-import { TidyError } from "./errors";
 import type { Event } from "./types";
 
 // The only place that knows how an event links to its attendance contact group.
 //
-// Unknown until live access. The v2 spec's `Event.group_id` is an attendee
-// group TidyHQ keeps "in step with the event's attendees" (ticket holders), so
-// manual adds may be undone by its sync. Until that's confirmed we use an
-// explicit mapping; switching to `event.group_id` is a change to this file only.
-const EVENT_GROUPS: Record<string, string> = {
-  ev_pub_night: "grp_pub_night",
-  ev_tonight: "grp_social_night",
-  ev_bootblack_social: "grp_bootblack_social",
-  ev_bar_night: "grp_bar_night",
-  ev_leather_brunch: "grp_leather_brunch",
-};
+// LIVE-UNKNOWN(event-group-link): how SML's events link to their attendance
+// groups. The link rides on the event itself (`attendance_group_id`): the mock
+// fills it from its seed, and `HttpTidyClient` leaves it unset, so in live
+// mode no event has a group and check-in refuses (it fails closed). The
+// tempting guess, the v2 spec's `Event.group_id`, is a group "kept in step
+// with the event's attendees" (ticket holders). If TidyHQ's sync removed a
+// member we added, their next scan would look like a new check-in and award a
+// second point, so we don't use it. Go-live checklist item 3 decides the rule;
+// it then goes in the HTTP client's event parser, and this file stays as it is.
 
 /** The event's attendance group, or null if it has none. */
-export function findEventGroup(event: Pick<Event, "id">): string | null {
-  return EVENT_GROUPS[event.id] ?? null;
-}
-
-/** Like `findEventGroup`, but throws 404 if the event has no group. */
-export function resolveEventGroup(event: Pick<Event, "id">): string {
-  const groupId = findEventGroup(event);
-  if (!groupId) {
-    throw new TidyError(404, `No attendance group for event ${event.id}`);
-  }
-  return groupId;
+export function findEventGroup(
+  event: Pick<Event, "attendance_group_id">,
+): string | null {
+  return event.attendance_group_id || null;
 }

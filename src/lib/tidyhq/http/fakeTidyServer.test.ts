@@ -131,11 +131,11 @@ describe("fake TidyHQ server", () => {
       await expect(get(`${V2}/contact/c_marcus`)).rejects.toThrow(/no route/i);
     });
 
-    it("refuses loudly for a method it doesn't serve yet", async () => {
+    it("refuses loudly for a method it doesn't serve", async () => {
       const { server } = setup();
       await expect(
-        server.fetch(`${V1}/groups/grp_social_night/contacts/c_dante`, {
-          method: "PUT",
+        server.fetch(`${V2}/contacts/c_dante`, {
+          method: "DELETE",
           headers: { Authorization: `Bearer ${FAKE_ADMIN_TOKEN}` },
         }),
       ).rejects.toThrow(/no route/i);
@@ -172,6 +172,89 @@ describe("fake TidyHQ server", () => {
       );
       expect((await get(`${V2}/contacts`)).status).toBe(503);
       expect((await get(`${V2}/events`)).status).toBe(200);
+    });
+  });
+
+  describe("writes", () => {
+    const send = (
+      server: ReturnType<typeof setup>["server"],
+      method: string,
+      url: string,
+      body?: unknown,
+    ) =>
+      server.fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${FAKE_ADMIN_TOKEN}`,
+          ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+
+    it("answers a group PUT with 204 and no body, as v1's spec says", async () => {
+      const { server, get } = setup();
+      const res = await send(
+        server,
+        "PUT",
+        `${V1}/groups/grp_social_night/contacts/c_dante`,
+      );
+      expect(res.status).toBe(204);
+      expect(await res.text()).toBe("");
+      const members = await (
+        await get(`${V1}/groups/grp_social_night/contacts?limit=10`)
+      ).json();
+      expect(members.map((c: { id: string }) => c.id)).toEqual(["c_dante"]);
+    });
+
+    it("answers a contact PATCH with the whole contact, 200", async () => {
+      const { server } = setup();
+      const res = await send(server, "PATCH", `${V2}/contacts/c_dante`, {
+        custom_fields: { cf_sml_points: { value: "4" } },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.id).toBe("c_dante");
+      expect(body.custom_fields.cf_sml_points.value).toBe("4");
+    });
+
+    it("422s a custom field in the old bare-string shape", async () => {
+      const { server } = setup();
+      const res = await send(server, "PATCH", `${V2}/contacts/c_dante`, {
+        custom_fields: { cf_sml_points: "4" },
+      });
+      expect(res.status).toBe(422);
+    });
+
+    it("answers a note POST with the note, 201", async () => {
+      const { server } = setup();
+      const res = await send(server, "POST", `${V2}/contacts/c_dante/notes`, {
+        text: "hi",
+      });
+      expect(res.status).toBe(201);
+      expect((await res.json()).text).toBe("hi");
+    });
+
+    it("records the body it was sent", async () => {
+      const { server } = setup();
+      await send(server, "POST", `${V2}/contacts/c_dante/notes`, {
+        text: "hi",
+      });
+      expect(server.requests[0].body).toEqual({ text: "hi" });
+    });
+
+    it("lets a test see the real answer and then replace it (a write that happened, but the reply was lost)", async () => {
+      const { server, get } = setup();
+      server.interceptAfter((req) => {
+        if (req.method === "PUT") throw new DOMException("t", "TimeoutError");
+        return undefined;
+      });
+      await expect(
+        send(server, "PUT", `${V1}/groups/grp_social_night/contacts/c_dante`),
+      ).rejects.toThrow();
+      const members = await (
+        await get(`${V1}/groups/grp_social_night/contacts?limit=10`)
+      ).json();
+      expect(members).toHaveLength(1);
     });
   });
 

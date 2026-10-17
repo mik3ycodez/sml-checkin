@@ -11,7 +11,7 @@ vi.mock("../tidyhq/eventGroups", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../tidyhq/eventGroups")>();
   return {
     ...actual,
-    findEventGroup: (event: { id: string }) =>
+    findEventGroup: (event: Pick<Event, "id" | "attendance_group_id">) =>
       event.id.startsWith("ev_extra_")
         ? "grp_extra"
         : actual.findEventGroup(event),
@@ -44,6 +44,7 @@ function pastEvent(id: string, daysAgo: number): Event {
     location: null,
     public: true,
     archived: false,
+    attendance_group_id: `grp_${id.slice("ev_".length)}`,
     created_at: start.toISOString(),
     updated_at: start.toISOString(),
   };
@@ -193,7 +194,10 @@ describe("getRecentEvents", () => {
     ];
     const client = seededClient((seed) => {
       // Five mapped events, oldest first.
-      seed.events = ids.map((id, i) => pastEvent(id, 50 - i * 10));
+      seed.events = ids.map((id, i) => ({
+        ...pastEvent(id, 50 - i * 10),
+        attendance_group_id: groups[i],
+      }));
       for (const g of groups) seed.groupMembers[g] = ["c_dante"];
     });
     const result = await getRecentEvents(client, {

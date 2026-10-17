@@ -7,7 +7,6 @@ import { getAdminEventPage } from "@/lib/admin/eventPage";
 import { qrSvg } from "@/lib/admin/qr";
 import { appOrigin } from "@/lib/auth/requestOrigin";
 import { getTidyClient } from "@/lib/tidyhq";
-import { findEventGroup } from "@/lib/tidyhq/eventGroups";
 import { loadOrNull } from "../../../loadOrNull";
 import { requireAdmin } from "../../requireAdmin";
 import { adminEventPath } from "../../paths";
@@ -40,25 +39,23 @@ export default async function AdminEventRoute({
   const client = getTidyClient();
   const now = new Date();
 
-  // Whether the event has an attendance group depends only on its id, so
-  // that's decided once here and the attendee read goes out alongside the
-  // event read instead of after it.
-  const groupId = findEventGroup({ id: eventId });
-  const [loaded, attendees] = await Promise.all([
-    loadOrNull("admin event", async () => ({
-      event: await getAdminEventPage(client, eventId, { now }),
-    })),
-    groupId === null
-      ? null
-      : loadOrNull("admin attendees", () =>
-          getEventAttendees(client, groupId),
-        ).then((people) => people ?? ("unavailable" as const)),
-  ]);
+  // The event's attendance group is part of the event (see `eventGroups.ts`),
+  // so the event is read first and the attendee list after it.
+  const loaded = await loadOrNull("admin event", async () => ({
+    event: await getAdminEventPage(client, eventId, { now }),
+  }));
   if (!loaded) {
     return <AdminEventUnavailable name={admin.name} eventId={eventId} />;
   }
   const { event } = loaded;
   if (!event) return <UnknownAdminEvent name={admin.name} />;
+  const { groupId } = event;
+  const attendees =
+    groupId === null
+      ? null
+      : ((await loadOrNull("admin attendees", () =>
+          getEventAttendees(client, groupId),
+        )) ?? ("unavailable" as const));
 
   // The lib returns the path; the site's origin is the page's to add.
   let qr: { url: string; svg: string } | null = null;

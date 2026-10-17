@@ -13,7 +13,7 @@
 
 import { TidyError } from "../errors";
 import type { MockTidyClient } from "../mock/MockTidyClient";
-import type { Contact, Event, Group } from "../types";
+import type { Contact, ContactPatch, Event, Group } from "../types";
 
 export const FAKE_ADMIN_TOKEN = "fake-admin-token";
 
@@ -30,6 +30,8 @@ export interface FakeRequest {
   token: string | null;
   /** The full URL as requested. */
   url: string;
+  /** The JSON body sent, or undefined if there was none. */
+  body?: unknown;
 }
 
 export interface FakeTidyServer {
@@ -41,6 +43,14 @@ export interface FakeTidyServer {
    * let the fake answer as usual. Handlers run in the order added.
    */
   intercept(handler: (req: FakeRequest) => Response | undefined): void;
+  /**
+   * Let the fake answer (so a write really happens), then replace the answer:
+   * return a Response, or throw (a `TimeoutError` DOMException is a timeout)
+   * to lose it, as a dropped connection would. Return undefined to leave it.
+   */
+  interceptAfter(
+    handler: (req: FakeRequest, answer: Response) => Response | undefined,
+  ): void;
 }
 
 export function createFakeTidyServer(
@@ -51,6 +61,9 @@ export function createFakeTidyServer(
   const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
   const requests: FakeRequest[] = [];
   const handlers: Array<(req: FakeRequest) => Response | undefined> = [];
+  const afterHandlers: Array<
+    (req: FakeRequest, answer: Response) => Response | undefined
+  > = [];
 
   const reply = (status: number, body: unknown) =>
     new Response(JSON.stringify(body), {
@@ -71,7 +84,7 @@ export function createFakeTidyServer(
       new Error(
         `fake TidyHQ: no route for ${req.method} /${req.version}${req.path}`,
       );
-    if (req.method !== "GET") throw noRoute();
+    if (req.method !== "GET") return answerWrite(req, parts, noRoute);
 
     // Identity is the one call made with a member's token.
     if (req.version === "v2" && req.path === "/contacts/me") {
@@ -150,6 +163,62 @@ export function createFakeTidyServer(
     throw noRoute();
   }
 
+  /** The three writes the app makes, as the specs describe them. */
+  async function answerWrite(
+    req: FakeRequest,
+    parts: string[],
+    noRoute: () => Error,
+  ): Promise<Response> {
+    if (req.token !== adminToken) {
+      return reply(401, { message: "The access token is invalid" });
+    }
+    // v1: PUT /groups/{groupID}/contacts/{contactID} answers 204, no body.
+    if (
+      req.version === "v1" &&
+      req.method === "PUT" &&
+      parts[0] === "groups" &&
+      parts[2] === "contacts" &&
+      parts.length === 4
+    ) {
+      await mock.addContactToGroup(parts[1], parts[3]);
+      return new Response(null, { status: 204 });
+    }
+    if (req.version === "v2" && parts[0] === "contacts") {
+      // PATCH /contacts/{id}: a Contact body; answers the updated Contact.
+      if (req.method === "PATCH" && parts.length === 2) {
+        const fields = (req.body as { custom_fields?: unknown } | undefined)
+          ?.custom_fields;
+        const bad =
+          fields === undefined
+            ? undefined
+            : typeof fields !== "object" || fields === null
+              ? "custom_fields"
+              : Object.entries(fields).find(
+                  ([, answer]) =>
+                    typeof answer !== "object" ||
+                    answer === null ||
+                    typeof (answer as { value?: unknown }).value !== "string",
+                )?.[0];
+        if (bad !== undefined) {
+          return reply(422, { errors: { [bad]: "must be a Custom-Field" } });
+        }
+        const patch = (req.body ?? {}) as ContactPatch;
+        await mock.updateContact(parts[1], patch);
+        return reply(200, toV2Contact(await mock.getContact(parts[1])));
+      }
+      // POST /contacts/{id}/notes: { text }; answers the Note, 201.
+      if (req.method === "POST" && parts[2] === "notes" && parts.length === 3) {
+        const text = (req.body as { text?: unknown } | undefined)?.text;
+        const note = await mock.addNote(
+          parts[1],
+          typeof text === "string" ? text : "",
+        );
+        return reply(201, note);
+      }
+    }
+    throw noRoute();
+  }
+
   const fakeFetch = async (
     input: string | URL | Request,
     init?: RequestInit,
@@ -173,6 +242,7 @@ export function createFakeTidyServer(
         ? authorization.slice("Bearer ".length)
         : null,
       url: url.toString(),
+      body: parseBody(init?.body),
     };
     requests.push(req);
 
@@ -180,21 +250,34 @@ export function createFakeTidyServer(
       const response = handler(req);
       if (response) return response;
     }
+    let answered: Response;
     try {
-      return await answer(req);
+      answered = await answer(req);
     } catch (error) {
-      if (error instanceof TidyError) {
-        return reply(error.status, { message: error.message });
-      }
-      throw error;
+      if (!(error instanceof TidyError)) throw error;
+      answered = reply(error.status, { message: error.message });
     }
+    for (const handler of afterHandlers) {
+      answered = handler(req, answered) ?? answered;
+    }
+    return answered;
   };
 
   return {
     fetch: fakeFetch as typeof fetch,
     requests,
     intercept: (handler) => handlers.push(handler),
+    interceptAfter: (handler) => afterHandlers.push(handler),
   };
+}
+
+function parseBody(body: BodyInit | null | undefined): unknown {
+  if (typeof body !== "string") return undefined;
+  try {
+    return JSON.parse(body);
+  } catch {
+    return body;
+  }
 }
 
 // --- Spec shapes -----------------------------------------------------------
@@ -214,8 +297,11 @@ function toV2Contact(c: Contact) {
 
 /** v2 Event, with fields we don't read. */
 function toV2Event(e: Event) {
+  // The attendance link is the app's, not a TidyHQ field: never on the wire.
+  const { attendance_group_id, ...spec } = e;
+  void attendance_group_id;
   return {
-    ...e,
+    ...spec,
     category_id: null,
     visible: "anyone",
     visible_to: [],

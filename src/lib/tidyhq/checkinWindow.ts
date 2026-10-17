@@ -1,4 +1,5 @@
 import type { TidyClient } from "./client";
+import { acceptsCheckIn } from "./acceptsCheckIn";
 import { findEventGroup } from "./eventGroups";
 import { rangeProblem, validRange, type RangeProblem } from "./timeRange";
 import type { Event, EventCheckinWindow } from "./types";
@@ -85,6 +86,8 @@ export function isCheckinOpen(window: CheckinWindow, now: Date): CheckinStatus {
 export type CheckinBlocker =
   /** Archived in TidyHQ: not an event to run check-in for. */
   | "archived"
+  /** The event fails `acceptsCheckIn`: it takes no check-ins at all. */
+  | "not_accepted"
   /** No attendance group, so a check-in couldn't be recorded. */
   | "no_group"
   /** Neither an admin window nor the event's own times can open check-in. */
@@ -98,10 +101,11 @@ export type CheckinBlocker =
  * QR code and the volunteer staff page both use it, so they can't disagree.
  */
 export function checkinBlocker(
-  event: Pick<Event, "id" | "archived">,
+  event: Pick<Event, "id" | "archived" | "attendance_group_id">,
   window: CheckinWindow,
 ): CheckinBlocker | null {
   if (event.archived) return "archived";
+  if (!acceptsCheckIn(event)) return "not_accepted";
   if (findEventGroup(event) === null) return "no_group";
   if (!window.opensAt || !window.closesAt) return "never_opens";
   return null;

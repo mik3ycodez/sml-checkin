@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TidyClient } from "../client";
 import { CONTRACT_NOW, runTidyClientContract } from "../contract";
+import { buildPointsPatch, POINTS_FIELD_ID } from "../customFields";
 import { isTidyError } from "../errors";
 import { issueMockToken, MockTidyClient } from "../mock/MockTidyClient";
 import { createSeed, type MockSeed } from "../mock/seed";
@@ -43,6 +44,11 @@ afterEach(() => {
 runTidyClientContract("HttpTidyClient", (seed) => ({
   client: build(seed).client,
   memberToken: issueMockToken,
+  differences: {
+    eventGroupLinked: false,
+    missingPointsUnreadable: true,
+    checkinWindows: false,
+  },
 }));
 
 describe("HttpTidyClient", () => {
@@ -277,27 +283,160 @@ describe("HttpTidyClient", () => {
     });
   });
 
-  describe("writes are not built yet (milestone 5, PR 4)", () => {
-    const attempts: Array<[string, (c: TidyClient) => Promise<unknown>]> = [
-      ["updateContact", (c) => c.updateContact("c_marcus", {})],
-      ["addNote", (c) => c.addNote("c_marcus", "hello")],
+  describe("writes", () => {
+    const attempts: Array<
+      [string, string, string, (c: TidyClient) => Promise<unknown>]
+    > = [
+      [
+        "updateContact",
+        "PATCH",
+        "/contacts/c_marcus",
+        (c) => c.updateContact("c_marcus", buildPointsPatch(2)),
+      ],
+      [
+        "addNote",
+        "POST",
+        "/contacts/c_marcus/notes",
+        (c) => c.addNote("c_marcus", "hello"),
+      ],
       [
         "addContactToGroup",
+        "PUT",
+        "/groups/grp_social_night/contacts/c_marcus",
         (c) => c.addContactToGroup("grp_social_night", "c_marcus"),
       ],
-      ["getEventCheckinWindow", (c) => c.getEventCheckinWindow("ev_tonight")],
     ];
 
+    it("updateContact sends the points field's value and nothing else", async () => {
+      const { server, client } = build();
+      await client.updateContact("c_marcus", buildPointsPatch(2));
+      expect(server.requests).toHaveLength(1);
+      const [req] = server.requests;
+      expect([req.method, req.version, req.path]).toEqual([
+        "PATCH",
+        "v2",
+        "/contacts/c_marcus",
+      ]);
+      expect(req.token).toBe(FAKE_ADMIN_TOKEN);
+      expect(req.body).toEqual({
+        custom_fields: { [POINTS_FIELD_ID]: { value: "2" } },
+      });
+    });
+
+    it("addNote posts just the text", async () => {
+      const { server, client } = build();
+      const note = await client.addNote("c_marcus", "hello");
+      expect(note.text).toBe("hello");
+      expect(server.requests[0].body).toEqual({ text: "hello" });
+    });
+
+    it("addContactToGroup uses v1's PUT, with no body", async () => {
+      const { server, client } = build();
+      await client.addContactToGroup("grp_social_night", "c_marcus");
+      const [req] = server.requests;
+      expect([req.method, req.version, req.path]).toEqual([
+        "PUT",
+        "v1",
+        "/groups/grp_social_night/contacts/c_marcus",
+      ]);
+      expect(req.body).toBeUndefined();
+    });
+
     it.each(attempts)(
-      "%s throws, naming itself, and calls nothing",
-      async (name, attempt) => {
+      "%s is never retried after a 503",
+      async (_name, _method, _path, attempt) => {
         const { server, client } = build();
+        server.intercept(() => new Response("{}", { status: 503 }));
         const error = await attempt(client).catch((e) => e);
-        expect(error).toBeInstanceOf(Error);
-        expect((error as Error).message).toContain(`HttpTidyClient.${name}`);
-        expect((error as Error).message).toMatch(/not implemented/i);
-        expect(server.requests).toEqual([]);
+        expect(isTidyError(error, 503)).toBe(true);
+        expect(server.requests).toHaveLength(1);
       },
     );
+
+    it.each(attempts)(
+      "%s is never retried after a timeout, and reports 504",
+      async (_name, _method, _path, attempt) => {
+        const { server, client } = build();
+        server.intercept(() => {
+          throw new DOMException("timed out", "TimeoutError");
+        });
+        const error = await attempt(client).catch((e) => e);
+        expect(isTidyError(error, 504)).toBe(true);
+        expect(server.requests).toHaveLength(1);
+      },
+    );
+
+    it.each(attempts)(
+      "%s is never retried after a network error, and reports 502",
+      async (_name, _method, _path, attempt) => {
+        const { server, client } = build();
+        server.intercept(() => {
+          throw new TypeError("fetch failed");
+        });
+        const error = await attempt(client).catch((e) => e);
+        expect(isTidyError(error, 502)).toBe(true);
+        expect(server.requests).toHaveLength(1);
+      },
+    );
+
+    it("refuses a note answer that isn't a note", async () => {
+      const { server, client } = build();
+      server.intercept((req) =>
+        req.method === "POST" ? Response.json({ ok: true }) : undefined,
+      );
+      expect(
+        isTidyError(await client.addNote("c_marcus", "x").catch((e) => e), 502),
+      ).toBe(true);
+    });
+
+    // The points write counts as done on any 2xx, like the group add, until
+    // go-live checklist item 13 confirms what the PATCH answers: a point that
+    // was written must not be reported as a failure over the reply's shape.
+    it.each([
+      ["a 204 with no body", () => new Response(null, { status: 204 })],
+      ["a 200 with an empty body", () => new Response("", { status: 200 })],
+      [
+        "a 200 with a body that isn't a contact",
+        () => Response.json({ ok: 1 }),
+      ],
+    ])(
+      "counts a points PATCH answered with %s as success",
+      async (_n, reply) => {
+        const { server, client } = build();
+        server.intercept((req) =>
+          req.method === "PATCH" ? reply() : undefined,
+        );
+        await expect(
+          client.updateContact("c_marcus", buildPointsPatch(2)),
+        ).resolves.toBeUndefined();
+      },
+    );
+
+    // The v1 spec says the group PUT answers 204, but checklist item 16 hasn't
+    // confirmed it, so any 2xx counts. A wrong guess here would report an
+    // add that happened as a failure.
+    it("accepts any 2xx for the group add, body or none", async () => {
+      const { server, client } = build();
+      server.intercept(() => Response.json({ added: true }, { status: 200 }));
+      await expect(
+        client.addContactToGroup("grp_social_night", "c_marcus"),
+      ).resolves.toBeUndefined();
+    });
+
+    it("rejects an id that could re-aim the request, without calling TidyHQ", async () => {
+      const { server, client } = build();
+      await expect(
+        client.addContactToGroup("grp_x/../../v2", "c_marcus"),
+      ).rejects.toMatchObject({ status: 500 });
+      expect(server.requests).toEqual([]);
+    });
+  });
+
+  describe("getEventCheckinWindow", () => {
+    it("says null without calling TidyHQ: no known source for it yet", async () => {
+      const { server, client } = build();
+      expect(await client.getEventCheckinWindow("ev_tonight")).toBeNull();
+      expect(server.requests).toEqual([]);
+    });
   });
 });
