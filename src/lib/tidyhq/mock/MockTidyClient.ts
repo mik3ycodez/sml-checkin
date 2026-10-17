@@ -94,12 +94,18 @@ export class MockTidyClient implements TidyClient {
     patch: ContactPatch,
   ): Promise<Contact> {
     const contact = this.findContact(contactId);
-    for (const [fieldId, value] of Object.entries(patch.custom_fields ?? {})) {
-      const field = contact.custom_fields[fieldId];
-      if (!field) {
+    // Validate everything before changing anything, as one PATCH is atomic.
+    const answers = Object.entries(patch.custom_fields ?? {});
+    for (const [fieldId, answer] of answers) {
+      if (!contact.custom_fields[fieldId]) {
         throw new TidyError(422, `Unknown custom field ${fieldId}`);
       }
-      field.value = value;
+      if (typeof answer?.value !== "string") {
+        throw new TidyError(422, `Custom field ${fieldId} needs a value`);
+      }
+    }
+    for (const [fieldId, answer] of answers) {
+      contact.custom_fields[fieldId].value = answer.value;
     }
     contact.updated_at = this.now().toISOString();
     return structuredClone(contact);

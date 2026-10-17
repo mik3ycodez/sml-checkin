@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildPointsPatch,
   COLORS_ISSUED_FIELD_ID,
   POINTS_FIELD_ID,
   readPoints,
@@ -85,5 +86,22 @@ describe("readRewardIssued", () => {
 
   it("treats a non-text value as unreadable", () => {
     expect(readRewardIssued(withIssued(true), "club_colors")).toBeNull();
+  });
+});
+
+describe("buildPointsPatch", () => {
+  it("follows the spec's Custom-Field shape, with the total as a string", () => {
+    expect(buildPointsPatch(5)).toEqual({
+      custom_fields: { [POINTS_FIELD_ID]: { value: "5" } },
+    });
+  });
+
+  it("names the points field and nothing else", () => {
+    const patch = buildPointsPatch(1234);
+    expect(Object.keys(patch)).toEqual(["custom_fields"]);
+    expect(Object.keys(patch.custom_fields!)).toEqual([POINTS_FIELD_ID]);
+    expect(Object.keys(patch.custom_fields![POINTS_FIELD_ID])).toEqual([
+      "value",
+    ]);
   });
 });

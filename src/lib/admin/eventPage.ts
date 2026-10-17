@@ -1,3 +1,4 @@
+import { findEventGroup } from "../tidyhq/eventGroups";
 import { isTidyError } from "../tidyhq/errors";
 import {
   checkinBlocker,
@@ -25,6 +26,11 @@ export interface AdminEventPage {
   startAt: string | null;
   endAt: string | null;
   archived: boolean;
+  /**
+   * The event's attendance group, or null if it has none. Read from the event
+   * itself, so the attendee list can only be fetched after the event is.
+   */
+  groupId: string | null;
   /** The window check-in actually uses (see `getCheckinWindowDetails`). */
   window: CheckinWindow;
   /** Why the admin-set window in TidyHQ was ignored, if it was. */
@@ -83,6 +89,7 @@ export async function getAdminEventPage(
     startAt: event.start_at,
     endAt: event.end_at,
     archived: event.archived,
+    groupId: findEventGroup(event),
     window,
     windowWarning: ignored,
     checkin: qr.kind === "qr" ? isCheckinOpen(window, now) : "unavailable",

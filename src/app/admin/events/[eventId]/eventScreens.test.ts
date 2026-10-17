@@ -27,6 +27,7 @@ const EVENT: AdminEventPage = {
   startAt: "2026-10-17T02:00:00Z", // 7:00 PM Seattle, Friday the 16th
   endAt: "2026-10-17T05:00:00Z",
   archived: false,
+  groupId: "grp_one",
   window: {
     opensAt: new Date("2026-10-17T01:30:00Z"), // 6:30 PM
     closesAt: new Date("2026-10-17T04:00:00Z"), // 9:00 PM

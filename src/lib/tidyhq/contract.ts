@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { TidyClient } from "./client";
+import { buildPointsPatch, POINTS_FIELD_ID, readPoints } from "./customFields";
 import { TidyError } from "./errors";
-import { createSeed, type MockSeed } from "./mock/seed";
+import { findEventGroup } from "./eventGroups";
+import { createSeed, MOCK_ADMIN_CONTACT_ID, type MockSeed } from "./mock/seed";
 
 /**
  * One set of tests for everything `TidyClient` promises, run against every
@@ -17,6 +19,33 @@ import { createSeed, type MockSeed } from "./mock/seed";
 export interface ContractHarness {
   client: TidyClient;
   memberToken(contactId: string): string;
+  /**
+   * The documented, intended differences between the mock and live TidyHQ.
+   * Each is tested both ways below: a client that says "live" must show the
+   * live behavior, and one that doesn't must show the mock's. Adding a
+   * difference means adding it here, where it can be seen.
+   */
+  differences: ContractDifferences;
+}
+
+export interface ContractDifferences {
+  /**
+   * Live mode links no event to an attendance group until the go-live
+   * checklist verifies how (`eventGroups.ts`, LIVE-UNKNOWN(event-group-link)): the mock links
+   * its seed events, the live client leaves every link unset.
+   */
+  eventGroupLinked: boolean;
+  /**
+   * A points field missing from a contact: the mock reads it as blank (0);
+   * the live client marks it, so `readPoints` says unreadable until the
+   * checklist confirms how TidyHQ sends unanswered fields.
+   */
+  missingPointsUnreadable: boolean;
+  /**
+   * The mock has admin-set check-in windows; live has no known source for
+   * them yet (`getEventCheckinWindow`, LIVE-UNKNOWN(checkin-window)) and always says null.
+   */
+  checkinWindows: boolean;
 }
 
 /** The moment the seed is built around; matches the mock's own tests. */
@@ -396,6 +425,164 @@ export function runTidyClientContract(
 
       it("404s on listing the groups of an unknown contact", async () => {
         await expectTidyError(open().client.listContactGroups("c_nobody"), 404);
+      });
+    });
+
+    describe("writes", () => {
+      describe("addContactToGroup", () => {
+        it("puts the contact in the group", async () => {
+          const { client } = open();
+          await client.addContactToGroup("grp_bar_night", "c_dante");
+          const contacts = await client.listGroupContacts("grp_bar_night");
+          expect(ids(contacts)).toEqual(["c_dante"]);
+        });
+
+        it("is idempotent when adding the same contact twice", async () => {
+          const { client } = open();
+          await client.addContactToGroup("grp_bar_night", "c_dante");
+          await client.addContactToGroup("grp_bar_night", "c_dante");
+          expect(await client.listGroupContacts("grp_bar_night")).toHaveLength(
+            1,
+          );
+        });
+
+        it("shows in the contact's groups, with the group's size", async () => {
+          const { client } = open();
+          await client.addContactToGroup("grp_social_night", "c_dante");
+          const groups = await client.listContactGroups("c_dante");
+          expect(groups.find((g) => g.id === "grp_social_night")?.size).toBe(1);
+        });
+
+        it("404s on an unknown group or contact", async () => {
+          const { client } = open();
+          await expectTidyError(
+            client.addContactToGroup("grp_nope", "c_dante"),
+            404,
+          );
+          await expectTidyError(
+            client.addContactToGroup("grp_bar_night", "c_nobody"),
+            404,
+          );
+        });
+      });
+
+      describe("updateContact", () => {
+        it("persists a points update and returns the contact", async () => {
+          const { client } = open();
+          const updated = await client.updateContact(
+            "c_dante",
+            buildPointsPatch(3),
+          );
+          expect(readPoints(updated)).toBe(3);
+          expect(readPoints(await client.getContact("c_dante"))).toBe(3);
+        });
+
+        it("changes nothing on the contact but the points", async () => {
+          const { client } = open();
+          const before = await client.getContact("c_marcus");
+          await client.updateContact("c_marcus", buildPointsPatch(9));
+          const after = await client.getContact("c_marcus");
+          const strip = (c: typeof before) => {
+            const { custom_fields, updated_at, ...rest } = c;
+            void updated_at;
+            const { [POINTS_FIELD_ID]: points, ...others } = custom_fields;
+            void points;
+            return { ...rest, others };
+          };
+          expect(strip(after)).toEqual(strip(before));
+        });
+
+        it("rejects an unknown custom field with 422", async () => {
+          const { client } = open();
+          await expectTidyError(
+            client.updateContact("c_dante", {
+              custom_fields: { cf_nope: { value: "1" } },
+            }),
+            422,
+          );
+        });
+
+        it("404s on an unknown contact", async () => {
+          await expectTidyError(
+            open().client.updateContact("c_nobody", buildPointsPatch(1)),
+            404,
+          );
+        });
+      });
+
+      describe("addNote", () => {
+        it("adds a note, which then shows on the contact", async () => {
+          const { client } = open();
+          const note = await client.addNote("c_jordan", "Staff check-in: Bar");
+          expect(note.text).toBe("Staff check-in: Bar");
+          expect(note.author_id).toBe(MOCK_ADMIN_CONTACT_ID);
+          const contact = await client.getContact("c_jordan");
+          expect(contact.notes.map((n) => n.text)).toEqual([
+            "Staff check-in: Bar",
+          ]);
+        });
+
+        it("404s on an unknown contact", async () => {
+          await expectTidyError(open().client.addNote("c_nobody", "Hi"), 404);
+        });
+
+        it("rejects an empty note with 422", async () => {
+          await expectTidyError(open().client.addNote("c_jordan", "  "), 422);
+        });
+      });
+    });
+
+    describe("documented differences between mock and live", () => {
+      it("event to group link", async () => {
+        const harness = open();
+        const events = await harness.client.listEvents();
+        expect(events.length).toBeGreaterThan(0);
+        for (const event of events) {
+          if (harness.differences.eventGroupLinked) {
+            expect(findEventGroup(event), event.id).not.toBeNull();
+          } else {
+            expect(findEventGroup(event), event.id).toBeNull();
+          }
+        }
+      });
+
+      it("a points field missing from a contact", async () => {
+        const harness = open((seed) => {
+          delete seed.contacts.find((c) => c.id === "c_dante")!.custom_fields[
+            POINTS_FIELD_ID
+          ];
+        });
+        const dante = await harness.client.getContact("c_dante");
+        expect(readPoints(dante)).toBe(
+          harness.differences.missingPointsUnreadable ? null : 0,
+        );
+        // Every list that carries v2 contacts agrees.
+        const listed = (await harness.client.listAllContacts()).find(
+          (c) => c.id === "c_dante",
+        )!;
+        expect(readPoints(listed)).toBe(
+          harness.differences.missingPointsUnreadable ? null : 0,
+        );
+      });
+
+      it("a blank points field is 0 either way", async () => {
+        const harness = open((seed) => {
+          seed.contacts.find((c) => c.id === "c_dante")!.custom_fields[
+            POINTS_FIELD_ID
+          ].value = "";
+        });
+        expect(readPoints(await harness.client.getContact("c_dante"))).toBe(0);
+      });
+
+      it("admin-set check-in windows", async () => {
+        const harness = open();
+        const window =
+          await harness.client.getEventCheckinWindow("ev_leather_brunch");
+        if (harness.differences.checkinWindows) {
+          expect(window).not.toBeNull();
+        } else {
+          expect(window).toBeNull();
+        }
       });
     });
   });

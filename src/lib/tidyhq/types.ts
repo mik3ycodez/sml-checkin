@@ -86,6 +86,13 @@ export interface Event {
    * holders. Read but not used for check-in: see `eventGroups.ts`.
    */
   group_id?: string | null;
+  /**
+   * The group whose members attended, as this app links it: the contact group
+   * a check-in writes to and reads. Not a TidyHQ field. The mock fills it;
+   * `HttpTidyClient` leaves it unset until the link is verified (see
+   * `eventGroups.ts`), so a live event has no group and check-in refuses it.
+   */
+  attendance_group_id?: string | null;
   /** Set when the event belongs to another organisation and was shared in. */
   shared_from?: { id: string; name: string } | null;
   created_at: string;
@@ -117,7 +124,11 @@ export interface Group {
   created_at: string;
 }
 
-/** Body for `PATCH /v2/contacts/{id}`. Build custom_fields via customFields.ts. */
+/**
+ * Body for `PATCH /v2/contacts/{id}`, a `Contact` in the v2 spec. Build
+ * custom_fields via customFields.ts. Each answer is the spec's `Custom-Field`
+ * reduced to its `value`: nothing else about the field is ever sent.
+ */
 export interface ContactPatch {
-  custom_fields?: Record<string, string>;
+  custom_fields?: Record<string, { value: string }>;
 }

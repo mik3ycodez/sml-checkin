@@ -250,7 +250,7 @@ describe("checkinBlocker", () => {
     closesAt: new Date("2026-10-17T04:00:00Z"),
     source: "event",
   } as const;
-  const event = { id: "ev_tonight", archived: false };
+  const event = { archived: false, attendance_group_id: "grp_tonight" };
 
   it("is null for an event members can check in to", () => {
     expect(checkinBlocker(event, window)).toBeNull();
@@ -259,12 +259,12 @@ describe("checkinBlocker", () => {
     expect(checkinBlocker({ ...event, archived: true }, window)).toBe(
       "archived",
     );
-    expect(checkinBlocker({ id: "ev_x", archived: true }, window)).toBe(
-      "archived",
-    );
-    expect(checkinBlocker({ id: "ev_x", archived: false }, window)).toBe(
-      "no_group",
-    );
+    expect(
+      checkinBlocker({ archived: true, attendance_group_id: null }, window),
+    ).toBe("archived");
+    expect(
+      checkinBlocker({ archived: false, attendance_group_id: null }, window),
+    ).toBe("no_group");
     expect(
       checkinBlocker(event, {
         opensAt: null,

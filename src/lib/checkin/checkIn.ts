@@ -21,6 +21,7 @@ import {
 import type { TidyClient } from "../tidyhq/client";
 import { contactName } from "../tidyhq/contactName";
 import { findContact } from "../tidyhq/contacts";
+import { countsForPoints } from "../tidyhq/countsForPoints";
 import { buildPointsPatch, readPoints } from "../tidyhq/customFields";
 import { isTidyError, type TidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
@@ -191,7 +192,8 @@ export type CheckInAssessment =
  * → points. An existing check-in comes first so a member who reloads the page
  * after the window closes, after their membership lapses, or after the event
  * is archived, still sees it. An archived event refuses new check-ins even
- * with an open window, so a QR code printed earlier stops working.
+ * with an open window, so a QR code printed earlier stops working. An event
+ * that doesn't count for points (`countsForPoints`) is refused the same way.
  */
 export async function assessCheckIn(
   client: TidyClient,
@@ -256,7 +258,7 @@ export async function assessCheckInFor(
   }
 
   const total = readPoints(contact);
-  if (event.archived) {
+  if (event.archived || !countsForPoints(event)) {
     return { status: "event_unavailable", name, eventName, total };
   }
 

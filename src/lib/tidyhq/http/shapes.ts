@@ -69,15 +69,20 @@ function parseCustomFields(raw: unknown): Record<string, CustomField> {
   return fields;
 }
 
-function parseNotes(raw: unknown): Note[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter(isObject).map((n) => ({
+/** A `Note`; `tidyRequest` has checked it is an object with an id. */
+export function parseNote(raw: unknown): Note {
+  const n = raw as Raw;
+  return {
     id: idText(n.id),
     author_id: idText(n.author_id),
     text: text(n.text),
     created_at: text(n.created_at),
     updated_at: text(n.updated_at),
-  }));
+  };
+}
+
+function parseNotes(raw: unknown): Note[] {
+  return Array.isArray(raw) ? raw.filter(isObject).map(parseNote) : [];
 }
 
 export function parseContact(raw: unknown, version: "v1" | "v2"): Contact {

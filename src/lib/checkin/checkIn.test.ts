@@ -489,7 +489,11 @@ describe("checkIn", () => {
   it("treats an event with no attendance group as unknown", async () => {
     const client = seededClient((seed) => {
       const tonight = seed.events.find((e) => e.id === "ev_tonight")!;
-      seed.events.push({ ...tonight, id: "ev_unmapped" });
+      seed.events.push({
+        ...tonight,
+        id: "ev_unmapped",
+        attendance_group_id: null,
+      });
     });
     const result = await checkIn(client, {
       eventId: "ev_unmapped",

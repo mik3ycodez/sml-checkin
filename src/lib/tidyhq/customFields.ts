@@ -3,14 +3,18 @@ import type { Contact, ContactPatch } from "./types";
 
 // The only place that knows the custom-field request format.
 //
-// Unknown until live access: the exact PATCH body TidyHQ expects for custom
-// fields. TidyHQ has no number field type, so points are stored as a string.
+// LIVE-UNKNOWN(custom-field-format): the exact PATCH body TidyHQ expects for
+// custom fields. The v2 spec says the body is a `Contact`, whose `custom_fields`
+// is `{ <field id>: Custom-Field }`, so we send `{ <id>: { value } }` and
+// nothing else. Go-live checklist item 13 confirms it, and that the PATCH
+// leaves every other field alone. TidyHQ has no number field type, so points
+// are stored as a string.
 
 /** Custom field id of the member's points total (read-only to members). */
 export const POINTS_FIELD_ID = "cf_sml_points";
 
 export function buildPointsPatch(total: number): ContactPatch {
-  return { custom_fields: { [POINTS_FIELD_ID]: String(total) } };
+  return { custom_fields: { [POINTS_FIELD_ID]: { value: String(total) } } };
 }
 
 /**

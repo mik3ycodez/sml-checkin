@@ -205,8 +205,20 @@ so the app is built against a **mock TidyHQ**.
   v2 spec at https://api.tidyhq.com/v2/openapi.json, v1 spec at
   https://api.tidyhq.com/v1/openapi.json (the v1 docs pages are JavaScript
   and can't be read; the spec is the same content)
-- `HttpTidyClient` (`src/lib/tidyhq/http/`) implements the reads so far; its
-  writes throw "not implemented" until milestone 5, PR 4. **One contract
+- `HttpTidyClient` (`src/lib/tidyhq/http/`) implements every `TidyClient`
+  method. Its writes go through the same request layer and are **never
+  retried**. **Live-only rules live in this client, not in shared code**:
+  its v2 contact parser marks a missing points field (so `readPoints` says
+  unreadable), and its event parser leaves `attendance_group_id` unset (so
+  `findEventGroup` finds no group and check-in refuses); `readPoints` and
+  `findEventGroup` stay pure and never read `TIDYHQ_MODE`. The mock does the
+  opposite on both, and `getEventCheckinWindow` is always null live; the
+  contract suite lists these as `ContractDifferences`. Every unresolved
+  unknown is marked `LIVE-UNKNOWN(<tag>)` in the source with a go-live
+  checklist item naming the same tag (`src/lib/liveUnknown.test.ts` keeps the
+  two in step). **An event's attendance group is part of the event**
+  (`Event.attendance_group_id`, set by the mock, never by TidyHQ), so the
+  admin event page reads the event before the attendee list. **One contract
   suite** (`runTidyClientContract`, `src/lib/tidyhq/contract.ts`) runs against
   both clients, the HTTP one through a fake TidyHQ server
   (`http/fakeTidyServer.ts`, test-only, pages 2 at a time). A behavior one
@@ -235,7 +247,14 @@ so the app is built against a **mock TidyHQ**.
     points with `GET /v2/contacts/{id}`, never from this list)
 - Unknown until live access: how an event links to its contact group, and the
   exact request format for custom fields. Keep both isolated so they're easy to
-  change.
+  change. The custom field PATCH follows the spec's shape,
+  `custom_fields: { <id>: { value } }`, and sends the points field only.
+- `countsForPoints(event)` (`src/lib/tidyhq/countsForPoints.ts`) is the one
+  place that decides whether an event earns points (true for every event today,
+  shared ones included). Check-in refuses an event it rejects as
+  `event_unavailable`, and the admin event list carries its answer. A false
+  answer isn't yet reflected in `checkinBlocker` or the QR page; no event can
+  return false until a real rule exists.
 
 ## Stack
 

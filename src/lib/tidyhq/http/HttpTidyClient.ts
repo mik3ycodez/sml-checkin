@@ -2,6 +2,7 @@ import { sortEventsByStart } from "../eventOrder";
 import type { ListEventsOptions, TidyClient } from "../client";
 import type {
   Contact,
+  ContactPatch,
   Event,
   EventCheckinWindow,
   Group,
@@ -9,6 +10,7 @@ import type {
   MembershipLevel,
   Note,
 } from "../types";
+import { POINTS_FIELD_ID } from "../customFields";
 import { tidyRequest, tidyRequestAll, type TidyVersion } from "./request";
 import {
   parseContact,
@@ -16,6 +18,7 @@ import {
   parseGroup,
   parseMembership,
   parseMembershipLevel,
+  parseNote,
 } from "./shapes";
 
 export interface HttpTidyClientOptions {
@@ -27,17 +30,41 @@ export interface HttpTidyClientOptions {
   sleep?: (ms: number) => Promise<void>;
 }
 
-/** A write method that milestone 5, PR 4 builds. Never a silent no-op. */
-function notBuiltYet(method: string): never {
-  throw new Error(
-    `HttpTidyClient.${method} is not implemented yet (milestone 5, PR 4)`,
-  );
+/**
+ * The value a points field gets when a v2 contact came back without the key.
+ * `readPoints` reads any non-string value as unreadable, and this is no
+ * string, so check-in refuses (`points_unreadable`) and never writes over a
+ * balance the token may simply not be able to see.
+ *
+ * LIVE-UNKNOWN(missing-points-field): whether TidyHQ omits the key for a
+ * member with no answer, or sends it blank. Until go-live checklist item 2
+ * says, a missing key is unreadable (a blank value still counts as 0). If it
+ * turns out TidyHQ omits unanswered fields, delete this and `markMissingPoints`.
+ */
+const MISSING_POINTS = { missing: true };
+
+/** v2 contact parsing, plus the live-only rule for a missing points field. */
+function parseV2Contact(raw: unknown): Contact {
+  const contact = parseContact(raw, "v2");
+  if (!(POINTS_FIELD_ID in contact.custom_fields)) {
+    contact.custom_fields[POINTS_FIELD_ID] = {
+      id: POINTS_FIELD_ID,
+      title: "",
+      type: "string",
+      value: MISSING_POINTS,
+    };
+  }
+  return contact;
 }
 
 /**
  * The real TidyHQ, over `tidyRequest` (auth, timeouts, retries, paging, safe
  * logging, error mapping). Each method here only names a path and a shape.
- * Reads only so far.
+ *
+ * Writes go through the same layer and are never retried: a write that timed
+ * out may have happened anyway, and check-in's rule (a failure between the
+ * group add and the points write may miss a point, never double-award)
+ * depends on that.
  */
 export class HttpTidyClient implements TidyClient {
   constructor(private readonly options: HttpTidyClientOptions) {}
@@ -78,7 +105,7 @@ export class HttpTidyClient implements TidyClient {
       method: "GET",
       expect: "record",
     });
-    return parseContact(raw, "v2");
+    return parseV2Contact(raw);
   }
 
   async searchContacts(query: string): Promise<Contact[]> {
@@ -86,19 +113,16 @@ export class HttpTidyClient implements TidyClient {
     const terms = query.trim();
     if (terms === "") return [];
     const raw = await this.list("v2", "/contacts", { search_terms: terms });
-    return raw.map((c) => parseContact(c, "v2"));
+    return raw.map(parseV2Contact);
   }
 
   async listAllContacts(): Promise<Contact[]> {
     const raw = await this.list("v2", "/contacts");
-    return raw.map((c) => parseContact(c, "v2"));
+    return raw.map(parseV2Contact);
   }
 
   async getContact(contactId: string): Promise<Contact> {
-    return parseContact(
-      await this.record("v2", `/contacts/${contactId}`),
-      "v2",
-    );
+    return parseV2Contact(await this.record("v2", `/contacts/${contactId}`));
   }
 
   async getMemberships(contactId: string): Promise<Membership[]> {
@@ -140,21 +164,54 @@ export class HttpTidyClient implements TidyClient {
     return raw.map(parseGroup);
   }
 
-  // Writes and the check-in window land in PR 4. A method with no parameters
-  // still satisfies the interface.
-  async updateContact(): Promise<Contact> {
-    return notBuiltYet("updateContact");
+  async updateContact(
+    contactId: string,
+    patch: ContactPatch,
+  ): Promise<Contact> {
+    return parseV2Contact(
+      await tidyRequest({
+        ...this.common("v2", `/contacts/${contactId}`),
+        method: "PATCH",
+        body: patch,
+        expect: "record",
+      }),
+    );
   }
 
-  async addNote(): Promise<Note> {
-    return notBuiltYet("addNote");
+  async addNote(contactId: string, text: string): Promise<Note> {
+    return parseNote(
+      await tidyRequest({
+        ...this.common("v2", `/contacts/${contactId}/notes`),
+        method: "POST",
+        body: { text },
+        expect: "record",
+      }),
+    );
   }
 
-  async addContactToGroup(): Promise<void> {
-    return notBuiltYet("addContactToGroup");
+  async addContactToGroup(groupId: string, contactId: string): Promise<void> {
+    // LIVE-UNKNOWN(group-put-response): v1's spec says this answers 204, but
+    // what TidyHQ sends for a new member and for one already in the group
+    // isn't confirmed (go-live checklist item 16), so any 2xx counts. Once it
+    // is, tighten `expect`: the spec's answer is no body, and a wrongly strict
+    // check would report an add that happened as a failure.
+    await tidyRequest({
+      ...this.common("v1", `/groups/${groupId}/contacts/${contactId}`),
+      method: "PUT",
+      expect: "none",
+    });
   }
 
-  async getEventCheckinWindow(): Promise<EventCheckinWindow | null> {
-    return notBuiltYet("getEventCheckinWindow");
+  async getEventCheckinWindow(
+    eventId: string,
+  ): Promise<EventCheckinWindow | null> {
+    void eventId;
+    // LIVE-UNKNOWN(checkin-window): neither TidyHQ spec has a check-in open or
+    // close time on an event, and we know of no other place the Board could set
+    // one. So live mode has no admin-set window and check-in uses the event's
+    // own start and end (the fallback). Makes no request, and so doesn't 404
+    // an unknown event: callers read the event too and get theirs from that.
+    // Go-live checklist item 4: if TidyHQ does carry one, read it here.
+    return null;
   }
 }

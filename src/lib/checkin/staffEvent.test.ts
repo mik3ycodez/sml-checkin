@@ -51,6 +51,7 @@ describe("staffEventState", () => {
         seed.events.push({
           ...seed.events.find((e) => e.id === "ev_tonight")!,
           id: "ev_ungrouped",
+          attendance_group_id: null,
         });
       }),
     ).toMatchObject({ status: "ended", reason: "no_group" });

@@ -153,6 +153,7 @@ describe("getAdminEventPage", () => {
         seed.events.push({
           ...seed.events.find((e) => e.id === "ev_bar_night")!,
           id: "ev_ungrouped",
+          attendance_group_id: null,
         });
       });
       const page = await load(client, "ev_ungrouped");
@@ -193,7 +194,12 @@ describe("getAdminEventPage", () => {
         tonight.archived = true; // open window, but archived
         brunch.start_at = brunch.end_at = null; // can never open
         delete seed.checkinWindows.ev_leather_brunch;
-        seed.events.push({ ...tonight, id: "ev_ungrouped", archived: false });
+        seed.events.push({
+          ...tonight,
+          id: "ev_ungrouped",
+          archived: false,
+          attendance_group_id: null,
+        });
       });
       for (const id of ["ev_tonight", "ev_leather_brunch", "ev_ungrouped"]) {
         expect((await load(client, id))!.qr.kind, id).toBe("none");

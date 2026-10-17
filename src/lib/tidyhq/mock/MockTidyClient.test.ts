@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { buildPointsPatch, POINTS_FIELD_ID, readPoints } from "../customFields";
+import { buildPointsPatch, readPoints } from "../customFields";
 import { getCheckinWindow, isCheckinOpen } from "../checkinWindow";
 import { expectTidyError, runTidyClientContract } from "../contract";
 import { resolveEventGroup } from "../eventGroups";
 import { issueMockToken, MockTidyClient } from "./MockTidyClient";
-import { createSeed, MOCK_ADMIN_CONTACT_ID } from "./seed";
+import { createSeed } from "./seed";
 
 const NOW = new Date("2026-10-12T18:00:00Z");
 
@@ -17,6 +17,11 @@ function daysBetween(from: Date, isoDate: string): number {
 runTidyClientContract("MockTidyClient", (seed) => ({
   client: new MockTidyClient(seed, () => NOW),
   memberToken: issueMockToken,
+  differences: {
+    eventGroupLinked: true,
+    missingPointsUnreadable: false,
+    checkinWindows: true,
+  },
 }));
 
 describe("MockTidyClient", () => {
@@ -193,31 +198,6 @@ describe("MockTidyClient", () => {
   });
 
   describe("groups", () => {
-    it("adds a contact to a group", async () => {
-      await client.addContactToGroup("grp_bar_night", "c_dante");
-      const contacts = await client.listGroupContacts("grp_bar_night");
-      expect(contacts.map((c) => c.id)).toEqual(["c_dante"]);
-    });
-
-    it("is idempotent when adding the same contact twice", async () => {
-      await client.addContactToGroup("grp_bar_night", "c_dante");
-      await client.addContactToGroup("grp_bar_night", "c_dante");
-      const contacts = await client.listGroupContacts("grp_bar_night");
-      expect(contacts).toHaveLength(1);
-    });
-
-    it("lists a group for the current event once the contact checks in", async () => {
-      await client.addContactToGroup("grp_social_night", "c_dante");
-      const groups = await client.listContactGroups("c_dante");
-      expect(groups.map((g) => g.id)).toContain("grp_social_night");
-    });
-
-    it("counts a group's members in its size as contacts are added", async () => {
-      await client.addContactToGroup("grp_social_night", "c_dante");
-      const groups = await client.listContactGroups("c_dante");
-      expect(groups.find((g) => g.id === "grp_social_night")?.size).toBe(1);
-    });
-
     it("lists group members by identity only, since v1 sends no field values", async () => {
       const [first] = await client.listGroupContacts("grp_pub_night");
       expect(first.display_name).not.toBe("");
@@ -237,69 +217,16 @@ describe("MockTidyClient", () => {
         "size",
       ]);
     });
-
-    it("404s on an unknown group or contact", async () => {
-      await expectTidyError(client.listGroupContacts("grp_nope"), 404);
-      await expectTidyError(
-        client.addContactToGroup("grp_nope", "c_dante"),
-        404,
-      );
-      await expectTidyError(
-        client.addContactToGroup("grp_bar_night", "c_nobody"),
-        404,
-      );
-    });
   });
 
   describe("points custom field", () => {
-    it("persists a points update", async () => {
-      const updated = await client.updateContact(
-        "c_dante",
-        buildPointsPatch(3),
-      );
-      expect(readPoints(updated)).toBe(3);
-      expect(readPoints(await client.getContact("c_dante"))).toBe(3);
-    });
-
     it("seeds points consistent with past attendance", async () => {
       expect(readPoints(await client.getContact("c_marcus"))).toBe(1);
       expect(readPoints(await client.getContact("c_dante"))).toBe(0);
     });
 
-    it("rejects an unknown custom field with 422", async () => {
-      await expectTidyError(
-        client.updateContact("c_dante", { custom_fields: { cf_nope: "1" } }),
-        422,
-      );
-    });
-
-    it("stores points as a string field", () => {
-      expect(buildPointsPatch(5)).toEqual({
-        custom_fields: { [POINTS_FIELD_ID]: "5" },
-      });
-    });
-
     it("reads an unset field as 0", () => {
       expect(readPoints({ custom_fields: {} })).toBe(0);
-    });
-  });
-
-  describe("notes", () => {
-    it("adds a note authored by the admin", async () => {
-      const note = await client.addNote(
-        "c_jordan",
-        "Staff check-in: Bar Night",
-      );
-      expect(note.author_id).toBe(MOCK_ADMIN_CONTACT_ID);
-      expect(note.created_at).toBe(NOW.toISOString());
-      const contact = await client.getContact("c_jordan");
-      expect(contact.notes.map((n) => n.text)).toEqual([
-        "Staff check-in: Bar Night",
-      ]);
-    });
-
-    it("rejects an empty note with 422", async () => {
-      await expectTidyError(client.addNote("c_jordan", "  "), 422);
     });
   });
 

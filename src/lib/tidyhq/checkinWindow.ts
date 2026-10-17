@@ -98,7 +98,7 @@ export type CheckinBlocker =
  * QR code and the volunteer staff page both use it, so they can't disagree.
  */
 export function checkinBlocker(
-  event: Pick<Event, "id" | "archived">,
+  event: Pick<Event, "archived" | "attendance_group_id">,
   window: CheckinWindow,
 ): CheckinBlocker | null {
   if (event.archived) return "archived";

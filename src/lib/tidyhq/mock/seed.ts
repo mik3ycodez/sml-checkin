@@ -24,6 +24,15 @@ export interface MockSeed {
 }
 
 /** Contact id used as the author of notes written with the admin token. */
+/** Each seed event's attendance group (see `Event.attendance_group_id`). */
+const EVENT_GROUPS: Record<string, string> = {
+  ev_pub_night: "grp_pub_night",
+  ev_tonight: "grp_social_night",
+  ev_bootblack_social: "grp_bootblack_social",
+  ev_bar_night: "grp_bar_night",
+  ev_leather_brunch: "grp_leather_brunch",
+};
+
 export const MOCK_ADMIN_CONTACT_ID = "c_admin";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -135,6 +144,9 @@ export function createSeed(now: Date = new Date()): MockSeed {
       location,
       public: true,
       archived: false,
+      // The mock links its events to their groups explicitly (the live client
+      // can't yet: see `eventGroups.ts`).
+      attendance_group_id: EVENT_GROUPS[id] ?? null,
       created_at: created,
       updated_at: created,
     };

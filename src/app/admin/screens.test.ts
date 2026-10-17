@@ -95,6 +95,7 @@ const EVENT = {
   startAt: "2026-10-17T02:00:00Z", // 7:00 PM Seattle, Friday the 16th
   location: "The Eagle",
   hasGroup: true,
+  countsForPoints: true,
   archived: false,
   invalidTimes: false,
 };
