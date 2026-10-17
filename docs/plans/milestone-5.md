@@ -55,10 +55,13 @@ colors.
 - **The rule (self-healing).** On a **new** check-in (never on "already
   checked in"), after a successful points write, add the member to the
   colors group if all of these hold:
-  1. the new total is at least the club colors threshold (`REWARDS` in
-     `points.ts`, 18),
+  1. the new total is at least the club colors reward's threshold
+     (`REWARDS` in `points.ts`, 18; looked up by id, never the lowest across
+     rewards), decided by `rewardStatus` like `/me` and the confirmation,
   2. `readRewardIssued` (from the contact read before the writes) is
-     readable and not issued,
+     readable and not issued. In live mode a **missing** issued field is
+     unreadable (`LIVE-UNKNOWN(missing-issued-field)`, go-live item 2a), as
+     for points, so a token that can't see the field never fills the group,
   3. they aren't already in the group (`isInGroup` on the colors group,
      which stays small: it holds only people still owed colors).
 
@@ -66,9 +69,11 @@ colors.
   so a member missed once (a failed add, the group set up after they
   passed 18) is added at their next check-in.
 
-- **Skips, logged with the contact id only:** the points write failed,
-  the issued field is unreadable, or `COLORS_GROUP_ID` is unset or invalid
-  in live mode. Mock mode falls back to a seed group, like `ADMIN_GROUP_ID`
+- **Skips, logged with the contact id and a reason (plus the TidyHQ status
+  or error name for a failure, never a token or note text):** the points
+  write failed (only when the add would otherwise have happened), the issued
+  field is unreadable, or `COLORS_GROUP_ID` is unset or invalid in live
+  mode. Mock mode falls back to a seed group, like `ADMIN_GROUP_ID`
   and `HELPER_GROUP_ID` (`groupFromSetting`).
 - **Never fails a check-in.** A failed "already in the group" read skips
   the add; a failed add is not retried. Both are logged and swallowed, like
@@ -404,7 +409,7 @@ and skips the colors add (logged each time).
   code in PRs 6 and 7, so it never describes behavior that isn't there.
 - No code.
 
-### PR 6 🔍 In review: Remove the colors owed report
+### PR 6 ✅ Done (#39): Remove the colors owed report
 
 - Delete `/admin/reports/colors` (page, screens, tests), the admin home
   "Reports" link and `COLORS_REPORT_PATH`, `getColorsOwed` and its tests,
@@ -421,7 +426,7 @@ and skips the colors add (logged each time).
   (`listAllContacts`) endpoint line.
 - No new behavior, so no new tests; the full e2e suite still passes.
 
-### PR 7: Colors-eligible group add at check-in (test-first)
+### PR 7 ✅ Done (#40): Colors-eligible group add at check-in (test-first)
 
 - `COLORS_GROUP_ID` setting via `groupFromSetting`, with a mock "Eligible
   for Colors" seed group (`MOCK_COLORS_GROUP_ID`) as the mock-mode
@@ -429,13 +434,14 @@ and skips the colors add (logged each time).
 - In `checkIn`, after a successful points write and before the staff note,
   the rule in the decision above. The "already in the group" read uses
   `isInGroup`; both it and the add are logged and swallowed on failure.
-- Unit tests in `checkIn.test.ts`: added at 18 (crossing) and above 18
+- Unit tests in `colorsGroup.test.ts` (new, beside `checkIn.test.ts`): added at 18 (crossing) and above 18
   (self-healing); not added under 18, when issued, when issued is
   unreadable, when already in the group, when the points write failed, or
   when the setting is unset in live mode; an "already checked in" tap
   touches nothing; a failed read or add still returns `checked_in` with the
   point; self and staff alike; the staff note is still written last (call
-  order checked). Logs carry the contact id only.
+  order checked). Logs carry the contact id, the reason and, for a failure,
+  the status or error name.
 - No new `TidyClient` behavior (it reuses `addContactToGroup` and
   `listGroupContacts`), so no contract changes. No e2e: nothing in the UI
   shows the group.
@@ -544,6 +550,12 @@ the colors read and add. PR 9 is last because it carries the version bump.
   - **Slim CLAUDE.md** to current rules only, moving decision history into the
     plan docs.
   - **Shrink the mock** to what local development and e2e need.
+  - **Drop the colors group "already in group" read** once go-live item 16a
+    confirms re-adding someone is harmless. Today every check-in by a member
+    at 18+ who isn't issued pages through the whole colors group (the group
+    stays small, but it is a TidyHQ round trip) and then adds, two serial
+    calls on the door path. PR 8's `maxDuration` budget counts them: up to two
+    more requests, each 8 s with one retry for the read.
 
 ## Go-live checklist (live TidyHQ)
 
@@ -574,6 +586,13 @@ three groups exist in TidyHQ.
    check-in on a missing key (decision 2); if TidyHQ omits the key for
    unanswered fields, that rule would refuse every member who has never had
    points, and `readPoints` must change.
+   2a. **Missing versus blank for the colors-issued field**
+   (`LIVE-UNKNOWN(missing-issued-field)`). Same question as item 2 for
+   `cf_sml_colors_issued`. Live mode treats a missing key as unreadable:
+   check-in never adds the member to the colors group and `/me` says nothing
+   about colors. If TidyHQ omits the key for members not yet issued, that
+   rule would stop the group filling for everyone; remove it from
+   `parseV2Contact`.
 3. **Event to group link** (`eventGroups.ts`, `LIVE-UNKNOWN(event-group-link)`). Decide how
    SML links an event to its attendance group. Proving that a contact the
    app adds stays in the group for a day after the event needs a write, so
@@ -667,7 +686,8 @@ On a Board member's own contact, at an unpublished test event in TidyHQ:
     check both on the test contact.
 17. Real-world latency: a full check-in from a phone at the venue finishes
     well inside the 8 s per request timeout. Adjust `REQUEST_TIMEOUT_MS` if
-    not.
+    not. Include a member at 18+ points who isn't issued: their check-in
+    also reads the colors group and adds to it.
 18. `grep -rn LIVE-UNKNOWN src` comes back empty.
 
 Then remove the test event and undo the test contact's point by hand in

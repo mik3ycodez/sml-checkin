@@ -14,6 +14,7 @@ const KNOWN = [
   "custom-field-format",
   "event-group-link",
   "group-put-response",
+  "missing-issued-field",
   "missing-points-field",
 ];
 

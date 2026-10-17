@@ -5,7 +5,12 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { contactName } from "../contactName";
-import { POINTS_FIELD_ID, readPoints } from "../customFields";
+import {
+  COLORS_ISSUED_FIELD_ID,
+  POINTS_FIELD_ID,
+  readPoints,
+  readRewardIssued,
+} from "../customFields";
 import { isTidyError } from "../errors";
 import { HttpTidyClient } from "./HttpTidyClient";
 
@@ -127,8 +132,11 @@ describe("v2 Contact", () => {
         custom_fields: { f_x: { id: "f_x", title: "X", type: "string" } },
       },
     }).getContact("1");
-    // Only the marker for the missing points field (below), not an invented f_x.
-    expect(Object.keys(c.custom_fields)).toEqual([POINTS_FIELD_ID]);
+    // Only the markers for the missing points and issued fields (below), not an invented f_x.
+    expect(Object.keys(c.custom_fields)).toEqual([
+      POINTS_FIELD_ID,
+      COLORS_ISSUED_FIELD_ID,
+    ]);
   });
 
   it("copes with nulls and omissions: names fall back, lists and fields are empty", async () => {
@@ -144,7 +152,10 @@ describe("v2 Contact", () => {
     expect(c.id).toBe("2");
     expect(contactName(c)).toBe("Pat");
     expect(c.email_address).toBe("");
-    expect(Object.keys(c.custom_fields)).toEqual([POINTS_FIELD_ID]);
+    expect(Object.keys(c.custom_fields)).toEqual([
+      POINTS_FIELD_ID,
+      COLORS_ISSUED_FIELD_ID,
+    ]);
     expect(c.notes).toEqual([]);
     expect(
       contactName(
@@ -157,7 +168,10 @@ describe("v2 Contact", () => {
     const c = await clientFor({
       "/v2/contacts/4": { id: "4", custom_fields: [] },
     }).getContact("4");
-    expect(Object.keys(c.custom_fields)).toEqual([POINTS_FIELD_ID]);
+    expect(Object.keys(c.custom_fields)).toEqual([
+      POINTS_FIELD_ID,
+      COLORS_ISSUED_FIELD_ID,
+    ]);
   });
 
   it("502s on a record with no id", async () => {
@@ -218,6 +232,47 @@ describe("v2 Contact points field (LIVE-UNKNOWN missing-points-field)", () => {
     expect(readPoints(await client.getContact("7"))).toBeNull();
     expect(readPoints(await client.getMe("member-token"))).toBeNull();
     expect(readPoints((await client.searchContacts("Pat"))[0])).toBeNull();
+  });
+
+  it("marks a colors-issued key that is missing, so it reads as unreadable (LIVE-UNKNOWN missing-issued-field)", async () => {
+    const client = clientFor({
+      "/v2/contacts/7": { ...base, custom_fields: field("3") },
+      "/v2/contacts/me": base,
+      "/v2/contacts": [{ ...base, custom_fields: {} }],
+    });
+    expect(readRewardIssued(await client.getContact("7"), "club_colors")).toBe(
+      null,
+    );
+    expect(
+      readRewardIssued(await client.getMe("member-token"), "club_colors"),
+    ).toBe(null);
+    expect(
+      readRewardIssued((await client.searchContacts("Pat"))[0], "club_colors"),
+    ).toBe(null);
+  });
+
+  it("reads a present colors-issued key as it is: blank is not issued, yes is issued", async () => {
+    const issued = (value: unknown) => ({
+      ...field("3"),
+      cf_sml_colors_issued: {
+        id: "cf_sml_colors_issued",
+        title: "Colors issued",
+        type: "string",
+        value,
+      },
+    });
+    for (const [value, expected] of [
+      [null, false],
+      ["", false],
+      ["Yes", true],
+    ] as const) {
+      const client = clientFor({
+        "/v2/contacts/7": { ...base, custom_fields: issued(value) },
+      });
+      expect(
+        readRewardIssued(await client.getContact("7"), "club_colors"),
+      ).toBe(expected);
+    }
   });
 
   it("leaves v1 group members alone: v1 never carries values, and nothing reads points there", async () => {

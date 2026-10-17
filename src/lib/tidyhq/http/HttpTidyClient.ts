@@ -10,7 +10,7 @@ import type {
   MembershipLevel,
   Note,
 } from "../types";
-import { POINTS_FIELD_ID } from "../customFields";
+import { COLORS_ISSUED_FIELD_ID, POINTS_FIELD_ID } from "../customFields";
 import { tidyRequest, tidyRequestAll, type TidyVersion } from "./request";
 import {
   parseContact,
@@ -31,7 +31,8 @@ export interface HttpTidyClientOptions {
 }
 
 /**
- * The value a points field gets when a v2 contact came back without the key.
+ * The value a points or colors-issued field gets when a v2 contact came back
+ * without the key.
  * `readPoints` reads any non-string value as unreadable, and this is no
  * string, so check-in refuses (`points_unreadable`) and never writes over a
  * balance the token may simply not be able to see.
@@ -39,20 +40,35 @@ export interface HttpTidyClientOptions {
  * LIVE-UNKNOWN(missing-points-field): whether TidyHQ omits the key for a
  * member with no answer, or sends it blank. Until go-live checklist item 2
  * says, a missing key is unreadable (a blank value still counts as 0). If it
- * turns out TidyHQ omits unanswered fields, delete this and `markMissingPoints`.
+ * turns out TidyHQ omits unanswered fields, delete its points half in `parseV2Contact`.
  */
-const MISSING_POINTS = { missing: true };
+const MISSING_FIELD = { missing: true };
 
-/** v2 contact parsing, plus the live-only rule for a missing points field. */
+/*
+ * The same, for the colors-issued flag: `readRewardIssued` reads any non-string
+ * value as unreadable, so check-in never adds the member to the colors group
+ * (and `/me` says nothing about colors) on a contact that came back without
+ * the key. Without it, a token that can't see the field, or a wrong field id,
+ * would put every 18+ member in the group, those already issued included.
+ *
+ * LIVE-UNKNOWN(missing-issued-field): whether TidyHQ omits the key for a
+ * member with no answer, or sends it blank. Until go-live checklist item 2a
+ * says, a missing key is unreadable (a blank value still means not issued).
+ * If TidyHQ omits unanswered fields, delete its half in `parseV2Contact`.
+ *
+ * v2 contact parsing, plus those two live-only rules (see `MISSING_FIELD`).
+ */
 function parseV2Contact(raw: unknown): Contact {
   const contact = parseContact(raw, "v2");
-  if (!(POINTS_FIELD_ID in contact.custom_fields)) {
-    contact.custom_fields[POINTS_FIELD_ID] = {
-      id: POINTS_FIELD_ID,
-      title: "",
-      type: "string",
-      value: MISSING_POINTS,
-    };
+  for (const id of [POINTS_FIELD_ID, COLORS_ISSUED_FIELD_ID]) {
+    if (!(id in contact.custom_fields)) {
+      contact.custom_fields[id] = {
+        id,
+        title: "",
+        type: "string",
+        value: MISSING_FIELD,
+      };
+    }
   }
   return contact;
 }

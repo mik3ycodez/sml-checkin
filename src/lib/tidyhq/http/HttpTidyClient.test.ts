@@ -47,6 +47,7 @@ runTidyClientContract("HttpTidyClient", (seed) => ({
   differences: {
     eventGroupLinked: false,
     missingPointsUnreadable: true,
+    missingIssuedUnreadable: true,
     checkinWindows: false,
   },
 }));

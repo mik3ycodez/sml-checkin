@@ -5,10 +5,13 @@ import {
   type MembershipNotice,
 } from "../membership";
 import { POINTS_PER_CHECKIN, type CheckInMethod } from "../points";
+import type { GroupSetting } from "../auth/groupAccess";
 import {
+  findReward,
   newlyQualified,
   rewardEntries,
   rewardStanding,
+  rewardStatusAfter,
   type QualifiedReward,
   type RewardEntry,
   type RewardStanding,
@@ -37,6 +40,12 @@ export type CheckInInput = {
   eventId: string;
   contactId: string;
   now: Date;
+  /**
+   * The "App Color Eligible" group (`colorsGroup`). Required, so a caller
+   * can't forget it; an unset `COLORS_GROUP_ID` arrives as a `problem` and the
+   * add is skipped and logged.
+   */
+  colorsGroup: GroupSetting;
 } & (
   | { method?: Extract<CheckInMethod, "self"> }
   | { method: Extract<CheckInMethod, "staff">; staff: StaffActor }
@@ -314,7 +323,7 @@ export async function checkIn(
   client: TidyClient,
   input: CheckInInput,
 ): Promise<CheckInResult> {
-  const { eventId, contactId, now } = input;
+  const { eventId, contactId, now, colorsGroup } = input;
   const assessment = await step("lookup", () =>
     assessCheckIn(client, { eventId, contactId, now }),
   );
@@ -341,9 +350,17 @@ export async function checkIn(
   } catch (error) {
     // In the group without the point: the note is still how a staff check-in
     // is told from a self one, and who did it. It never touches points.
+    const eligibility = colorsEligibility(rewards, stored, pointsAwarded);
+    if (eligibility === "eligible" && !("problem" in colorsGroup))
+      logColorsSkip(contactId, "points_not_written");
     await writeStaffNote(client, noteInput);
     throw error;
   }
+  await addToColorsGroup(client, {
+    contactId,
+    eligibility: colorsEligibility(rewards, stored, pointsAwarded),
+    group: colorsGroup,
+  });
   // Last, so a failed note can't affect the group or the points.
   await writeStaffNote(client, noteInput);
   return {
@@ -360,6 +377,88 @@ export async function checkIn(
       standing: assessment.rewardStanding,
     })),
   };
+}
+
+/** Why a colors group step didn't happen, or failed. Never a token or note text. */
+function logColorsSkip(
+  contactId: string,
+  reason: string,
+  error?: unknown,
+): void {
+  console.error("colors group not updated", {
+    contactId,
+    reason,
+    ...(error === undefined ? {} : { error: describeError(error) }),
+  });
+}
+
+/** A TidyError's status and message, or any other error's name. */
+function describeError(error: unknown): string {
+  return isTidyError(error)
+    ? `TidyError ${error.status}: ${error.message}`
+    : error instanceof Error
+      ? error.name
+      : "unknown";
+}
+
+/**
+ * Whether this check-in's point puts the member where the Board owes them
+ * club colors, decided by `rewardStatus` like `/me` and the confirmation.
+ * `unreadable` is the issued field not being readable at or above the
+ * threshold; under it there is nothing to add, so nothing to say.
+ */
+function colorsEligibility(
+  rewards: readonly RewardEntry[],
+  stored: number,
+  awarded: number,
+): "eligible" | "not_eligible" | "unreadable" {
+  const colors = findReward("club_colors")!;
+  const status = rewardStatusAfter(rewards, colors, stored, awarded);
+  if (status?.kind === "qualified") return "eligible";
+  if (status === null && stored + awarded >= colors.pointsRequired)
+    return "unreadable";
+  return "not_eligible";
+}
+
+/**
+ * Records that the member has reached the colors threshold, for the Board's
+ * to-do list: adds them to the "App Color Eligible" group. Runs after a
+ * successful points write on a new check-in. Not gated by membership
+ * standing (the Board checks that in TidyHQ before handing colors out).
+ *
+ * Self-healing: it runs for every qualifying check-in, so a member missed once
+ * is added at their next one. Every skip and failure is logged (contact id,
+ * reason and, for a failure, the TidyHQ status or error name) and swallowed:
+ * the member is checked in with their point, and this never touches points.
+ * A failed add is not retried.
+ */
+async function addToColorsGroup(
+  client: TidyClient,
+  {
+    contactId,
+    eligibility,
+    group,
+  }: {
+    contactId: string;
+    eligibility: ReturnType<typeof colorsEligibility>;
+    group: GroupSetting;
+  },
+): Promise<void> {
+  if (eligibility === "not_eligible") return;
+  if (eligibility === "unreadable")
+    return logColorsSkip(contactId, "issued_unreadable");
+  if ("problem" in group)
+    return logColorsSkip(contactId, `group_${group.problem}`);
+  try {
+    if (await isInGroup(client, group.id, contactId)) return;
+  } catch (error) {
+    return logColorsSkip(contactId, "read_failed", error);
+  }
+  try {
+    await client.addContactToGroup(group.id, contactId);
+  } catch (error) {
+    logColorsSkip(contactId, "add_failed", error);
+  }
 }
 
 /**
@@ -396,11 +495,7 @@ async function writeStaffNote(
     console.error("staff check-in note failed", {
       eventId,
       contactId,
-      error: isTidyError(error)
-        ? `TidyError ${error.status}: ${error.message}`
-        : error instanceof Error
-          ? error.name
-          : "unknown",
+      error: describeError(error),
     });
   }
 }

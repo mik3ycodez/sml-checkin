@@ -1,3 +1,4 @@
+import type { TidyClient } from "../tidyhq/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { addDays } from "../dates";
 import {
@@ -13,10 +14,22 @@ import {
   assessCheckIn,
   assessCheckInFor,
   CheckInFailure,
-  checkIn,
+  checkIn as realCheckIn,
+  type CheckInInput,
 } from "./checkIn";
 
 const NOW = new Date("2026-10-12T18:00:00Z");
+
+/**
+ * These tests are about the check-in itself, so they run with the colors
+ * group unset (skipped, nothing written). colorsGroup.test.ts covers the add.
+ */
+type WithoutColors<T> = T extends unknown ? Omit<T, "colorsGroup"> : never;
+const checkIn = (client: TidyClient, input: WithoutColors<CheckInInput>) =>
+  realCheckIn(client, {
+    ...input,
+    colorsGroup: { problem: "not_configured" },
+  } as CheckInInput);
 
 function seededClient(edit?: (seed: ReturnType<typeof createSeed>) => void) {
   const seed = createSeed(NOW);
