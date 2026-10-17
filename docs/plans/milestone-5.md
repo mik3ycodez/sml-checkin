@@ -269,6 +269,11 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
      read points from a group list.
   4. `Event` lacked the spec's `group_id` and `shared_from`. They are now
      optional fields on the type, read but not used yet (PR 4).
+- **Policy: contact status is not a check-in gate** (decided in review).
+  Check-in does not refuse inactive contacts; membership standing stays the
+  only gate. An archived contact with a counted membership is a data issue
+  for the Board to fix in TidyHQ. Admin and volunteer access still require an
+  active contact. Go-live check 12g looks for such contacts.
 - **Choices made where the specs are silent** (each is reviewed in the PR):
   an event with no `archived` flag is treated as archived (check-in refuses
   it); a membership with a state outside the five known ones is treated as
@@ -432,7 +437,7 @@ both pass.
 12. `GET /v2/memberships` returns the same memberships as the per-contact
     reads for a few known members (the report depends on it).
 
-Added by PR 3 (numbered 12a to 12f so earlier references hold):
+Added by PR 3 (numbered 12a to 12g so earlier references hold):
 
 - 12a. **Archived groups.** `GET /v1/contacts/{id}/groups` has no `all`
   parameter, and the v1 spec doesn't say whether archived groups are
@@ -456,6 +461,11 @@ Added by PR 3 (numbered 12a to 12f so earlier references hold):
   in an event's group shows as already checked in: a second tap awards
   nothing. Also that the App Admin and App Check-In Volunteers groups
   list a deactivated member, whom the app then filters out.
+- 12g. **Inactive contacts with a counted membership.** Check whether any
+  inactive contacts in SML's TidyHQ hold a counted membership (activated,
+  partial, or expired within the grace period). Check-in does not refuse
+  them (policy above), so the Board should know who they are and fix the
+  records in TidyHQ if they are mistakes.
 
 ### Part B: one test check-in
 

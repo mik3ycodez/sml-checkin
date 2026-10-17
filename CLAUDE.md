@@ -156,6 +156,14 @@ system of record; this app is a thin layer on top of it.
   check-in page and its action (added in milestone 4, PR 6b), which call
   `requireVolunteer` (a volunteer or an admin); a page check alone doesn't
   protect an action.
+- **Contact status is not a check-in gate.** Membership standing is the only
+  one: an inactive (archived) contact with a counted membership can sign in,
+  check in and earn points. That is a data issue for the Board to fix in
+  TidyHQ, not something the app decides. (Admin and volunteer access are
+  different: they require an active contact, so a deactivated Board member or
+  volunteer is out.) Group lists include inactive contacts (`show_all=true`)
+  so such a member shows as already checked in rather than earning a point on
+  every tap.
 - Membership standing (check-in and `/me` use one rule, `membershipStanding`).
   Pending and cancelled memberships never count. Use the counted membership
   with the latest end date. End date today or later with status activated or
