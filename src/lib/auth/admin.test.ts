@@ -58,6 +58,15 @@ describe("adminAccess", () => {
   });
   afterEach(() => error.mockRestore());
 
+  it("turns away a deactivated contact still in the App Admin group", async () => {
+    const seed = createSeed(NOW);
+    seed.contacts.find((c) => c.id === "c_casey")!.status = "inactive";
+    const client = new MockTidyClient(seed, () => NOW);
+    expect(await adminAccess(client, "c_casey", GROUP)).toEqual({
+      status: "not_admin",
+    });
+  });
+
   it("admits a contact in the App Admin group, with their name", async () => {
     expect(await adminAccess(seededClient(), "c_casey", GROUP)).toEqual({
       status: "admin",

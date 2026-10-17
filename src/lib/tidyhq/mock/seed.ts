@@ -143,16 +143,13 @@ export function createSeed(now: Date = new Date()): MockSeed {
   const group = (
     id: string,
     label: string,
-    archived = false,
     description = "Event attendance (managed by SML Check-in)",
   ): Group => ({
     id,
     label,
     description,
     size: 0,
-    archived,
     created_at: created,
-    updated_at: created,
   });
 
   const groupMembers: Record<string, string[]> = {
@@ -172,24 +169,23 @@ export function createSeed(now: Date = new Date()): MockSeed {
   };
 
   const groups = [
-    // Past events' groups are archived, as in the TidyHQ admin screens.
-    group("grp_pub_night", "Attendees: Pub Night", true),
+    // Pub Night's group is archived in TidyHQ's admin screens (it was last
+    // month), but v1 doesn't say so; the contact's group list still has it.
+    group("grp_pub_night", "Attendees: Pub Night"),
     group("grp_social_night", "Attendees: Social Night"),
     group("grp_bootblack_social", "Attendees: Bootblack Social"),
     group("grp_bar_night", "Attendees: Monthly Bar Night"),
     group("grp_leather_brunch", "Attendees: Leather Brunch"),
-    group("grp_members", "Members", false, "All current members"),
-    group("grp_volunteers", "Volunteers", false, "Event volunteers"),
+    group("grp_members", "Members", "All current members"),
+    group("grp_volunteers", "Volunteers", "Event volunteers"),
     group(
       MOCK_ADMIN_GROUP_ID,
       "App Admin",
-      false,
       "Can use the SML Check-in admin pages (managed in TidyHQ)",
     ),
     group(
       MOCK_HELPER_GROUP_ID,
       "App Check-In Volunteers",
-      false,
       "Can check members in at the door (managed in TidyHQ)",
     ),
   ].map((g) => ({ ...g, size: groupMembers[g.id].length }));

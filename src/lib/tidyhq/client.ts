@@ -79,14 +79,19 @@ export interface TidyClient {
    * `GET /v1/groups/{groupID}/contacts`. Must return every contact in the
    * group, following all pages: check-in uses this to tell whether a member
    * is already checked in, so a missing page would award points again.
+   * Includes inactive contacts (v1 needs `show_all=true`): an inactive contact
+   * can still sign in, and must show as already checked in. Identity only:
+   * v1's contact list sends no custom field values or notes, so read points
+   * and the like with `getContact`.
    */
   listGroupContacts(groupId: string): Promise<Contact[]>;
 
   /**
    * `GET /v1/contacts/{contactID}/groups`: every group the contact belongs to,
-   * event or not. Must include archived groups (past events' attendance
-   * groups are archived) and follow all pages. Unverified against live
-   * TidyHQ: see the plan's open questions. Throws 404 for an unknown contact.
+   * event or not, following all pages. Past events' attendance groups are
+   * archived in TidyHQ; v1 doesn't say whether they are listed (the plan's
+   * go-live checklist checks), and the app needs them to be. Throws 404 for
+   * an unknown contact.
    */
   listContactGroups(contactId: string): Promise<Group[]>;
 

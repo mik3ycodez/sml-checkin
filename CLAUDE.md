@@ -156,6 +156,14 @@ system of record; this app is a thin layer on top of it.
   check-in page and its action (added in milestone 4, PR 6b), which call
   `requireVolunteer` (a volunteer or an admin); a page check alone doesn't
   protect an action.
+- **Contact status is not a check-in gate.** Membership standing is the only
+  one: an inactive (archived) contact with a counted membership can sign in,
+  check in and earn points. That is a data issue for the Board to fix in
+  TidyHQ, not something the app decides. (Admin and volunteer access are
+  different: they require an active contact, so a deactivated Board member or
+  volunteer is out.) Group lists include inactive contacts (`show_all=true`)
+  so such a member shows as already checked in rather than earning a point on
+  every tap.
 - Membership standing (check-in and `/me` use one rule, `membershipStanding`).
   Pending and cancelled memberships never count. Use the counted membership
   with the latest end date. End date today or later with status activated or
@@ -194,8 +202,17 @@ so the app is built against a **mock TidyHQ**.
   `HttpTidyClient` (real API). Selected by the `TIDYHQ_MODE` env var
   (`mock` | `live`), default `mock`.
 - Mock response shapes must follow TidyHQ's published API:
-  v2 spec at https://api.tidyhq.com/v2/openapi.json, v1 docs at
-  https://docs.tidyhq.com/api/v1/introduction
+  v2 spec at https://api.tidyhq.com/v2/openapi.json, v1 spec at
+  https://api.tidyhq.com/v1/openapi.json (the v1 docs pages are JavaScript
+  and can't be read; the spec is the same content)
+- `HttpTidyClient` (`src/lib/tidyhq/http/`) implements the reads so far; its
+  writes throw "not implemented" until milestone 5, PR 4. **One contract
+  suite** (`runTidyClientContract`, `src/lib/tidyhq/contract.ts`) runs against
+  both clients, the HTTP one through a fake TidyHQ server
+  (`http/fakeTidyServer.ts`, test-only, pages 2 at a time). A behavior one
+  client has and the other lacks must fail a test: add new `TidyClient`
+  behavior to the contract, not to one client's own test file. Mock-only
+  behavior (reset, the sign-in list, copies) stays in the mock's file.
 - Mock sign-in: a fake TidyHQ sign-in page that lists seed members to pick from,
   then follows the same redirect/callback flow as the real OAuth.
 - Endpoints the app relies on:
@@ -211,6 +228,11 @@ so the app is built against a **mock TidyHQ**.
   - `PUT /v1/groups/{groupID}/contacts/{contactID}` (attendance; v2 can't write groups)
   - `GET /v1/contacts/{contactID}/groups` (a member's groups, archived ones
     included, for recent events)
+  - `GET /v1/groups/{groupID}/contacts` (an event group's members, sent
+    with `show_all=true` so inactive contacts are included: check-in's
+    "already checked in" test reads it, and an inactive contact can still
+    sign in. Admin and volunteer access filter back to active. Identity only. v1 sends no custom field values, so read
+    points with `GET /v2/contacts/{id}`, never from this list)
 - Unknown until live access: how an event links to its contact group, and the
   exact request format for custom fields. Keep both isolated so they're easy to
   change.

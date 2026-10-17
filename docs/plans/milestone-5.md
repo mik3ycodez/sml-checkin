@@ -1,6 +1,6 @@
 # Milestone 5: Live-ready prep
 
-**Status:** Approved. PR 1 merged (#34); PR 2 in review (#35).
+**Status:** Approved. PRs 1 (#34) and 2 (#35) merged; PR 3 in review.
 
 ## Context
 
@@ -216,7 +216,7 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
 - `docs/plans/milestone-5.md` itself, with review decisions applied.
 - No code.
 
-### PR 2 🔍 In review (#35): TidyHQ request layer (test-first)
+### PR 2 ✅ Done (#35): TidyHQ request layer (test-first)
 
 - `src/lib/tidyhq/http/request.ts`: `tidyRequest` and `tidyRequestAll`
   (paging), following the rules above: Bearer header, fixed hosts, 8 s
@@ -228,7 +228,7 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
   size, the page cap, retry once and only for reads, and the secrets test.
 - No `TidyClient` methods yet; nothing uses it.
 
-### PR 3: `HttpTidyClient` reads, the fake server, and the contract suite
+### PR 3 🔍 In review: `HttpTidyClient` reads, the fake server, and the contract suite
 
 - `src/lib/tidyhq/http/fakeTidyServer.ts` (test-only) and
   `src/lib/tidyhq/contract.ts` (`runTidyClientContract`).
@@ -240,10 +240,45 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
   `getContact`, `getMemberships`, `getMembershipLevel`, `listEvents`,
   `getEvent`, `listGroupContacts`, `listContactGroups` (v1 for the group
   endpoints). Fixture tests from the spec's shapes.
-- The v1 docs pages are JavaScript-rendered and I couldn't read their paging
-  details while planning. This PR confirms from them whether
-  `GET /v1/groups/{id}/contacts` and `GET /v1/contacts/{id}/groups` page,
-  and how, and the contract tests whatever they say.
+- **v1 paging, confirmed.** The v1 docs pages are JavaScript-rendered, but
+  TidyHQ publishes v1's OpenAPI spec at `https://api.tidyhq.com/v1/openapi.json`.
+  Both `GET /v1/groups/{id}/contacts` and `GET /v1/contacts/{id}/groups` take
+  `limit` and `offset` and return a plain array, like v2, so `tidyRequestAll`
+  works for them unchanged. Live behavior (order stability, page cap) stays
+  on the go-live checklist (item 7).
+- **Where the mock disagreed with the specs, and what changed.**
+  1. `Group` claimed `archived` and `updated_at`; v1 sends neither (and sends
+     `contacts_count` for `size`, a numeric `id`, and `2012-12-16 21:01:22
++0000` times). Both fields are gone from the type, the mock and the
+     seed; nothing read them. The client converts the rest.
+  2. `listGroupContacts` returned inactive contacts, but v1 leaves them out
+     unless `show_all=true` is sent. This first looked like a mock bug to
+     fix by filtering; review found it was the other way round. Check-in's
+     "already checked in" test (`isInGroup`) reads this list and never looks
+     at the contact's status, so leaving inactive contacts out would let an
+     inactive contact with a counted membership tap again and again for a
+     point each time. So the client sends `show_all=true`, the mock keeps
+     them, the contract requires them, and admin and volunteer access
+     (`readGroupMembers`) filter back to active, so a deactivated Board
+     member or volunteer stays locked out.
+  3. `listGroupContacts` returned populated custom fields and notes; v1's
+     contact list carries `custom_fields` as a list of definitions with no
+     `value`, and no notes. The mock now returns identity only, and the
+     parser never invents a value (a field without one is left out), so a
+     points total is only ever read from `getContact`. Nothing in the app
+     read points from a group list.
+  4. `Event` lacked the spec's `group_id` and `shared_from`. They are now
+     optional fields on the type, read but not used yet (PR 4).
+- **Policy: contact status is not a check-in gate** (decided in review).
+  Check-in does not refuse inactive contacts; membership standing stays the
+  only gate. An archived contact with a counted membership is a data issue
+  for the Board to fix in TidyHQ. Admin and volunteer access still require an
+  active contact. Go-live check 12g looks for such contacts.
+- **Choices made where the specs are silent** (each is reviewed in the PR):
+  an event with no `archived` flag is treated as archived (check-in refuses
+  it); a membership with a state outside the five known ones is treated as
+  `pending`, which never counts (and is logged); a missing `public` is false.
+  All three fail toward refusing check-in, never toward allowing it.
 
 ### PR 4: `HttpTidyClient` writes, and the unknowns marked
 
@@ -401,6 +436,36 @@ both pass.
     its shape.
 12. `GET /v2/memberships` returns the same memberships as the per-contact
     reads for a few known members (the report depends on it).
+
+Added by PR 3 (numbered 12a to 12g so earlier references hold):
+
+- 12a. **Archived groups.** `GET /v1/contacts/{id}/groups` has no `all`
+  parameter, and the v1 spec doesn't say whether archived groups are
+  listed. Check with a member who attended a past, archived event. If they
+  are missing, `/me`'s recent events need another source (the v2 `Contact`
+  has a `groups` array, and v2 has `GET /groups?all=true`).
+- 12b. **v1 group contacts.** That the list carries no custom field values
+  (we assume none; nothing relies on it either way).
+- 12c. **v1 error bodies.** The v1 spec documents only 200 responses. Confirm
+  an unknown group or contact gives 404 with a `{ "message" }` body, and a
+  bad token gives 401.
+- 12d. **Event `archived`.** That `archived` is present on every event the
+  admin token reads (the spec says it is only present with access to the
+  organisation's events). The client treats a missing flag as archived.
+- 12e. **Membership states.** That TidyHQ only sends `activated`, `partial`,
+  `expired`, `pending` and `cancelled` (the spec types `state` as a plain
+  string). Any other value is logged and treated as `pending`.
+- 12f. **Inactive contacts in group lists.** That `show_all=true` makes
+  `GET /v1/groups/{id}/contacts` include inactive contacts (the spec lists
+  the parameter; confirm it works), and that an inactive contact already
+  in an event's group shows as already checked in: a second tap awards
+  nothing. Also that the App Admin and App Check-In Volunteers groups
+  list a deactivated member, whom the app then filters out.
+- 12g. **Inactive contacts with a counted membership.** Check whether any
+  inactive contacts in SML's TidyHQ hold a counted membership (activated,
+  partial, or expired within the grace period). Check-in does not refuse
+  them (policy above), so the Board should know who they are and fix the
+  records in TidyHQ if they are mistakes.
 
 ### Part B: one test check-in
 

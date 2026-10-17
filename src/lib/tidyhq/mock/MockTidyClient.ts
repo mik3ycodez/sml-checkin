@@ -10,6 +10,7 @@ import type {
   MembershipLevel,
   Note,
 } from "../types";
+import { sortEventsByStart } from "../eventOrder";
 import { createSeed, MOCK_ADMIN_CONTACT_ID, type MockSeed } from "./seed";
 
 const TOKEN_PREFIX = "mock-token-";
@@ -142,9 +143,8 @@ export class MockTidyClient implements TidyClient {
       .filter(
         (e) =>
           !before || (e.start_at !== null && new Date(e.start_at) < before),
-      )
-      .sort((a, b) => (a.start_at ?? "").localeCompare(b.start_at ?? ""));
-    return structuredClone(events);
+      );
+    return structuredClone(sortEventsByStart(events));
   }
 
   async getEvent(eventId: string): Promise<Event> {
@@ -160,8 +160,14 @@ export class MockTidyClient implements TidyClient {
 
   async listGroupContacts(groupId: string): Promise<Contact[]> {
     const memberIds = this.findGroupMembers(groupId);
+    // Like v1's list: named, but without field values or notes. Inactive
+    // contacts are included, as with `show_all=true`: check-in's "already
+    // checked in" test reads this, and an inactive contact who can still sign
+    // in must not look new every time.
     return structuredClone(
-      this.state.contacts.filter((c) => memberIds.includes(c.id)),
+      this.state.contacts
+        .filter((c) => memberIds.includes(c.id))
+        .map((c) => ({ ...c, custom_fields: {}, notes: [] })),
     );
   }
 
@@ -180,7 +186,6 @@ export class MockTidyClient implements TidyClient {
     memberIds.push(contactId);
     const group = this.state.groups.find((g) => g.id === groupId)!;
     group.size = memberIds.length;
-    group.updated_at = this.now().toISOString();
   }
 
   private findContact(contactId: string): Contact {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildPointsPatch, POINTS_FIELD_ID, readPoints } from "../customFields";
 import { getCheckinWindow, isCheckinOpen } from "../checkinWindow";
-import { TidyError } from "../errors";
+import { expectTidyError, runTidyClientContract } from "../contract";
 import { resolveEventGroup } from "../eventGroups";
 import { issueMockToken, MockTidyClient } from "./MockTidyClient";
 import { createSeed, MOCK_ADMIN_CONTACT_ID } from "./seed";
@@ -14,32 +14,16 @@ function daysBetween(from: Date, isoDate: string): number {
   );
 }
 
-async function expectTidyError(promise: Promise<unknown>, status: number) {
-  const error = await promise.catch((e: unknown) => e);
-  expect(error).toBeInstanceOf(TidyError);
-  expect((error as TidyError).status).toBe(status);
-}
+runTidyClientContract("MockTidyClient", (seed) => ({
+  client: new MockTidyClient(seed, () => NOW),
+  memberToken: issueMockToken,
+}));
 
 describe("MockTidyClient", () => {
   let client: MockTidyClient;
 
   beforeEach(() => {
     client = new MockTidyClient(createSeed(NOW), () => NOW);
-  });
-
-  describe("getMe", () => {
-    it("returns the contact for a valid member token", async () => {
-      const me = await client.getMe(issueMockToken("c_marcus"));
-      expect(me.id).toBe("c_marcus");
-      expect(me.display_name).toBe("Marcus Bell");
-    });
-
-    it.each(["", "garbage", issueMockToken("c_nobody")])(
-      "rejects token %j with 401",
-      async (token) => {
-        await expectTidyError(client.getMe(token), 401);
-      },
-    );
   });
 
   describe("listSignInContacts (mock only)", () => {
@@ -68,15 +52,6 @@ describe("MockTidyClient", () => {
   });
 
   describe("listAllContacts", () => {
-    it("lists every active contact, and no inactive ones", async () => {
-      const seed = createSeed();
-      seed.contacts[1].status = "inactive";
-      const mock = new MockTidyClient(seed);
-      const ids = (await mock.listAllContacts()).map((c) => c.id);
-      expect(ids).toHaveLength(seed.contacts.length - 1);
-      expect(ids).not.toContain(seed.contacts[1].id);
-    });
-
     it("returns every contact however many there are (the real client follows all pages)", async () => {
       const seed = createSeed();
       const template = seed.contacts[0];
@@ -97,71 +72,10 @@ describe("MockTidyClient", () => {
   });
 
   describe("searchContacts", () => {
-    it("finds a member by first name", async () => {
-      const found = await client.searchContacts("Dante");
-      expect(found.map((c) => c.id)).toEqual(["c_dante"]);
-    });
-
-    it("finds a member by last name", async () => {
-      const found = await client.searchContacts("Okafor");
-      expect(found.map((c) => c.id)).toEqual(["c_sam"]);
-    });
-
-    it("ignores case and surrounding spaces", async () => {
-      const found = await client.searchContacts("  mARcUs  ");
-      expect(found.map((c) => c.id)).toEqual(["c_marcus"]);
-    });
-
-    it("matches part of a name", async () => {
-      const found = await client.searchContacts("ar");
-      const ids = found.map((c) => c.id);
-      expect(ids).toContain("c_marcus"); // Marcus
-      expect(ids).toContain("c_lee"); // Hart
-      expect(ids).not.toContain("c_dante");
-    });
-
-    it("needs every word to match, in any order", async () => {
-      const found = await client.searchContacts("park jordan");
-      expect(found.map((c) => c.id)).toEqual(["c_jordan"]);
-      expect(await client.searchContacts("Jordan Bell")).toEqual([]);
-    });
-
-    it("matches an email address", async () => {
-      const found = await client.searchContacts("riley@example");
-      expect(found.map((c) => c.id)).toEqual(["c_riley"]);
-    });
-
-    it("returns an empty list when nobody matches", async () => {
-      expect(await client.searchContacts("Zzyzx")).toEqual([]);
-    });
-
-    it("returns an empty list for a blank query, not everyone", async () => {
-      expect(await client.searchContacts("")).toEqual([]);
-      expect(await client.searchContacts("   ")).toEqual([]);
-    });
-
-    it("skips inactive contacts, as TidyHQ does by default", async () => {
-      const seed = createSeed(NOW);
-      seed.contacts.find((c) => c.id === "c_dante")!.status = "inactive";
-      const withInactive = new MockTidyClient(seed, () => NOW);
-      expect(await withInactive.searchContacts("Dante")).toEqual([]);
-    });
-
     it("returns copies, so callers can't change the mock", async () => {
       const [found] = await client.searchContacts("Dante");
       found.first_name = "Changed";
       expect((await client.getContact("c_dante")).first_name).toBe("Dante");
-    });
-  });
-
-  describe("getContact", () => {
-    it("returns a contact by id", async () => {
-      const contact = await client.getContact("c_dante");
-      expect(contact.first_name).toBe("Dante");
-    });
-
-    it("404s on an unknown contact", async () => {
-      await expectTidyError(client.getContact("c_nobody"), 404);
     });
   });
 
@@ -205,52 +119,9 @@ describe("MockTidyClient", () => {
       expect(daysLeft).toBeGreaterThan(0);
       expect(daysLeft).toBeLessThanOrEqual(30);
     });
-
-    it("resolves membership level names", async () => {
-      const [membership] = await client.getMemberships("c_jordan");
-      const level = await client.getMembershipLevel(
-        membership.membership_level_id,
-      );
-      expect(level.name).toBe("Associate Member");
-    });
-
-    it("404s on an unknown membership level", async () => {
-      await expectTidyError(client.getMembershipLevel("lvl_nope"), 404);
-    });
   });
 
   describe("events", () => {
-    it("lists events sorted by start time", async () => {
-      const events = await client.listEvents();
-      expect(events.map((e) => e.id)).toEqual([
-        "ev_pub_night",
-        "ev_tonight",
-        "ev_bootblack_social",
-        "ev_bar_night",
-        "ev_leather_brunch",
-      ]);
-    });
-
-    it("filters to upcoming events with `after`", async () => {
-      const upcoming = await client.listEvents({ after: NOW });
-      expect(upcoming).toHaveLength(4);
-      expect(upcoming.every((e) => new Date(e.end_at!) > NOW)).toBe(true);
-    });
-
-    it("filters with `before`", async () => {
-      const past = await client.listEvents({ before: NOW });
-      expect(past.map((e) => e.id)).toEqual(["ev_pub_night", "ev_tonight"]);
-    });
-
-    it("gets an event by id", async () => {
-      const event = await client.getEvent("ev_bar_night");
-      expect(event.name).toBe("Monthly Bar Night");
-    });
-
-    it("404s on an unknown event", async () => {
-      await expectTidyError(client.getEvent("ev_nope"), 404);
-    });
-
     it("has a Social Night happening right now", async () => {
       const event = await client.getEvent("ev_tonight");
       expect(event.name).toBe("Social Night");
@@ -322,14 +193,6 @@ describe("MockTidyClient", () => {
   });
 
   describe("groups", () => {
-    it("lists past attendees", async () => {
-      const contacts = await client.listGroupContacts("grp_pub_night");
-      expect(contacts.map((c) => c.id).sort()).toEqual([
-        "c_jordan",
-        "c_marcus",
-      ]);
-    });
-
     it("adds a contact to a group", async () => {
       await client.addContactToGroup("grp_bar_night", "c_dante");
       const contacts = await client.listGroupContacts("grp_bar_night");
@@ -343,31 +206,36 @@ describe("MockTidyClient", () => {
       expect(contacts).toHaveLength(1);
     });
 
-    it("lists a contact's groups, archived and current, event or not", async () => {
-      const groups = await client.listContactGroups("c_marcus");
-      const byId = Object.fromEntries(groups.map((g) => [g.id, g]));
-      // Pub Night was last month, so its group is archived but still listed.
-      expect(byId.grp_pub_night.archived).toBe(true);
-      // Non-event groups come back too; callers must filter.
-      expect(byId.grp_members).toBeDefined();
-      expect(byId.grp_members.archived).toBe(false);
-    });
-
     it("lists a group for the current event once the contact checks in", async () => {
       await client.addContactToGroup("grp_social_night", "c_dante");
       const groups = await client.listContactGroups("c_dante");
-      expect(groups.find((g) => g.id === "grp_social_night")?.archived).toBe(
-        false,
-      );
+      expect(groups.map((g) => g.id)).toContain("grp_social_night");
     });
 
-    it("lists no groups a contact isn't in", async () => {
+    it("counts a group's members in its size as contacts are added", async () => {
+      await client.addContactToGroup("grp_social_night", "c_dante");
       const groups = await client.listContactGroups("c_dante");
-      expect(groups.map((g) => g.id)).not.toContain("grp_pub_night");
+      expect(groups.find((g) => g.id === "grp_social_night")?.size).toBe(1);
     });
 
-    it("404s on listing the groups of an unknown contact", async () => {
-      await expectTidyError(client.listContactGroups("c_nobody"), 404);
+    it("lists group members by identity only, since v1 sends no field values", async () => {
+      const [first] = await client.listGroupContacts("grp_pub_night");
+      expect(first.display_name).not.toBe("");
+      expect(first.custom_fields).toEqual({});
+      expect(first.notes).toEqual([]);
+      // The points are still on the contact itself.
+      expect(readPoints(await client.getContact(first.id))).toBe(1);
+    });
+
+    it("describes a group with only what v1 sends", async () => {
+      const [group] = await client.listContactGroups("c_marcus");
+      expect(Object.keys(group).sort()).toEqual([
+        "created_at",
+        "description",
+        "id",
+        "label",
+        "size",
+      ]);
     });
 
     it("404s on an unknown group or contact", async () => {
