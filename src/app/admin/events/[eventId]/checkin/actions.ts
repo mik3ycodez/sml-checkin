@@ -74,7 +74,8 @@ async function runStaffCheckInAction(
   } catch (error) {
     if (!(error instanceof CheckInFailure)) throw error;
     logCheckinFailure({ eventId, contactId: member, failure: error });
-    // Nothing was written, so trying again is safe.
+    // Nothing was written (a write is never started without its full time),
+    // so trying again is safe.
     if (error.step !== "points_write") {
       redirect(
         staffMemberPath(eventId, member, {
@@ -83,8 +84,9 @@ async function runStaffCheckInAction(
         }),
       );
     }
-    // In the group without the point. Trying again would only say "already
-    // checked in", so the page says to tell a Board member.
+    // In the group, the point unconfirmed. Trying again would only say
+    // "already checked in", so the page says to tell a Board member, who
+    // checks the total in TidyHQ before adding anything.
     result = { status: "point_not_saved" };
   }
   if (result.status === "unknown_contact") redirect(page);

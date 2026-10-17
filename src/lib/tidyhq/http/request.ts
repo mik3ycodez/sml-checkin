@@ -1,4 +1,9 @@
-import { MIN_ATTEMPT_MS, remainingMs } from "../budget";
+import {
+  MIN_ATTEMPT_MS,
+  REQUEST_TIMEOUT_MS,
+  remainingMs,
+  requestTimeoutMs,
+} from "../budget";
 import { TidyError } from "../errors";
 
 /** Fixed hosts: no setting can point the admin token somewhere else. */
@@ -7,8 +12,7 @@ const HOSTS = {
   v2: "https://api.tidyhq.com/v2",
 } as const;
 
-/** Per request, so our server answers before a member's phone gives up. */
-export const REQUEST_TIMEOUT_MS = 8000;
+export { REQUEST_TIMEOUT_MS };
 export const PAGE_SIZE = 100;
 /** Past this we throw rather than return a partial list. */
 export const MAX_PAGES = 200;
@@ -187,13 +191,11 @@ async function tryOnce(
     error: new TidyError(status, `TidyHQ ${label} failed (${status})${detail}`),
   });
 
-  // Inside a time budget, no request outlives it.
-  const left = remainingMs();
-  if (left !== null && left <= MIN_ATTEMPT_MS) {
-    return fail(504, ": out of time");
-  }
-  const timeoutMs =
-    left === null ? REQUEST_TIMEOUT_MS : Math.min(REQUEST_TIMEOUT_MS, left);
+  // Inside a time budget, no request outlives it, and no write is cut short.
+  const timeoutMs = requestTimeoutMs(REQUEST_TIMEOUT_MS, {
+    write: method !== "GET",
+  });
+  if (timeoutMs === null) return fail(504, ": out of time");
 
   try {
     const res = await options.fetch(url, {
@@ -303,12 +305,12 @@ export async function tidyTokenPost(options: {
   fetch: typeof fetch;
   form: Record<string, string>;
 }): Promise<{ status: number; body: unknown }> {
-  const left = remainingMs();
-  if (left !== null && left <= MIN_ATTEMPT_MS) {
+  // A POST: given its full time or not sent, so a code isn't spent on an
+  // exchange we then abandon.
+  const timeoutMs = requestTimeoutMs(REQUEST_TIMEOUT_MS, { write: true });
+  if (timeoutMs === null) {
     throw new TidyError(504, "TidyHQ sign-in failed (504): out of time");
   }
-  const timeoutMs =
-    left === null ? REQUEST_TIMEOUT_MS : Math.min(REQUEST_TIMEOUT_MS, left);
   let res: Response;
   try {
     res = await options.fetch(ACCOUNTS_TOKEN_URL, {

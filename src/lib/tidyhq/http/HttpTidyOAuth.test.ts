@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { withBudget, MIN_ATTEMPT_MS } from "../budget";
+import { withBudget, MIN_ATTEMPT_MS, REQUEST_TIMEOUT_MS } from "../budget";
 import { isTidyError } from "../errors";
 import { HttpTidyOAuth } from "./HttpTidyOAuth";
 
@@ -196,6 +196,51 @@ describe("HttpTidyOAuth.exchangeCode", () => {
     );
     expect(isTidyError(error, 401)).toBe(true);
     expect(logged.join("\n")).toMatch(/TIDYHQ_CLIENT_ID.*TIDYHQ_CLIENT_SECRET/);
+  });
+
+  it.each([
+    "invalid_request",
+    "invalid_client",
+    "invalid_grant",
+    "unauthorized_client",
+    "unsupported_grant_type",
+    "invalid_scope",
+  ])(
+    "logs TidyHQ's OAuth error name %s, so a config error shows",
+    async (name) => {
+      const f = fakeFetch(json({ error: name }, 400));
+      await caught(
+        oauth(f.fetch).exchangeCode({ code: CODE, redirectUri: REDIRECT }),
+      );
+      expect(logged.join("\n")).toContain(name);
+    },
+  );
+
+  it("never logs an error value that isn't one of the fixed names (it could echo input)", async () => {
+    const echo = `bad redirect ${REDIRECT} code=${CODE}`;
+    const f = fakeFetch(json({ error: echo, error_description: echo }, 400));
+    const error = await caught(
+      oauth(f.fetch).exchangeCode({ code: CODE, redirectUri: REDIRECT }),
+    );
+    expect(isTidyError(error, 401)).toBe(true);
+    expect(logged.join("\n")).not.toContain("bad redirect");
+    expect(logged.join("\n")).not.toContain(CODE);
+  });
+
+  it("does not start the exchange without a full attempt's time: the code would be spent for nothing", async () => {
+    vi.useFakeTimers();
+    try {
+      const f = fakeFetch(json({ access_token: TOKEN }));
+      const error = await withBudget(REQUEST_TIMEOUT_MS - 1, () =>
+        caught(
+          oauth(f.fetch).exchangeCode({ code: CODE, redirectUri: REDIRECT }),
+        ),
+      );
+      expect(isTidyError(error, 504)).toBe(true);
+      expect(f.calls).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("refuses without calling TidyHQ when the budget is spent", async () => {

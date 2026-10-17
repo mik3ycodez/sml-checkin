@@ -53,7 +53,9 @@ system of record; this app is a thin layer on top of it.
   the stored total. If they're already in the group, award nothing and change
   nothing. One check-in per member per event.
 - A failure between the group add and the points write may miss a point, but
-  must never double-award.
+  must never double-award. The member then sees "You're checked in, but we
+  couldn't confirm your point": the check-in is saved, but the write may have
+  landed, so a Board member checks the total in TidyHQ before adding anything.
 - Points never reset: the stored total is never cleared, for example at the
   end of a membership year.
 - SML policy: points, including balances migrated from WildApricot, are
@@ -261,12 +263,17 @@ so the app is built against a **mock TidyHQ**.
   are fixed text, never anything the server sent back (it may echo them) or a
   caught error's message. `createTidyServices("live", env)` builds both from
   `liveConfig`. `checkStartupConfig` (`instrumentation.ts`) refuses to start
-  in live mode if `APP_ORIGIN` (https, localhost excepted),
+  in live mode (through `createTidyServices`, which validates once) if
+  `APP_ORIGIN` (https, localhost excepted; the same test as
+  `configuredAppOrigin`),
   `TIDYHQ_CLIENT_ID`, `TIDYHQ_CLIENT_SECRET`, `TIDYHQ_ADMIN_TOKEN` or
-  `SESSION_SECRET` (32+ characters) is missing, blank or a `.env.example`
-  placeholder, naming the setting and never printing a value. The group ids
+  `SESSION_SECRET` (the minimum length is the session code's own,
+  `sessionSecret.ts`) is missing, blank or a `.env.example` placeholder,
+  naming the setting and never printing a value. **Every production start,
+  demo included, also checks `SESSION_SECRET`.** The group ids
   (`ADMIN_GROUP_ID`, `HELPER_GROUP_ID`, `COLORS_GROUP_ID`) are optional and
-  never block startup. **Production refuses `TIDYHQ_MODE=mock` unless
+  never block startup; live mode logs a startup warning (no value) when
+  `ADMIN_GROUP_ID` is unset. **Production refuses `TIDYHQ_MODE=mock` unless
   `DEMO_MODE=on`**, and demo mode shows a "Demo data" banner on every page
   (server-rendered, so it shows with JavaScript off); `DEMO_MODE=on` with live
   is refused. The e2e suite runs as a demo for that reason.
@@ -275,13 +282,21 @@ so the app is built against a **mock TidyHQ**.
   check-in forms, and a test keeps them equal). Both actions start it, so the
   volunteer access check counts, and `checkIn` starts its own if called
   without. It is ambient (`AsyncLocalStorage` on `globalThis`), read by the
-  request layer: a request's timeout is capped to the time left, nothing is
-  sent with 0.5 s or less left, and a retry is skipped without time for it.
+  request layer through one rule (`requestTimeoutMs`): a read's timeout is
+  capped to the time left, nothing is sent with 0.5 s or less left, and a
+  retry is skipped without time for it. **A write is never given a shorter
+  timeout**: it gets its full 8 s or isn't sent, since a write TidyHQ applied
+  but we aborted would be reported as failed (a double-award or a lost point).
+  So before the group add, `checkIn` requires 16 s left (`CRITICAL_WRITES_MS`,
+  the group add and the points write at full timeout) or writes nothing and
+  shows "temporarily unavailable, try again" (safe to retry); the reads before
+  it get the other 8 s. The two check-in pages' renders have the same budget,
+  so a slow TidyHQ reaches the app's own error screen, not the host's 504.
   Past the budget, a step fails like a TidyHQ outage ("temporarily
   unavailable"). **After the points write, running out of time never fails
   the check-in**: the colors add is skipped and logged (`budget_exhausted`;
-  it heals at the next check-in), and a staff check-in holds back 4 s
-  (`NOTE_RESERVE_MS`) so the colors steps can't use up the note's time. If
+  it heals at the next check-in), and a staff check-in holds back 8 s
+  (`NOTE_RESERVE_MS`, a note is a write) so the colors steps can't use up the note's time. If
   the budget is spent anyway, **the staff note is skipped and logged**, so
   that check-in looks like a self check-in in TidyHQ; accepted. Never
   double-awards.

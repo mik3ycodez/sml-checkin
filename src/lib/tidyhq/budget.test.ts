@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CHECKIN_BUDGET_MS,
+  CRITICAL_WRITES_MS,
   MIN_ATTEMPT_MS,
   remainingMs,
+  REQUEST_TIMEOUT_MS,
+  requestTimeoutMs,
   withBudget,
   withReserve,
 } from "./budget";
@@ -85,5 +88,44 @@ describe("withReserve", () => {
     await withReserve(4_000, async () => {
       expect(remainingMs()).toBeNull();
     });
+  });
+});
+
+describe("requestTimeoutMs", () => {
+  it("is the usual timeout when there is no budget", () => {
+    expect(requestTimeoutMs(8_000)).toBe(8_000);
+    expect(requestTimeoutMs(8_000, { write: true })).toBe(8_000);
+  });
+
+  it("cuts a read down to the time left", async () => {
+    await withBudget(3_000, async () => {
+      expect(requestTimeoutMs(8_000)).toBe(3_000);
+    });
+  });
+
+  it("is null (out of time) with no more than the minimum attempt left", async () => {
+    await withBudget(MIN_ATTEMPT_MS, async () => {
+      expect(requestTimeoutMs(8_000)).toBeNull();
+      expect(requestTimeoutMs(8_000, { write: true })).toBeNull();
+    });
+  });
+
+  it("never shortens a write: full timeout or null, never in between", async () => {
+    await withBudget(7_999, async () => {
+      expect(requestTimeoutMs(8_000, { write: true })).toBeNull();
+    });
+    await withBudget(8_000, async () => {
+      expect(requestTimeoutMs(8_000, { write: true })).toBe(8_000);
+    });
+    await withBudget(20_000, async () => {
+      expect(requestTimeoutMs(8_000, { write: true })).toBe(8_000);
+    });
+  });
+});
+
+describe("the two critical writes", () => {
+  it("are sized from the request timeout, and fit inside the check-in budget", () => {
+    expect(CRITICAL_WRITES_MS).toBe(2 * REQUEST_TIMEOUT_MS);
+    expect(CRITICAL_WRITES_MS).toBeLessThan(CHECKIN_BUDGET_MS);
   });
 });

@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CHECKIN_BUDGET_MS,
+  CRITICAL_WRITES_MS,
   MIN_ATTEMPT_MS,
   NOTE_RESERVE_MS,
 } from "../tidyhq/budget";
@@ -95,6 +96,53 @@ const touchedColors = (calls: string[]) =>
 const skippedColors = () =>
   errors.filter((e) => e.includes("colors group not updated"));
 
+describe("the two critical writes (group add and points)", () => {
+  // Each is given its full timeout or not started, so a write that reaches
+  // TidyHQ is never aborted on our side and reported as failed. So before the
+  // group add, there must be room for both.
+  const readsTake = (ms: number) => ({ getMemberships: ms });
+
+  it("are not started if both can't get their full timeout: nothing is written, and it's safe to retry", async () => {
+    const mock = danteAt17();
+    const { client, calls } = timed(
+      mock,
+      readsTake(CHECKIN_BUDGET_MS - CRITICAL_WRITES_MS + 1),
+    );
+
+    const error = await checkIn(client, SELF).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(CheckInFailure);
+    expect((error as CheckInFailure).step).toBe("group_add");
+    expect((error as CheckInFailure).cause.status).toBe(504);
+    expect(calls.some((c) => c.startsWith("addContactToGroup"))).toBe(false);
+    expect(calls.some((c) => c.startsWith("updateContact"))).toBe(false);
+    // Nothing changed, so the retry is a normal first check-in.
+    expect(await mock.listGroupContacts("grp_social_night")).toEqual([]);
+    expect(readPoints(await mock.getContact("c_dante"))).toBe(17);
+  });
+
+  it("go ahead with exactly enough time left", async () => {
+    const mock = danteAt17();
+    const { client } = timed(
+      mock,
+      readsTake(CHECKIN_BUDGET_MS - CRITICAL_WRITES_MS),
+    );
+    const result = await checkIn(client, SELF);
+    expect(result).toMatchObject({ status: "checked_in", total: 18 });
+  });
+
+  it("the check is for both writes together, for a staff check-in too", async () => {
+    const mock = danteAt17();
+    const { client, calls } = timed(
+      mock,
+      readsTake(CHECKIN_BUDGET_MS - CRITICAL_WRITES_MS + 1),
+    );
+    const error = await checkIn(client, AS_STAFF).catch((e: unknown) => e);
+    expect((error as CheckInFailure).step).toBe("group_add");
+    expect(calls.some((c) => c.startsWith("addNote"))).toBe(false);
+  });
+});
+
 describe("colors add when the budget runs out after the points write", () => {
   it("is skipped and logged, and the check-in still counts (self)", async () => {
     const mock = danteAt17();
@@ -172,15 +220,16 @@ describe("the staff note when the budget runs out", () => {
 
   it("protects the note even when the colors read is slow", async () => {
     const mock = danteAt17();
-    // 8 s remain for the colors steps once the note's share is held back; the
-    // colors read takes 9 s of them, so the add is skipped, and the note's
-    // share (3 s of the budget's own time) is still there for the note.
+    // 8 s remain for the colors steps once the note's share is held back, and
+    // the colors read takes all of them (a real request is cut off there), so
+    // the add is skipped, and the note's share (a full request's time of the
+    // budget's own) is still there for the note.
     const { client, calls } = timed(mock, (method, arg) => {
       if (method === "updateContact") {
         return CHECKIN_BUDGET_MS - (NOTE_RESERVE_MS + 8_000);
       }
       return method === "listGroupContacts" && arg === MOCK_COLORS_GROUP_ID
-        ? 9_000
+        ? 8_000
         : 0;
     });
 
@@ -211,7 +260,9 @@ describe("the staff note when the budget runs out", () => {
 
   it("is not needed for a self check-in, which may use all the time for colors", async () => {
     const mock = danteAt17();
-    const { client, calls } = timed(mock, spend(NOTE_RESERVE_MS - 1_000));
+    // Enough for the add (a full request's time) but, for a staff check-in,
+    // not once the note's share is held back.
+    const { client, calls } = timed(mock, spend(NOTE_RESERVE_MS + 1_000));
     await checkIn(client, SELF);
     expect(calls).toContain(`addContactToGroup:${MOCK_COLORS_GROUP_ID}`);
   });

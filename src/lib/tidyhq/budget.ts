@@ -18,13 +18,27 @@ export const CHECKIN_BUDGET_MS = 24_000;
 /** Less than this left is not worth starting a request for. */
 export const MIN_ATTEMPT_MS = 500;
 
+/** Per request, so our server answers before a member's phone gives up. */
+export const REQUEST_TIMEOUT_MS = 8000;
+
 /**
- * Time held back for a staff check-in's note. The note is the record of who
- * checked a member in and nothing brings it back later, while the colors add
- * heals itself at the member's next check-in; so the colors steps get what is
- * left after this, and the note gets the rest.
+ * What the two writes a check-in cannot do without (the group add and the
+ * points write) need, each at its full timeout. A write is never given less:
+ * one that reaches TidyHQ but is aborted on our side would be reported as
+ * failed, and a retry or a Board member's "fix" would then double-award or
+ * lose the point. So `checkIn` makes sure this much is left before it writes
+ * anything. With the 24 s budget that leaves 8 s for all the reads before.
  */
-export const NOTE_RESERVE_MS = 4_000;
+export const CRITICAL_WRITES_MS = 2 * REQUEST_TIMEOUT_MS;
+
+/**
+ * Time held back for a staff check-in's note, which is a write and so needs a
+ * full request's time or isn't started. The note is the record of who checked
+ * a member in and nothing brings it back later, while the colors add heals
+ * itself at the member's next check-in; so the colors steps get what is left
+ * after this, and the note gets the rest.
+ */
+export const NOTE_RESERVE_MS = REQUEST_TIMEOUT_MS;
 
 type Budget = { deadline: number };
 
@@ -66,8 +80,31 @@ export function remainingMs(): number | null {
   return budget ? Math.max(0, budget.deadline - Date.now()) : null;
 }
 
-/** Whether there is a budget and it has too little left to start anything. */
-export function budgetSpent(): boolean {
+/**
+ * Whether there is a budget and it has too little left to start a request: for
+ * a write (`write: true`), less than a full request's time.
+ */
+export function budgetSpent({
+  write = false,
+}: { write?: boolean } = {}): boolean {
+  return requestTimeoutMs(REQUEST_TIMEOUT_MS, { write }) === null;
+}
+
+/**
+ * The one cut-off rule for a request: how long it may take, or null when it
+ * must not be started. Outside a budget, `defaultMs`. Inside one, null with
+ * `MIN_ATTEMPT_MS` or less left. A read is then cut down to the time left. A
+ * write (`write: true`) is never shortened: it gets `defaultMs` in full or is
+ * not sent, since a write the server applied but we aborted can't be told from
+ * one that failed.
+ */
+export function requestTimeoutMs(
+  defaultMs: number,
+  { write = false }: { write?: boolean } = {},
+): number | null {
   const left = remainingMs();
-  return left !== null && left <= MIN_ATTEMPT_MS;
+  if (left === null) return defaultMs;
+  if (left <= MIN_ATTEMPT_MS) return null;
+  if (write && left < defaultMs) return null;
+  return Math.min(defaultMs, left);
 }

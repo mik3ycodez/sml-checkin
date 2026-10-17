@@ -506,9 +506,10 @@ As built (decisions the plan left open):
   `LIVE-UNKNOWN(oauth-token-exchange)`, checklist item 10.
 - **The budget is ambient** (`budget.ts`, an `AsyncLocalStorage` kept on
   `globalThis` because Next.js bundles routes separately), not a parameter, so
-  `TidyClient` and the contract suite are unchanged. `tidyRequest` reads it:
-  a request's timeout is the smaller of 8 s and the time left, nothing is
-  sent with 0.5 s or less left, and a retry is skipped unless there is time
+  `TidyClient` and the contract suite are unchanged. `tidyRequest` and
+  `tidyTokenPost` read it through one helper, `requestTimeoutMs`: a read's
+  timeout is the smaller of 8 s and the time left, a write's is 8 s or it
+  isn't sent (review of #41), nothing is sent with 0.5 s or less left, and a retry is skipped unless there is time
   for its pause and a fresh attempt. Both actions start it (24 s, inside the
   30 s limit), so the volunteer access check counts too; `checkIn` starts one
   of its own if called without, and a nested budget can only shorten.
@@ -519,7 +520,7 @@ As built (decisions the plan left open):
 - **After the points write, out of time never fails the check-in.** The
   colors add (read and add) is skipped and logged as `budget_exhausted`,
   checked before the read and again before the add. **The staff note**: a
-  staff check-in holds back `NOTE_RESERVE_MS` (4 s) for it, so the colors
+  staff check-in holds back `NOTE_RESERVE_MS` (8 s, a full request) for it, so the colors
   steps run to that point and no later. The note is the only record of who
   checked a member in, and nothing recovers it, while the colors add heals at
   the next check-in. If the budget is spent anyway, the note is **skipped and
@@ -534,13 +535,16 @@ As built (decisions the plan left open):
   `SESSION_SECRET` (32+ characters), none missing, blank or a `.env.example`
   placeholder. It lists every bad setting at once and never prints a value.
   `ADMIN_GROUP_ID`, `HELPER_GROUP_ID` and `COLORS_GROUP_ID` stay optional, as
-  CLAUDE.md already said of the admin group. A test parses `.env.example` so a
+  CLAUDE.md already said of the admin group (live mode warns at startup if
+  `ADMIN_GROUP_ID` is unset). The live settings are validated once, by
+  `createTidyServices`. A test parses `.env.example` so a
   new placeholder can't slip past.
 - **Demo mode.** Production refuses mock mode unless `DEMO_MODE=on`; the root
   layout (`await connection()`, so it is read per request, never baked in at
   build) shows a "Demo data" banner on every page when it is on. `DEMO_MODE=on`
   with `TIDYHQ_MODE=live` is refused: the banner would sit on real members.
-  Anything but `on`, `off` or blank is refused.
+  Anything but `on`, `off` or blank is refused. Every production start,
+  demo included, checks `SESSION_SECRET`.
 - **E2E now runs as a demo**: Playwright serves a production build (`next
 start`), which refuses mock data, so `playwright.config.ts` sets
   `DEMO_MODE=on`. Mock behavior is unchanged; every page gains the banner, and

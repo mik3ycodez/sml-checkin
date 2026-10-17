@@ -59,10 +59,12 @@ async function runCheckInAction(eventId: unknown): Promise<never> {
   } catch (error) {
     if (!(error instanceof CheckInFailure)) throw error;
     logCheckinFailure({ eventId, contactId, failure: error });
-    // Nothing was written, so trying again is safe.
+    // Nothing was written (a write is never started without its full time),
+    // so trying again is safe.
     if (error.step !== "points_write") redirect(problemPath(eventId));
-    // In the group without the point. Trying again would only say "already
-    // checked in", so the result page asks them to tell a volunteer instead.
+    // In the group, the point unconfirmed. Trying again would only say "already
+    // checked in", so the result page asks them to tell a Board member, who
+    // checks the total in TidyHQ before adding anything (it may have landed).
     result = {
       status: "point_not_saved",
       membershipNotice: error.membershipNotice,

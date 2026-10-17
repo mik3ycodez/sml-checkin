@@ -1,3 +1,8 @@
+import { configuredAppOrigin } from "../auth/requestOrigin";
+import {
+  MIN_SESSION_SECRET_LENGTH,
+  sessionSecretProblem,
+} from "../auth/sessionSecret";
 import { tidyhqDomainPrefix } from "./site";
 
 // The live settings check. Every message names a setting and what is wrong
@@ -22,9 +27,6 @@ export interface LiveConfig {
  */
 const PLACEHOLDER = /^(your-|replace-with)|checkin\.example\.org/i;
 
-const MIN_SESSION_SECRET_LENGTH = 32;
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
-
 function required(env: Env, name: string, problems: string[]): string | null {
   const value = env[name];
   if (value === undefined) {
@@ -43,21 +45,35 @@ function required(env: Env, name: string, problems: string[]): string | null {
   return trimmed;
 }
 
-/** `APP_ORIGIN` must be a bare https origin; http only for this machine. */
+/**
+ * `APP_ORIGIN` must be what the app itself accepts in production
+ * (`configuredAppOrigin`: a bare origin, https except for localhost), so the
+ * two can't disagree. Its error text quotes the value, so it is replaced.
+ */
 function checkOrigin(value: string, problems: string[]): void {
-  const url = URL.canParse(value) ? new URL(value) : null;
-  const bare =
-    url !== null &&
-    (url.protocol === "https:" || url.protocol === "http:") &&
-    url.pathname === "/" &&
-    !url.search &&
-    !url.hash &&
-    url.origin === value.replace(/\/$/, "");
-  if (!bare) {
-    problems.push("APP_ORIGIN must be a bare origin (scheme and host only)");
-  } else if (url.protocol === "http:" && !LOCAL_HOSTS.has(url.hostname)) {
-    problems.push("APP_ORIGIN must use https (http is only for localhost)");
+  try {
+    configuredAppOrigin({ APP_ORIGIN: value, NODE_ENV: "production" });
+  } catch {
+    problems.push(
+      "APP_ORIGIN must be a bare https origin (scheme and host only; http is only for localhost)",
+    );
   }
+}
+
+/**
+ * What is wrong with `SESSION_SECRET` (missing, blank, a `.env.example`
+ * placeholder, or shorter than the session code accepts), or null. Never
+ * contains the value. Needed by every production start, live or demo.
+ */
+export function sessionSecretIssue(env: Env): string | null {
+  const problems: string[] = [];
+  required(env, "SESSION_SECRET", problems);
+  if (problems.length === 0 && sessionSecretProblem(env.SESSION_SECRET)) {
+    problems.push(
+      `SESSION_SECRET must be at least ${MIN_SESSION_SECRET_LENGTH} characters`,
+    );
+  }
+  return problems[0] ?? null;
 }
 
 /**
@@ -74,12 +90,8 @@ export function liveConfig(env: Env): LiveConfig {
   const clientId = required(env, "TIDYHQ_CLIENT_ID", problems);
   const clientSecret = required(env, "TIDYHQ_CLIENT_SECRET", problems);
   const adminToken = required(env, "TIDYHQ_ADMIN_TOKEN", problems);
-  const sessionSecret = required(env, "SESSION_SECRET", problems);
-  if (sessionSecret && sessionSecret.length < MIN_SESSION_SECRET_LENGTH) {
-    problems.push(
-      `SESSION_SECRET must be at least ${MIN_SESSION_SECRET_LENGTH} characters`,
-    );
-  }
+  const sessionProblem = sessionSecretIssue(env);
+  if (sessionProblem) problems.push(sessionProblem);
 
   let domainPrefix = "";
   try {

@@ -4,6 +4,22 @@ import { tidyTokenPost } from "./request";
 
 const AUTHORIZE_URL = "https://accounts.tidyhq.com/oauth/authorize";
 
+/**
+ * The error names OAuth 2.0 fixes for a token request (RFC 6749, 5.2). Only
+ * these are ever logged from a reply: a fixed list can't echo what we sent.
+ * `invalid_grant` is also what a redirect URI that differs from the one
+ * registered with TidyHQ gets, so logging it tells that setup error from a
+ * member reusing an old code.
+ */
+const OAUTH_ERRORS = new Set([
+  "invalid_request",
+  "invalid_client",
+  "invalid_grant",
+  "unauthorized_client",
+  "unsupported_grant_type",
+  "invalid_scope",
+]);
+
 export interface HttpTidyOAuthOptions {
   clientId: string;
   /** Held only here and sent only in the token request's body. */
@@ -68,12 +84,17 @@ export class HttpTidyOAuth implements TidyOAuth {
       throw new TidyError(502, "TidyHQ sign-in failed (502): unexpected reply");
     }
 
-    console.warn("tidyhq sign-in failed", { status });
+    const error =
+      typeof body === "object" && body !== null
+        ? (body as { error?: unknown }).error
+        : undefined;
+    const oauthError =
+      typeof error === "string" && OAUTH_ERRORS.has(error) ? error : undefined;
+    console.warn("tidyhq sign-in failed", {
+      status,
+      ...(oauthError && { error: oauthError }),
+    });
     if (status === 400 || status === 401 || status === 403) {
-      const error =
-        typeof body === "object" && body !== null
-          ? (body as { error?: unknown }).error
-          : undefined;
       if (error === "invalid_client") {
         // Ours to fix, not the member's: say where to look.
         console.error(

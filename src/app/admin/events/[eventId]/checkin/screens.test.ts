@@ -97,3 +97,24 @@ describe("VolunteerModeEnded", () => {
     },
   );
 });
+
+describe("when the point couldn't be confirmed", () => {
+  it("says the check-in is saved, and to check the total in TidyHQ before adding anything", () => {
+    const out = html(
+      createElement(StaffVerdictScreen, {
+        ...frame,
+        verdict: { name: "Dante Ruiz", total: 1, canCheckIn: false, text: "x" },
+        notice: { kind: "point_not_saved" },
+        warnings: [],
+        nothingSaved: false,
+        memberId: "c_dante",
+        query: "",
+      }),
+    );
+    expect(out).toContain(
+      "Checked in, but the point couldn&#x27;t be confirmed.",
+    );
+    expect(out).toContain("check their total in TidyHQ before adding anything");
+    expect(out).not.toContain("didn&#x27;t save");
+  });
+});

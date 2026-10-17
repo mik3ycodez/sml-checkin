@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { register } from "./instrumentation";
 
+const GOOD_SECRET = "k3Jv9Qe2mXz0Lw8RtYb5Nc1Hd7Fa4GuS6pIoVxZ";
+
 describe("register (server startup checks)", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_RUNTIME", "nodejs");
     vi.stubEnv("TIDYHQ_MODE", "mock");
     vi.stubEnv("APP_ORIGIN", "");
     vi.stubEnv("DEMO_MODE", "");
+    vi.stubEnv("SESSION_SECRET", GOOD_SECRET);
   });
 
   afterEach(() => {
@@ -26,6 +29,17 @@ describe("register (server startup checks)", () => {
     expect((error as Error).message).toMatch(/TIDYHQ_CLIENT_SECRET/);
   });
 
+  it("validates the live settings once, not once per check", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("TIDYHQ_MODE", "live");
+    vi.stubEnv("APP_ORIGIN", "https://checkin.sml-test.invalid");
+    vi.stubEnv("SESSION_SECRET", "");
+    const error = await register().catch((e: unknown) => e as Error);
+    const text = (error as Error).message;
+    expect(text.match(/TIDYHQ_MODE=live cannot start/g)).toHaveLength(1);
+    expect(text).toContain("SESSION_SECRET");
+  });
+
   it("starts in live mode with a complete configuration", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("TIDYHQ_MODE", "live");
@@ -43,6 +57,19 @@ describe("register (server startup checks)", () => {
     await expect(register()).rejects.toThrow(/DEMO_MODE/);
     vi.stubEnv("DEMO_MODE", "on");
     await expect(register()).resolves.toBeUndefined();
+  });
+
+  it("refuses to start a production demo without a usable SESSION_SECRET", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEMO_MODE", "on");
+    vi.stubEnv("APP_ORIGIN", "https://checkin.sml-test.invalid");
+    vi.stubEnv("SESSION_SECRET", "");
+    await expect(register()).rejects.toThrow(/SESSION_SECRET/);
+    vi.stubEnv(
+      "SESSION_SECRET",
+      "replace-with-output-of-openssl-rand-base64-32",
+    );
+    await expect(register()).rejects.toThrow(/SESSION_SECRET.*placeholder/);
   });
 
   it("refuses to start in production without TIDYHQ_MODE", async () => {

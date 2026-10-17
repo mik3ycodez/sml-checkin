@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
-import { checkStartupConfig, isDemoMode, liveConfig } from "./startupConfig";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { MIN_SESSION_SECRET_LENGTH } from "./auth/sessionSecret";
+import { isDemoMode } from "./demoMode";
+import { liveConfig } from "./tidyhq/liveConfig";
+import { checkStartupConfig } from "./startupConfig";
 
 // Real-looking values, none of them a placeholder. The checks must never print
 // any of them, so each is distinctive enough to grep for.
@@ -99,6 +102,21 @@ describe("liveConfig", () => {
     expect(text).toContain("APP_ORIGIN");
   });
 
+  it("uses the session's own minimum length, so startup can't pass a secret the session rejects", () => {
+    const shortest = "a1".repeat(MIN_SESSION_SECRET_LENGTH / 2);
+    expect(() =>
+      liveConfig({ ...GOOD, SESSION_SECRET: shortest }),
+    ).not.toThrow();
+    expect(
+      message(() =>
+        liveConfig({
+          ...GOOD,
+          SESSION_SECRET: shortest.slice(0, MIN_SESSION_SECRET_LENGTH - 1),
+        }),
+      ),
+    ).toContain(String(MIN_SESSION_SECRET_LENGTH));
+  });
+
   it("holds the session secret to 32 characters", () => {
     expect(
       message(() => liveConfig({ ...GOOD, SESSION_SECRET: "a".repeat(31) })),
@@ -119,6 +137,21 @@ describe("liveConfig", () => {
       expect(
         message(() => liveConfig({ ...GOOD, APP_ORIGIN: value })),
       ).toContain("APP_ORIGIN");
+    });
+
+    it.each([
+      "https://Checkin.SML-Test.invalid",
+      "https://checkin.sml-test.invalid:443",
+      "https://checkin.sml-test.invalid/",
+    ])("accepts what the app itself accepts and normalizes: %s", (value) => {
+      expect(() => liveConfig({ ...GOOD, APP_ORIGIN: value })).not.toThrow();
+    });
+
+    it("never prints the value", () => {
+      const value = "https://checkin.sml-test.invalid/secret-path";
+      expect(
+        message(() => liveConfig({ ...GOOD, APP_ORIGIN: value })),
+      ).not.toContain("secret-path");
     });
 
     it("must be https even outside production", () => {
@@ -175,14 +208,15 @@ describe("liveConfig", () => {
   });
 });
 
+afterEach(() => vi.restoreAllMocks());
+
 describe("checkStartupConfig", () => {
-  it("checks the live settings only in live mode", () => {
+  it("leaves the live settings to the live services, so they are checked once", () => {
+    // Everything but the DEMO_MODE and mock-in-production rules is validated
+    // by `createTidyServices` (see instrumentation.test.ts).
     expect(() =>
-      checkStartupConfig({ TIDYHQ_MODE: "mock", NODE_ENV: "development" }),
+      checkStartupConfig({ ...GOOD, TIDYHQ_CLIENT_SECRET: "" }),
     ).not.toThrow();
-    expect(
-      message(() => checkStartupConfig({ ...GOOD, SESSION_SECRET: "" })),
-    ).toContain("SESSION_SECRET");
     expect(() => checkStartupConfig(GOOD)).not.toThrow();
   });
 
@@ -214,10 +248,44 @@ describe("checkStartupConfig", () => {
       },
     );
 
+    const SECRET = GOOD.SESSION_SECRET;
+
     it("is allowed as a demo with DEMO_MODE=on", () => {
       expect(() =>
-        checkStartupConfig({ ...mock, DEMO_MODE: "on" }),
+        checkStartupConfig({
+          ...mock,
+          DEMO_MODE: "on",
+          SESSION_SECRET: SECRET,
+        }),
       ).not.toThrow();
+    });
+
+    describe("a demo still needs a real SESSION_SECRET, checked at startup", () => {
+      const demo = { ...mock, DEMO_MODE: "on" };
+
+      it.each([
+        ["missing", undefined, /SESSION_SECRET is missing/],
+        ["blank", "  ", /SESSION_SECRET is blank/],
+        ["too short", "a".repeat(31), /at least 32/],
+        [
+          "the .env.example placeholder",
+          exampleValues().SESSION_SECRET,
+          /placeholder/,
+        ],
+      ])("refuses it when %s, without printing it", (_n, value, pattern) => {
+        const text = message(() =>
+          checkStartupConfig({ ...demo, SESSION_SECRET: value }),
+        );
+        expect(text).toMatch(pattern);
+        expect(text).toContain("SESSION_SECRET");
+        if (value?.trim()) expect(text).not.toContain(value);
+      });
+
+      it("is not checked outside production", () => {
+        expect(() =>
+          checkStartupConfig({ TIDYHQ_MODE: "mock", NODE_ENV: "development" }),
+        ).not.toThrow();
+      });
     });
   });
 
@@ -232,16 +300,61 @@ describe("checkStartupConfig", () => {
     );
   });
 
-  it("refuses a DEMO_MODE it doesn't understand", () => {
-    expect(
-      message(() =>
+  it("refuses a DEMO_MODE it doesn't understand, and says what is accepted", () => {
+    for (const value of ["maybe", "true", "ON"]) {
+      const text = message(() =>
         checkStartupConfig({
           TIDYHQ_MODE: "mock",
           NODE_ENV: "development",
-          DEMO_MODE: "maybe",
+          DEMO_MODE: value,
         }),
-      ),
-    ).toContain("DEMO_MODE");
+      );
+      expect(text).toContain("DEMO_MODE");
+      expect(text).toContain('"on", "off" or unset');
+    }
+  });
+
+  it("accepts DEMO_MODE=off, as .env.example says", () => {
+    expect(readFileSync(".env.example", "utf8")).toMatch(
+      /DEMO_MODE[\s\S]*"off"/,
+    );
+    expect(() =>
+      checkStartupConfig({
+        TIDYHQ_MODE: "mock",
+        NODE_ENV: "development",
+        DEMO_MODE: "off",
+      }),
+    ).not.toThrow();
+  });
+
+  describe("ADMIN_GROUP_ID in live mode", () => {
+    it("warns once, without a value, when it is unset: nobody could use the admin pages", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      expect(() => checkStartupConfig(GOOD)).not.toThrow();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toContain("ADMIN_GROUP_ID");
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(
+        GOOD.TIDYHQ_ADMIN_TOKEN,
+      );
+    });
+
+    it("also warns when it is blank", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      checkStartupConfig({ ...GOOD, ADMIN_GROUP_ID: "  " });
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it("says nothing when it is set, and never blocks startup", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      checkStartupConfig({ ...GOOD, ADMIN_GROUP_ID: "12345" });
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("says nothing in mock mode", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      checkStartupConfig({ TIDYHQ_MODE: "mock", NODE_ENV: "development" });
+      expect(warn).not.toHaveBeenCalled();
+    });
   });
 
   it("refuses demo mode with live data: a Demo data banner on real members would lie", () => {

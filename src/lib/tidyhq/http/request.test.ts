@@ -899,6 +899,36 @@ describe("tidyRequest: overall time budget", () => {
     expect(f.calls.length).toBeLessThan(5);
   });
 
+  describe("writes", () => {
+    const write = (f: typeof fetch) =>
+      tidyRequest({
+        ...base(f),
+        version: "v2",
+        method: "PATCH",
+        path: "/contacts/1",
+        body: { custom_fields: {} },
+        expect: "record",
+      });
+
+    it("are never started with less than a full attempt left", async () => {
+      const f = fakeFetch(json({ id: "1" }));
+      const error = await withBudget(REQUEST_TIMEOUT_MS - 1, () =>
+        catchError(write(f.fetch)),
+      );
+      expect(isTidyError(error, 504)).toBe(true);
+      expect(f.calls).toHaveLength(0);
+    });
+
+    it("never have their timeout shortened", async () => {
+      const timeout = vi.spyOn(AbortSignal, "timeout");
+      const f = fakeFetch(json({ id: "1" }));
+      await withBudget(REQUEST_TIMEOUT_MS, () => write(f.fetch));
+      await withBudget(24_000, () => write(f.fetch));
+      expect(timeout).toHaveBeenNthCalledWith(1, REQUEST_TIMEOUT_MS);
+      expect(timeout).toHaveBeenNthCalledWith(2, REQUEST_TIMEOUT_MS);
+    });
+  });
+
   it("changes nothing without a budget", async () => {
     const f = fakeFetch(json({ id: "1" }));
     await read(f.fetch);
