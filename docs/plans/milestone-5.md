@@ -1,6 +1,6 @@
 # Milestone 5: Live-ready prep
 
-**Status:** Approved. PR 1 in review.
+**Status:** Approved. PR 1 merged (#34); PR 2 in review (#35).
 
 ## Context
 
@@ -203,7 +203,7 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
 
 ## Pull requests (in order)
 
-### PR 1 🔍 In review (#34): Docs: the app edits nothing beyond check-in
+### PR 1 ✅ Done (#34): Docs: the app edits nothing beyond check-in
 
 - CLAUDE.md: remove "points adjustments" from the admin side and from the
   points rule ("(later) admin adjustments" becomes corrections made in
@@ -216,7 +216,7 @@ set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
 - `docs/plans/milestone-5.md` itself, with review decisions applied.
 - No code.
 
-### PR 2: TidyHQ request layer (test-first)
+### PR 2 🔍 In review (#35): TidyHQ request layer (test-first)
 
 - `src/lib/tidyhq/http/request.ts`: `tidyRequest` and `tidyRequestAll`
   (paging), following the rules above: Bearer header, fixed hosts, 8 s
