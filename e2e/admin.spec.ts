@@ -48,7 +48,8 @@ test("an admin sees the upcoming events, each linking to its admin page", async 
   await expect(
     page.getByRole("link", { name: "Social Night" }),
   ).toHaveAttribute("href", "/admin/events/ev_tonight");
-  await expect(page.getByText("No attendance group")).toHaveCount(0);
+  // Only the seed's Pop-up Meetup has no group (see noGroupEvent.spec.ts).
+  await expect(page.getByText("No attendance group")).toHaveCount(1);
 });
 
 test("a member never sees the event list, even by asking for it directly", async ({

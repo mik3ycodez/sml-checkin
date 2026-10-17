@@ -48,6 +48,7 @@ describe("MockTidyClient", () => {
         "c_morgan",
         "c_casey",
         "c_pat",
+        "c_kai",
       ]);
     });
 
@@ -115,8 +116,12 @@ describe("MockTidyClient", () => {
       expect(new Date(event.end_at!) > NOW).toBe(true);
     });
 
-    it("maps every seed event to an existing group", async () => {
+    it("maps every seed event but the no-group one to an existing group", async () => {
       for (const event of await client.listEvents()) {
+        if (event.id === "ev_no_group") {
+          expect(findEventGroup(event)).toBeNull();
+          continue;
+        }
         const groupId = findEventGroup(event);
         expect(groupId, event.id).not.toBeNull();
         await expect(client.listGroupContacts(groupId!)).resolves.toBeDefined();

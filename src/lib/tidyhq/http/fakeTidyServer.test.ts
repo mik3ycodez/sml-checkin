@@ -284,6 +284,7 @@ describe("fake TidyHQ server", () => {
         "ev_leather_brunch",
         "ev_bar_night",
         "ev_bootblack_social",
+        "ev_no_group",
         "ev_tonight",
         "ev_pub_night",
       ]);
