@@ -40,9 +40,11 @@ system of record; this app is a thin layer on top of it.
   balances migrated from WildApricot and any corrections made in TidyHQ, so
   attendance is never used to recalculate or verify points.
 - **The app edits nothing in TidyHQ beyond a check-in.** It writes exactly
-  three things, all during a check-in: the member's place in the event's
-  group, `POINTS_PER_CHECKIN` added to the stored total, and the staff note
-  (staff check-ins only). Points corrections and every other change to member
+  four things, all during a new check-in, in this order: the member's place
+  in the event's group, `POINTS_PER_CHECKIN` added to the stored total, the
+  member's place in the "App Color Eligible" group (`COLORS_GROUP_ID`,
+  only when they reach 18+ points; milestone 5, PR 7), and the staff note (staff
+  check-ins only, always last). Points corrections and every other change to member
   data happen in TidyHQ, by people SML appoints. Admin points adjustments are
   dropped, not deferred: TidyHQ already has the permissions, history and audit
   a correction needs.
