@@ -128,7 +128,10 @@ system of record; this app is a thin layer on top of it.
 - **Archived events refuse check-in.** `assessCheckIn` returns
   `event_unavailable` ("This event isn't open for check-in") for an archived
   event even if its window is open, so a QR code printed earlier stops working.
-  A member already in its group still sees their check-in.
+  A member already in its group still sees their check-in. An event with no
+  attendance group is refused the same way (`event_unavailable`; there is no
+  group to read, so nothing is checked first). Only an event TidyHQ doesn't
+  have (`findEvent` returns null on a 404) says "We couldn't find that event".
 - **Event QR codes** point to `APP_ORIGIN/checkin/<eventId>`, drawn as SVG on
   the server. An archived event, one with no attendance group, or one whose
   check-in can never open (no usable window or event times) gets the reason

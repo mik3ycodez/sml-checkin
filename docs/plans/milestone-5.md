@@ -1,8 +1,8 @@
 # Milestone 5: Live-ready prep
 
-**Status:** Complete (0.5.0): PRs 1 to 9 done (PR 9 in review as #42). The
-go-live checklist below stays open until live TidyHQ access. Follow-up: the
-0.5.1 patch below.
+**Status:** Complete (0.5.0): PRs 1 to 9 merged. The
+go-live checklist below stays open until live TidyHQ access. The
+0.5.1 patch below is done (in review).
 Re-planned after PR 4: colors eligibility moves into TidyHQ, the colors
 report is removed, and the inconsistent memberships report is dropped.
 
@@ -574,7 +574,7 @@ before PR 7, so the report is gone before the group replaces it (nothing is
 live, so the gap costs nothing). PR 8 after PR 7, so its time budget covers
 the colors read and add. PR 9 is last because it carries the version bump.
 
-## Follow-up: 0.5.1 patch (after PR 9 merges)
+## Follow-up: 0.5.1 patch (done; in review)
 
 - The member check-in page says "We couldn't find that event" for an event
   that exists but has no attendance group, because `findEvent`

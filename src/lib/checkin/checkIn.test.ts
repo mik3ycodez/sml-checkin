@@ -499,7 +499,7 @@ describe("checkIn", () => {
     expect(result).toEqual({ status: "unknown_event" });
   });
 
-  it("treats an event with no attendance group as unknown", async () => {
+  it("refuses an event with no attendance group as unavailable, not unknown", async () => {
     const client = seededClient((seed) => {
       const tonight = seed.events.find((e) => e.id === "ev_tonight")!;
       seed.events.push({
@@ -508,12 +508,32 @@ describe("checkIn", () => {
         attendance_group_id: null,
       });
     });
-    const result = await checkIn(client, {
+    const input = {
       eventId: "ev_unmapped",
       contactId: "c_dante",
       now: NOW,
+    };
+    expect(await assessCheckIn(client, input)).toMatchObject({
+      status: "event_unavailable",
+      name: "Dante Ruiz",
     });
-    expect(result).toEqual({ status: "unknown_event" });
+    expect(await checkIn(client, input)).toMatchObject({
+      status: "event_unavailable",
+    });
+  });
+
+  it("still says unknown_contact for a missing member at a no-group event", async () => {
+    const client = seededClient((seed) => {
+      seed.events.find((e) => e.id === "ev_tonight")!.attendance_group_id =
+        null;
+    });
+    expect(
+      await assessCheckIn(client, {
+        eventId: "ev_tonight",
+        contactId: "c_nobody",
+        now: NOW,
+      }),
+    ).toEqual({ status: "unknown_contact" });
   });
 
   describe("an archived event", () => {
@@ -1219,6 +1239,67 @@ describe("a staff check-in whose points write fails", () => {
 });
 
 describe("assessCheckInFor", () => {
+  describe("with no attendance group", () => {
+    const refusal = {
+      status: "event_unavailable",
+      name: "Dante Ruiz",
+      eventName: "Social Night",
+      total: 0,
+    };
+
+    it("refuses as unavailable, reading only the member", async () => {
+      const client = seededClient();
+      const event = await client.getEvent("ev_tonight");
+      const getContact = vi.spyOn(client, "getContact");
+      const listGroup = vi.spyOn(client, "listGroupContacts");
+      const getMemberships = vi.spyOn(client, "getMemberships");
+      const result = await assessCheckInFor(client, {
+        contactId: "c_dante",
+        now: NOW,
+        event,
+        groupId: null,
+        window: null,
+      });
+      expect(result).toEqual(refusal);
+      expect(getContact).toHaveBeenCalledTimes(1);
+      expect(listGroup).not.toHaveBeenCalled();
+      expect(getMemberships).not.toHaveBeenCalled();
+    });
+
+    it("gives the same refusal for an archived event, then or not", async () => {
+      const client = seededClient();
+      const event = {
+        ...(await client.getEvent("ev_tonight")),
+        archived: true,
+      };
+      for (const groupId of [null, "grp_social_night"]) {
+        expect(
+          await assessCheckInFor(client, {
+            contactId: "c_dante",
+            now: NOW,
+            event,
+            groupId,
+            window: null,
+          }),
+        ).toEqual(refusal);
+      }
+    });
+
+    it("says unknown_contact for a member who is gone", async () => {
+      const client = seededClient();
+      const event = await client.getEvent("ev_tonight");
+      expect(
+        await assessCheckInFor(client, {
+          contactId: "c_nobody",
+          now: NOW,
+          event,
+          groupId: null,
+          window: null,
+        }),
+      ).toEqual({ status: "unknown_contact" });
+    });
+  });
+
   it("assesses with the event and window already read, without reading them again", async () => {
     const client = seededClient();
     const event = await client.getEvent("ev_tonight");
