@@ -50,9 +50,8 @@ export interface ContractDifferences {
   /**
    * A colors-issued field missing from a contact: the mock reads it as not
    * issued; the live client marks it, so `readRewardIssued` says unreadable
-   * and check-in never adds the member to the colors group, until the
-   * checklist confirms how TidyHQ sends unanswered fields
-   * (LIVE-UNKNOWN(missing-issued-field)).
+   * and the display says nothing about colors, until the checklist confirms
+   * how TidyHQ sends unanswered fields (LIVE-UNKNOWN(missing-issued-field)).
    */
   missingIssuedUnreadable: boolean;
   /**

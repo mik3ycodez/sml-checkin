@@ -2,9 +2,11 @@
 
 **Status:** Complete (0.5.0): PRs 1 to 9 merged. The
 go-live checklist below stays open until live TidyHQ access. The
-0.5.1 patch below is done (in review).
-Re-planned after PR 4: colors eligibility moves into TidyHQ, the colors
-report is removed, and the inconsistent memberships report is dropped.
+0.5.1 patch is merged; the 0.5.2 patch (removing the colors group write) is
+done below (in review).
+Re-planned after PR 4: the colors report is removed and the inconsistent
+memberships report is dropped. The colors group write that PR 5 and PR 7
+added was removed again in 0.5.2 (see "The app writes no reward group").
 
 ## Context
 
@@ -13,7 +15,7 @@ plan is at its app-integration limit until an upgrade early next year, so we
 still can't call the real API. This milestone gets everything ready for that
 day: a real `HttpTidyClient` and live sign-in, built and tested against the
 published API with no real network; startup config that fails closed; and
-moving the club colors list out of the app and into a TidyHQ group.
+moving the club colors list out of the app and into TidyHQ.
 
 When this milestone is done, going live should be: register the app in
 TidyHQ, set the env settings, verify the go-live checklist against live data,
@@ -27,14 +29,15 @@ to group link, the custom field format, the check-in window source, the
 
 ### The app never edits TidyHQ records beyond check-in
 
-Decided before this plan. The app writes exactly four things, all during a
+Decided before this plan. The app writes exactly three things, all during a
 new check-in, in this order:
 
 1. adds the member to the event's attendance group,
 2. adds `POINTS_PER_CHECKIN` to the stored points total,
-3. adds the member to the "App Color Eligible" group, when they qualify
-   (see below; decided in PR 5, built in PR 7),
-4. writes the staff note (staff check-ins only), always last.
+3. writes the staff note (staff check-ins only), always last.
+
+(This was four writes from PR 5 to 0.5.1, with a reward group add between
+points and note. It was removed in 0.5.2; see below.)
 
 Points corrections and every other change to member data happen in TidyHQ,
 by people SML appoints. **Admin points adjustments are dropped, not
@@ -45,53 +48,43 @@ design, for something the Board can already do.
 
 PR 1 records this in CLAUDE.md and the milestone 4 plan.
 
-### Colors eligibility lives in TidyHQ (decided after PR 4)
+### The app writes no reward group (decided after 0.5.1; removed in 0.5.2)
 
-The app reports nothing org-wide. The Board's list of who is owed club
-colors is a TidyHQ contact group, "App Color Eligible" (id `222071`, in
-`COLORS_GROUP_ID`), which check-in keeps filled. The app only records that a
-member reached 18+ points through check-in; it never decides who receives
-colors.
+**Decision.** The app never writes a reward group. PR 5 and PR 7 had check-in
+add members who reached the club colors points to a TidyHQ contact group
+(`addToColorsGroup`, `COLORS_GROUP_ID`), as the Board's to-do list. The SML
+Board then decided that a TidyHQ smart group already tracks members reaching
+reward levels, and is deleting the group the app wrote.
 
-- **The rule (self-healing).** On a **new** check-in (never on "already
-  checked in"), after a successful points write, add the member to the
-  colors group if all of these hold:
-  1. the new total is at least the club colors reward's threshold
-     (`REWARDS` in `points.ts`, 18; looked up by id, never the lowest across
-     rewards), decided by `rewardStatus` like `/me` and the confirmation,
-  2. `readRewardIssued` (from the contact read before the writes) is
-     readable and not issued. In live mode a **missing** issued field is
-     unreadable (`LIVE-UNKNOWN(missing-issued-field)`, go-live item 2a), as
-     for points, so a token that can't see the field never fills the group,
-  3. they aren't already in the group (`isInGroup` on the colors group,
-     which stays small: it holds only people still owed colors).
+**Why.** A second list that check-in fills duplicates what TidyHQ computes
+itself, and the app's copy could only be less right: it recorded who reached
+18+ _through check-in_, so it missed points that arrived any other way
+(migrated balances, corrections made in TidyHQ), and it needed the Board to
+remember to empty it. It also cost a TidyHQ read and write on the door path
+for members at 18+. The smart group has none of those gaps, and it keeps the
+rule "the app edits nothing in TidyHQ beyond a check-in" at its smallest.
 
-  It runs on every qualifying check-in, not only the one that crosses 18,
-  so a member missed once (a failed add, the group set up after they
-  passed 18) is added at their next check-in.
+**What stays.** Rewards are display only: `/me` and the check-in confirmation
+still show progress and "You qualify" (`rewardStatus`), the app still reads
+the colors-issued field (`readRewardIssued`), and the staff note is still the
+last write. In live mode a **missing** issued field is still unreadable
+(`LIVE-UNKNOWN(missing-issued-field)`, go-live item 2a), but it now protects
+only the display: a token that can't see the field would otherwise tell every
+18+ member "You qualify", those already issued included.
 
-- **Skips, logged with the contact id and a reason (plus the TidyHQ status
-  or error name for a failure, never a token or note text):** the points
-  write failed (only when the add would otherwise have happened), the issued
-  field is unreadable, or `COLORS_GROUP_ID` is unset or invalid in live
-  mode. Mock mode falls back to a seed group, like `ADMIN_GROUP_ID`
-  and `HELPER_GROUP_ID` (`groupFromSetting`).
-- **Never fails a check-in.** A failed "already in the group" read skips
-  the add; a failed add is not retried. Both are logged and swallowed, like
-  the staff note: the member is checked in and has their point, and it
-  never touches points.
-- **Same for self and staff check-ins.** The staff note stays the last
-  write, after the colors add.
-- **Membership standing is not part of the rule** (decided in review).
-  Check-in only succeeds for current, grace and balance-due members, so
-  those are who get added. Colors still need a current, fully paid
-  membership: the Board checks good standing, balances and current
-  membership in TidyHQ before handing them out. `/me` keeps telling the
-  member to renew or pay first.
-- **The Board's process:** hand over the colors, mark the colors-issued
-  field in TidyHQ, then remove the member from the group. Issued is the
-  record that they received them; the group is the to-do list. Removing
-  someone without marking issued means their next check-in adds them back.
+**What went.** `addToColorsGroup`, its "already in the group" read,
+`COLORS_GROUP_ID` (config, startup docs, `.env.example`), the mock seed
+group, `colorsGroup.ts` and its tests, `rewardStatusAfter` (only the add used
+it), and the time-budget allowance for the colors steps (`NOTE_RESERVE_MS`
+and `withReserve`: with nothing between the points write and the note, the
+note needs no time held back). Go-live items 12h, 12i and 16a, the group-id
+table row and the 1.1 note about dropping the read went with them.
+
+**Guard.** `groupWrites.test.ts` fails if any app code outside the TidyHQ
+clients calls `addContactToGroup` other than the one in `checkIn.ts`, and
+checks that a check-in by a member reaching 18 writes only the event group,
+the points and (staff) the note, in that order.
+
 - **The colors owed report is removed** (`/admin/reports/colors`, the admin
   home "Reports" link, `getColorsOwed`), and with it `listAllContacts`
   (nothing else uses it). `/me` and the check-in confirmation are
@@ -223,8 +216,6 @@ missing setting, never a value. Live mode also refuses to start with `E2E`
 set. `APP_ORIGIN` and `SESSION_SECRET` keep their current rules.
 `ADMIN_GROUP_ID` and `HELPER_GROUP_ID` stay optional, as decided in milestone
 4: a missing admin setting must not take down member check-in.
-`COLORS_GROUP_ID` is optional for the same reason: unset, check-in works
-and skips the colors add (logged each time).
 
 `NODE_ENV=production` with `TIDYHQ_MODE=mock` also refuses to start, unless
 `DEMO_MODE=on` (decision 4).
@@ -405,9 +396,10 @@ and skips the colors add (logged each time).
 - This plan: the colors decision above, the report removal, the dropped
   memberships report, the PRs re-split, and the go-live items.
 - CLAUDE.md: the write rule becomes four writes (event group add, +1 point,
-  colors-eligible group add, staff note). The rest of CLAUDE.md (the colors
-  report section, `GET /v2/contacts` for `listAllContacts`) changes with the
-  code in PRs 6 and 7, so it never describes behavior that isn't there.
+  colors group add, staff note); back to three in 0.5.2. The rest of
+  CLAUDE.md (the colors report section, `GET /v2/contacts` for
+  `listAllContacts`) changes with the code in PRs 6 and 7, so it never
+  describes behavior that isn't there.
 - No code.
 
 ### PR 6 ✅ Done (#39): Remove the colors owed report
@@ -427,30 +419,14 @@ and skips the colors add (logged each time).
   (`listAllContacts`) endpoint line.
 - No new behavior, so no new tests; the full e2e suite still passes.
 
-### PR 7 ✅ Done (#40): Colors-eligible group add at check-in (test-first)
+### PR 7 ✅ Done (#40), removed in 0.5.2: Colors group add at check-in (test-first)
 
-- `COLORS_GROUP_ID` setting via `groupFromSetting`, with a mock "Eligible
-  for Colors" seed group (`MOCK_COLORS_GROUP_ID`) as the mock-mode
-  fallback.
-- In `checkIn`, after a successful points write and before the staff note,
-  the rule in the decision above. The "already in the group" read uses
-  `isInGroup`; both it and the add are logged and swallowed on failure.
-- Unit tests in `colorsGroup.test.ts` (new, beside `checkIn.test.ts`): added at 18 (crossing) and above 18
-  (self-healing); not added under 18, when issued, when issued is
-  unreadable, when already in the group, when the points write failed, or
-  when the setting is unset in live mode; an "already checked in" tap
-  touches nothing; a failed read or add still returns `checked_in` with the
-  point; self and staff alike; the staff note is still written last (call
-  order checked). Logs carry the contact id, the reason and, for a failure,
-  the status or error name.
-- No new `TidyClient` behavior (it reuses `addContactToGroup` and
-  `listGroupContacts`), so no contract changes. No e2e: nothing in the UI
-  shows the group.
-- CLAUDE.md: the colors rule and the Board's process, next to Rewards,
-  including that the add is not gated by membership standing: the app only
-  records that a member reached 18+ through check-in, and the Board checks
-  good standing, balances and current membership in TidyHQ before handing
-  out colors.
+Built a check-in step that added members at 18+ (not issued) to a TidyHQ
+group (`addToColorsGroup`, `COLORS_GROUP_ID`, a mock seed group, and
+`colorsGroup.test.ts`), logged and swallowed on failure, with the staff note
+still last. Removed in 0.5.2 once the Board's TidyHQ smart group made it
+redundant; see "The app writes no reward group" above for the reason and
+what went with it.
 
 ### PR 8 🔍 In review (#41): Live sign-in and startup config
 
@@ -475,23 +451,19 @@ and skips the colors add (logged each time).
   "Demo data" banner in the root layout, so it shows on every page. Tests for
   both. Outside production, mock mode without `DEMO_MODE` shows no banner.
 - `maxDuration = 30` on the check-in routes, plus **an overall
-  time budget per operation** (check-in, including the colors group read and
-  add) so the total can never
+  time budget per operation** (check-in) so the total can never
   exceed the route limit: one deadline for the whole operation, shared by
   every TidyHQ call and page in it, which also shortens or skips the retry
   when little time is left. Past the budget the operation fails with the
   same "temporarily unavailable" a TidyHQ outage shows. PR 2's per-request
   8 s timeout (plus one retry, plus paging) can otherwise add up to more than
-  30 s. Past the budget after the points write, the colors add is skipped
+  30 s. Past the budget after the points write, the staff note is skipped
   and logged rather than failing a check-in that worked. Test: a fake
   TidyHQ that answers slowly makes check-in fail cleanly with "temporarily
   unavailable" before the limit (fake timers, no real waiting).
 - `.env.example`: every setting documented with placeholders only, including
   which are secrets, which are live-only, and that the placeholders are
-  rejected in live mode. `COLORS_GROUP_ID` documented like
-  `HELPER_GROUP_ID`: the "App Color Eligible" group, optional, blank for
-  development (mock falls back to the seed group), and unset in live mode
-  means check-in skips the colors add.
+  rejected in live mode.
 - No e2e of live mode: Playwright runs mock mode only (there is no TidyHQ to
   run against).
 
@@ -519,23 +491,21 @@ As built (decisions the plan left open):
   its page's limit, and `"use server"` files can't export it. A test reads
   both files and checks the budget fits.
 - **After the points write, out of time never fails the check-in.** The
-  colors add (read and add) is skipped and logged as `budget_exhausted`,
-  checked before the read and again before the add. **The staff note**: a
-  staff check-in holds back `NOTE_RESERVE_MS` (8 s, a full request) for it, so the colors
-  steps run to that point and no later. The note is the only record of who
-  checked a member in, and nothing recovers it, while the colors add heals at
-  the next check-in. If the budget is spent anyway, the note is **skipped and
-  logged** (`staff check-in note skipped`, ids and reason, never the text):
-  that check-in then looks like a self check-in in TidyHQ. Accepted: it needs
-  a TidyHQ stall long enough to eat the whole budget after the point was
-  written. A missed colors add or note never double-awards: the member is in
-  the group, so a retry says "already checked in".
+  staff note is the only record of who checked a member in, and nothing
+  recovers it, so a write that has no time left is **skipped and logged**
+  (`staff check-in note skipped`, ids and reason, never the text): that
+  check-in then looks like a self check-in in TidyHQ. Accepted: it needs a
+  TidyHQ stall long enough to eat the whole budget after the point was
+  written. A missed note never double-awards: the member is in the group, so
+  a retry says "already checked in". (PR 8 also held back `NOTE_RESERVE_MS`
+  for the note so the colors steps couldn't use it up; removed in 0.5.2 with
+  those steps.)
 - **Startup** (`checkStartupConfig`, from `instrumentation.ts`): live mode
   needs `APP_ORIGIN` (https; http only for localhost, in any environment),
   `TIDYHQ_CLIENT_ID`, `TIDYHQ_CLIENT_SECRET`, `TIDYHQ_ADMIN_TOKEN` and
   `SESSION_SECRET` (32+ characters), none missing, blank or a `.env.example`
   placeholder. It lists every bad setting at once and never prints a value.
-  `ADMIN_GROUP_ID`, `HELPER_GROUP_ID` and `COLORS_GROUP_ID` stay optional, as
+  `ADMIN_GROUP_ID` and `HELPER_GROUP_ID` stay optional, as
   CLAUDE.md already said of the admin group (live mode warns at startup if
   `ADMIN_GROUP_ID` is unset). The live settings are validated once, by
   `createTidyServices`. A test parses `.env.example` so a
@@ -571,8 +541,7 @@ start`), which refuses mock data, so `playwright.config.ts` sets
 **Dependencies:** PR 1 first (it's the decision). PRs 2→3→4 built the
 client in order. PR 5 records the colors decision before any code. PR 6
 before PR 7, so the report is gone before the group replaces it (nothing is
-live, so the gap costs nothing). PR 8 after PR 7, so its time budget covers
-the colors read and add. PR 9 is last because it carries the version bump.
+live, so the gap costs nothing). PR 9 carries the 0.5.0 version bump.
 
 ## Follow-up: 0.5.1 patch (done; in review)
 
@@ -583,6 +552,17 @@ the colors read and add. PR 9 is last because it carries the version bump.
   events, and only a real 404 says "couldn't find". Changes check-in
   behavior, so it is its own PR. It updates the member-page assertion in
   `e2e/noGroupEvent.spec.ts`. Bumps `package.json` to 0.5.1.
+
+## Follow-up: 0.5.2 patch (done; in review)
+
+- Remove the colors group write (decision above): `addToColorsGroup` and its
+  read, `COLORS_GROUP_ID`, the mock seed group, `colorsGroup.ts` and its
+  tests, `rewardStatusAfter`, `NOTE_RESERVE_MS` and `withReserve`. Display
+  of rewards, `readRewardIssued` and the staff note as the last write stay.
+- Tests: `colorsGroup.test.ts` deleted; `groupWrites.test.ts` added; the
+  budget, check-in and live check-in tests lose their colors parts (each is
+  named in the PR description). CLAUDE.md goes back to three writes.
+- Bumps `package.json` and the lockfile to 0.5.2.
 
 ## Deferred
 
@@ -597,8 +577,9 @@ the colors read and add. PR 9 is last because it carries the version bump.
 - **Inconsistent memberships report** (was PR 7, with `listAllMemberships`
   and `GET /v2/memberships`). The app reports nothing org-wide; the
   inconsistent-membership warnings in the admin staff check-in view stay.
-- **Colors owed report** (milestone 4): removed in PR 6, replaced by the
-  "App Color Eligible" group in TidyHQ.
+- **Colors owed report** (milestone 4): removed in PR 6. The Board's list of
+  who is owed colors is a smart group in TidyHQ, not something the app
+  writes.
 
 ## Future enhancements
 
@@ -619,12 +600,6 @@ the colors read and add. PR 9 is last because it carries the version bump.
   - **Slim CLAUDE.md** to current rules only, moving decision history into the
     plan docs.
   - **Shrink the mock** to what local development and e2e need.
-  - **Drop the colors group "already in group" read** once go-live item 16a
-    confirms re-adding someone is harmless. Today every check-in by a member
-    at 18+ who isn't issued pages through the whole colors group (the group
-    stays small, but it is a TidyHQ round trip) and then adds, two serial
-    calls on the door path. PR 8's `maxDuration` budget counts them: up to two
-    more requests, each 8 s with one retry for the read.
 
 ## Go-live checklist (live TidyHQ)
 
@@ -634,14 +609,13 @@ this runs on go-live day. It is ordered to keep that day safe: **Part A**
 only reads, **Part B** makes one write, and members don't use the app until
 both pass.
 
-**SML's group ids** (ids, not secrets; `.env.example` keeps them blank). All
-three groups exist in TidyHQ.
+**SML's group ids** (ids, not secrets; `.env.example` keeps them blank). Both
+groups exist in TidyHQ.
 
 | Setting           | Group                   | Id       |
 | ----------------- | ----------------------- | -------- |
 | `ADMIN_GROUP_ID`  | App Admin               | `221914` |
 | `HELPER_GROUP_ID` | App Check-In Volunteers | `221990` |
-| `COLORS_GROUP_ID` | App Color Eligible      | `222071` |
 
 ### Part A: read-only checks
 
@@ -658,10 +632,10 @@ three groups exist in TidyHQ.
    2a. **Missing versus blank for the colors-issued field**
    (`LIVE-UNKNOWN(missing-issued-field)`). Same question as item 2 for
    `cf_sml_colors_issued`. Live mode treats a missing key as unreadable:
-   check-in never adds the member to the colors group and `/me` says nothing
-   about colors. If TidyHQ omits the key for members not yet issued, that
-   rule would stop the group filling for everyone; remove it from
-   `parseV2Contact`.
+   `/me` and the check-in confirmation say nothing about colors (display
+   only; the app writes nothing about rewards). If TidyHQ omits the key for
+   members not yet issued, that rule would hide the reward message from
+   everyone; remove it from `parseV2Contact`.
 3. **Event to group link** (`eventGroups.ts`, `LIVE-UNKNOWN(event-group-link)`). Decide how
    SML links an event to its attendance group. Proving that a contact the
    app adds stays in the group for a day after the event needs a write, so
@@ -726,17 +700,6 @@ Added by PR 3 (numbered 12a to 12g so earlier references hold):
   them (policy above), so the Board should know who they are and fix the
   records in TidyHQ if they are mistakes.
 
-Added by PR 5 (the colors group):
-
-- 12h. **The App Color Eligible group.** ✅ Created in TidyHQ by the Board
-  (the app never creates groups), id `222071`. Still open: set
-  `COLORS_GROUP_ID=222071`, and confirm the admin token can read the group
-  and add to it.
-- 12i. **Seed it once.** Members already at 18+ and not issued are added
-  only at their next check-in. If the Board wants them listed sooner, add
-  them by hand in TidyHQ (members with no upcoming check-in otherwise stay
-  off the list).
-
 ### Part B: one test check-in
 
 On a Board member's own contact, at an unpublished test event in TidyHQ:
@@ -752,15 +715,9 @@ On a Board member's own contact, at an unpublished test event in TidyHQ:
 16. **What the v1 group `PUT` returns** (`LIVE-UNKNOWN(group-put-response)`; the response status and body for a
     new member and for one already in the group). PR 4 tightens
     `expect: "none"` to match.
-    16a. **Adding a member already in the colors group is harmless:** the same
-    `PUT` for someone already listed returns 2xx and changes nothing (no
-    duplicate, no error). The app checks membership first, but a race
-    between two check-ins can still send it. Same request as item 16, so
-    check both on the test contact.
 17. Real-world latency: a full check-in from a phone at the venue finishes
     well inside the 8 s per request timeout. Adjust `REQUEST_TIMEOUT_MS` if
-    not. Include a member at 18+ points who isn't issued: their check-in
-    also reads the colors group and adds to it.
+    not.
 18. `grep -rn LIVE-UNKNOWN src` comes back empty.
 
 Then remove the test event and undo the test contact's point by hand in

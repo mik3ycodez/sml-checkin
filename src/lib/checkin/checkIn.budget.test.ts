@@ -7,18 +7,17 @@ import {
   CHECKIN_BUDGET_MS,
   CRITICAL_WRITES_MS,
   MIN_ATTEMPT_MS,
-  NOTE_RESERVE_MS,
+  REQUEST_TIMEOUT_MS,
 } from "../tidyhq/budget";
 import type { TidyClient } from "../tidyhq/client";
 import { POINTS_FIELD_ID, readPoints } from "../tidyhq/customFields";
 import { createFakeTidyServer } from "../tidyhq/http/fakeTidyServer";
 import { HttpTidyClient } from "../tidyhq/http/HttpTidyClient";
 import { MockTidyClient } from "../tidyhq/mock/MockTidyClient";
-import { createSeed, MOCK_COLORS_GROUP_ID } from "../tidyhq/mock/seed";
+import { createSeed } from "../tidyhq/mock/seed";
 import { CheckInFailure, checkIn } from "./checkIn";
 
 const NOW = new Date("2026-10-12T18:00:00Z");
-const COLORS = { id: MOCK_COLORS_GROUP_ID };
 const STAFF = {
   contactId: "c_casey",
   name: "Casey Moreno",
@@ -28,7 +27,6 @@ const SELF = {
   eventId: "ev_tonight",
   contactId: "c_dante",
   now: NOW,
-  colorsGroup: COLORS,
 } as const;
 const AS_STAFF = { ...SELF, method: "staff", staff: STAFF } as const;
 
@@ -50,7 +48,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** Dante, one point short of the club colors, so the next point qualifies. */
+/** Dante, at 17 points. */
 function danteAt17() {
   const seed = createSeed(NOW);
   seed.contacts.find((c) => c.id === "c_dante")!.custom_fields[
@@ -90,11 +88,6 @@ function timed(client: MockTidyClient, takes: Takes) {
   }) as TidyClient;
   return { client: proxy, calls };
 }
-
-const touchedColors = (calls: string[]) =>
-  calls.filter((c) => c.endsWith(`:${MOCK_COLORS_GROUP_ID}`));
-const skippedColors = () =>
-  errors.filter((e) => e.includes("colors group not updated"));
 
 describe("the two critical writes (group add and points)", () => {
   // Each is given its full timeout or not started, so a write that reaches
@@ -143,60 +136,19 @@ describe("the two critical writes (group add and points)", () => {
   });
 });
 
-describe("colors add when the budget runs out after the points write", () => {
-  it("is skipped and logged, and the check-in still counts (self)", async () => {
-    const mock = danteAt17();
-    const { client, calls } = timed(mock, {
-      updateContact: CHECKIN_BUDGET_MS - MIN_ATTEMPT_MS + 1,
-    });
-
-    const result = await checkIn(client, SELF);
-
-    expect(result).toMatchObject({ status: "checked_in", total: 18 });
-    expect(touchedColors(calls)).toEqual([]);
-    expect(skippedColors()).toHaveLength(1);
-    expect(skippedColors()[0]).toContain("c_dante");
-    expect(skippedColors()[0]).toContain("budget_exhausted");
-    // Self-healing: not in the group now, and nothing else was changed.
-    expect(
-      (await mock.listGroupContacts(MOCK_COLORS_GROUP_ID)).map((c) => c.id),
-    ).toEqual([]);
-  });
-
-  it("may miss the add but can never double-award: the next tap awards nothing", async () => {
+describe("when the budget runs out after the points write", () => {
+  it("the check-in still counts, and the next tap awards nothing", async () => {
     const mock = danteAt17();
     const slow = timed(mock, {
       updateContact: CHECKIN_BUDGET_MS - MIN_ATTEMPT_MS + 1,
     });
-    await checkIn(slow.client, SELF);
+
+    const result = await checkIn(slow.client, SELF);
+    expect(result).toMatchObject({ status: "checked_in", total: 18 });
 
     const again = await checkIn(mock, SELF);
     expect(again).toMatchObject({ status: "already_checked_in", total: 18 });
     expect(readPoints(await mock.getContact("c_dante"))).toBe(18);
-  });
-
-  it("is skipped when the colors read itself uses up the time", async () => {
-    const mock = danteAt17();
-    const { client, calls } = timed(mock, (method, arg) =>
-      method === "listGroupContacts" && arg === MOCK_COLORS_GROUP_ID
-        ? CHECKIN_BUDGET_MS
-        : 0,
-    );
-
-    const result = await checkIn(client, SELF);
-
-    expect(result).toMatchObject({ status: "checked_in", total: 18 });
-    expect(calls).toContain(`listGroupContacts:${MOCK_COLORS_GROUP_ID}`);
-    expect(calls).not.toContain(`addContactToGroup:${MOCK_COLORS_GROUP_ID}`);
-    expect(skippedColors()[0]).toContain("budget_exhausted");
-  });
-
-  it("still adds when there is time (the budget changes nothing normally)", async () => {
-    const mock = danteAt17();
-    const { client, calls } = timed(mock, {});
-    await checkIn(client, SELF);
-    expect(calls).toContain(`addContactToGroup:${MOCK_COLORS_GROUP_ID}`);
-    expect(skippedColors()).toEqual([]);
   });
 });
 
@@ -205,40 +157,15 @@ describe("the staff note when the budget runs out", () => {
     updateContact: CHECKIN_BUDGET_MS - leaving,
   });
 
-  it("is kept safe from the colors add: colors give way, the note is still written, last", async () => {
+  it("is written, last, when a full request's time is left", async () => {
     const mock = danteAt17();
-    const { client, calls } = timed(mock, spend(NOTE_RESERVE_MS + 100));
+    const { client, calls } = timed(mock, spend(REQUEST_TIMEOUT_MS));
 
     const result = await checkIn(client, AS_STAFF);
 
     expect(result).toMatchObject({ status: "checked_in", total: 18 });
-    expect(touchedColors(calls)).toEqual([]);
-    expect(skippedColors()[0]).toContain("budget_exhausted");
     expect(calls.at(-1)).toBe("addNote:c_dante");
     expect(errors.filter((e) => e.includes("note"))).toEqual([]);
-  });
-
-  it("protects the note even when the colors read is slow", async () => {
-    const mock = danteAt17();
-    // 8 s remain for the colors steps once the note's share is held back, and
-    // the colors read takes all of them (a real request is cut off there), so
-    // the add is skipped, and the note's share (a full request's time of the
-    // budget's own) is still there for the note.
-    const { client, calls } = timed(mock, (method, arg) => {
-      if (method === "updateContact") {
-        return CHECKIN_BUDGET_MS - (NOTE_RESERVE_MS + 8_000);
-      }
-      return method === "listGroupContacts" && arg === MOCK_COLORS_GROUP_ID
-        ? 8_000
-        : 0;
-    });
-
-    await checkIn(client, AS_STAFF);
-
-    expect(calls).toContain(`listGroupContacts:${MOCK_COLORS_GROUP_ID}`);
-    expect(calls).not.toContain(`addContactToGroup:${MOCK_COLORS_GROUP_ID}`);
-    expect(skippedColors()[0]).toContain("budget_exhausted");
-    expect(calls.at(-1)).toBe("addNote:c_dante");
   });
 
   it("is skipped and logged when nothing is left, and the check-in still counts", async () => {
@@ -255,16 +182,6 @@ describe("the staff note when the budget runs out", () => {
     expect(noted[0]).toContain("budget_exhausted");
     // The note's text (who, and when) is never logged.
     expect(noted[0]).not.toContain("Casey");
-    expect(skippedColors()[0]).toContain("budget_exhausted");
-  });
-
-  it("is not needed for a self check-in, which may use all the time for colors", async () => {
-    const mock = danteAt17();
-    // Enough for the add (a full request's time) but, for a staff check-in,
-    // not once the note's share is held back.
-    const { client, calls } = timed(mock, spend(NOTE_RESERVE_MS + 1_000));
-    await checkIn(client, SELF);
-    expect(calls).toContain(`addContactToGroup:${MOCK_COLORS_GROUP_ID}`);
   });
 });
 

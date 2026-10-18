@@ -7,7 +7,6 @@ import {
   REQUEST_TIMEOUT_MS,
   requestTimeoutMs,
   withBudget,
-  withReserve,
 } from "./budget";
 
 beforeEach(() => vi.useFakeTimers());
@@ -68,26 +67,6 @@ describe("withBudget", () => {
   it("fits inside the 30 second route limit with room to render", () => {
     expect(CHECKIN_BUDGET_MS).toBeLessThanOrEqual(25_000);
     expect(MIN_ATTEMPT_MS).toBeGreaterThan(0);
-  });
-});
-
-describe("withReserve", () => {
-  it("ends the work early, keeping time back for what comes after", async () => {
-    await withBudget(10_000, async () => {
-      await withReserve(4_000, async () => {
-        expect(remainingMs()).toBe(6_000);
-        vi.advanceTimersByTime(7_000);
-        expect(remainingMs()).toBe(0);
-      });
-      // The whole budget, not the shortened one: 3 s are left.
-      expect(remainingMs()).toBe(3_000);
-    });
-  });
-
-  it("just runs the work when there is no budget", async () => {
-    await withReserve(4_000, async () => {
-      expect(remainingMs()).toBeNull();
-    });
   });
 });
 

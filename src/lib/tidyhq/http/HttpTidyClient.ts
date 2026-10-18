@@ -46,10 +46,11 @@ const MISSING_FIELD = { missing: true };
 
 /*
  * The same, for the colors-issued flag: `readRewardIssued` reads any non-string
- * value as unreadable, so check-in never adds the member to the colors group
- * (and `/me` says nothing about colors) on a contact that came back without
- * the key. Without it, a token that can't see the field, or a wrong field id,
- * would put every 18+ member in the group, those already issued included.
+ * value as unreadable, so `/me` and the check-in confirmation say nothing
+ * about colors on a contact that came back without the key. Without it, a
+ * token that can't see the field, or a wrong field id, would tell every 18+
+ * member "You qualify", those already issued included. Display only: the app
+ * writes nothing about rewards.
  *
  * LIVE-UNKNOWN(missing-issued-field): whether TidyHQ omits the key for a
  * member with no answer, or sends it blank. Until go-live checklist item 2a

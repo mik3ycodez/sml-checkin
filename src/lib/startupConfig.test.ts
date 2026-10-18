@@ -175,7 +175,7 @@ describe("liveConfig", () => {
   });
 
   describe("optional settings never block startup", () => {
-    it.each(["ADMIN_GROUP_ID", "HELPER_GROUP_ID", "COLORS_GROUP_ID"])(
+    it.each(["ADMIN_GROUP_ID", "HELPER_GROUP_ID"])(
       "%s may be missing, blank or invalid",
       (name) => {
         const missing: Env = { ...GOOD };
@@ -386,18 +386,13 @@ describe(".env.example", () => {
     "SESSION_SECRET",
     "ADMIN_GROUP_ID",
     "HELPER_GROUP_ID",
-    "COLORS_GROUP_ID",
     "DEMO_MODE",
   ])("documents %s", (name) => {
     expect(values, name).toHaveProperty(name);
   });
 
   it("holds no real group ids or secrets: the group ids stay blank", () => {
-    for (const name of [
-      "ADMIN_GROUP_ID",
-      "HELPER_GROUP_ID",
-      "COLORS_GROUP_ID",
-    ]) {
+    for (const name of ["ADMIN_GROUP_ID", "HELPER_GROUP_ID"]) {
       expect(values[name], name).toBe("");
     }
     expect(values.DEMO_MODE).toBe("");

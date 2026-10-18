@@ -15,7 +15,6 @@ import {
   TAP_NOTICE_MAX_AGE_SECONDS,
   type TapOutcome,
 } from "@/lib/checkin/tapNotice";
-import { colorsGroupFromEnv } from "@/lib/checkin/colorsGroup";
 import { getTidyClient } from "@/lib/tidyhq";
 import { CHECKIN_BUDGET_MS, withBudget } from "@/lib/tidyhq/budget";
 import { requireVolunteer } from "../../../../requireVolunteer";
@@ -69,7 +68,6 @@ async function runStaffCheckInAction(
       method: "staff",
       staff,
       now,
-      colorsGroup: colorsGroupFromEnv(),
     });
   } catch (error) {
     if (!(error instanceof CheckInFailure)) throw error;
