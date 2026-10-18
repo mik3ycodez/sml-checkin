@@ -143,8 +143,10 @@ describe("when the budget runs out after the points write", () => {
       updateContact: CHECKIN_BUDGET_MS - MIN_ATTEMPT_MS + 1,
     });
 
-    const result = await checkIn(slow.client, SELF);
+    const result = await checkIn(slow.client, AS_STAFF);
     expect(result).toMatchObject({ status: "checked_in", total: 18 });
+    // The note is what the spent budget cuts off.
+    expect(slow.calls.some((c) => c.startsWith("addNote"))).toBe(false);
 
     const again = await checkIn(mock, SELF);
     expect(again).toMatchObject({ status: "already_checked_in", total: 18 });
@@ -166,6 +168,19 @@ describe("the staff note when the budget runs out", () => {
     expect(result).toMatchObject({ status: "checked_in", total: 18 });
     expect(calls.at(-1)).toBe("addNote:c_dante");
     expect(errors.filter((e) => e.includes("note"))).toEqual([]);
+  });
+
+  it("is skipped and logged when less than a full request's time is left: a write is never given a shorter timeout", async () => {
+    const mock = danteAt17();
+    const { client, calls } = timed(mock, spend(REQUEST_TIMEOUT_MS - 1));
+
+    const result = await checkIn(client, AS_STAFF);
+
+    expect(result).toMatchObject({ status: "checked_in", total: 18 });
+    expect(calls.some((c) => c.startsWith("addNote"))).toBe(false);
+    const noted = errors.filter((e) => e.includes("staff check-in note"));
+    expect(noted).toHaveLength(1);
+    expect(noted[0]).toContain("budget_exhausted");
   });
 
   it("is skipped and logged when nothing is left, and the check-in still counts", async () => {

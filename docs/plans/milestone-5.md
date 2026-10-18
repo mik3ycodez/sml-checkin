@@ -428,7 +428,7 @@ still last. Removed in 0.5.2 once the Board's TidyHQ smart group made it
 redundant; see "The app writes no reward group" above for the reason and
 what went with it.
 
-### PR 8 🔍 In review (#41): Live sign-in and startup config
+### PR 8 ✅ Done (#41): Live sign-in and startup config
 
 - `HttpTidyOAuth`: `authorizeUrl` builds
   `https://accounts.tidyhq.com/oauth/authorize` with `client_id`,
@@ -543,7 +543,7 @@ client in order. PR 5 records the colors decision before any code. PR 6
 before PR 7, so the report is gone before the group replaces it (nothing is
 live, so the gap costs nothing). PR 9 carries the 0.5.0 version bump.
 
-## Follow-up: 0.5.1 patch (done; in review)
+## Follow-up: 0.5.1 patch ✅ Done (#43)
 
 - The member check-in page says "We couldn't find that event" for an event
   that exists but has no attendance group, because `findEvent`
