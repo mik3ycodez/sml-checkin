@@ -40,11 +40,11 @@ system of record; this app is a thin layer on top of it.
   balances migrated from WildApricot and any corrections made in TidyHQ, so
   attendance is never used to recalculate or verify points.
 - **The app edits nothing in TidyHQ beyond a check-in.** It writes exactly
-  four things, all during a new check-in, in this order: the member's place
-  in the event's group, `POINTS_PER_CHECKIN` added to the stored total, the
-  member's place in the "App Color Eligible" group (`COLORS_GROUP_ID`,
-  only when they reach 18+ points), and the staff note (staff
-  check-ins only, always last). Points corrections and every other change to member
+  three things, all during a new check-in, in this order: the member's place
+  in the event's group, `POINTS_PER_CHECKIN` added to the stored total, and
+  the staff note (staff check-ins only, always last). It writes no reward
+  group: a TidyHQ smart group tracks members reaching reward levels, and the
+  Board owns it. Points corrections and every other change to member
   data happen in TidyHQ, by people SML appoints. Admin points adjustments are
   dropped, not deferred: TidyHQ already has the permissions, history and audit
   a correction needs.
@@ -70,38 +70,12 @@ system of record; this app is a thin layer on top of it.
   `points.ts`). The Board hands them out and marks them issued in a TidyHQ
   custom field (`readRewardIssued`); this app only reads it. Issued wins over
   everything, even under 18 points. Unreadable points or issued field: say
-  nothing about the reward rather than guess.
-- **Colors-eligible group (a real write).** On a **new** check-in, after a
-  successful points write, `addToColorsGroup` (`checkIn.ts`) adds the member
-  to "App Color Eligible" when `rewardStatus` says the club colors reward is
-  "qualified" at the new total (the `club_colors` entry in `REWARDS`, found by
-  id, never a hard-coded 18 or the lowest across rewards; the same rule
-  `/me` and the confirmation use, via `rewardStatusAfter`), so the issued
-  field must be readable and not issued, and they aren't already in the group
-  (`isInGroup`). It runs on every
-  qualifying check-in, so a member missed once is added at the next
-  (self-healing); members already in the group aren't written again. Skips
-  (points write failed, issued unreadable, `COLORS_GROUP_ID` unset or
-  invalid, "already in group" read failed) and a failed add are logged with
-  the contact id and reason (plus the TidyHQ status or error name for a
-  failure, never a token or note text) and swallowed; "points write failed"
-  is logged only when the add would otherwise have happened: never fails a check-in or
-  touches points, and a failed add isn't retried. Same for self and staff
-  check-ins; the staff note stays last. `COLORS_GROUP_ID` is read by
-  `colorsGroup` like `ADMIN_GROUP_ID`, with a mock seed group fallback; unset
-  never blocks check-in or startup. `checkIn` takes the resulting
-  `colorsGroup` setting as a required input (callers use
-  `colorsGroupFromEnv()`), so an unset id is decided in config, not forgotten
-  by a caller. **In live mode a missing colors-issued field is unreadable**
-  (`LIVE-UNKNOWN(missing-issued-field)`, go-live item 2a), like points, so
-  the add is skipped (and `/me` says nothing about colors) and a token that
-  can't see the field never fills the group; mock mode treats missing as not
-  issued. **Membership standing is not part of the
-  rule:** the app only records that a member reached 18+ through check-in, and
-  the Board checks good standing, balances and current membership in TidyHQ
-  before handing out colors. The Board's process: hand over colors, mark
-  issued in TidyHQ, then remove the member from the group (removing without
-  marking issued means the next check-in adds them back).
+  nothing about the reward rather than guess. **In live mode a missing
+  colors-issued field is unreadable** (`LIVE-UNKNOWN(missing-issued-field)`,
+  go-live item 2a), like points, so a token that can't see the field never
+  tells everyone "You qualify"; mock mode treats missing as not issued. The
+  app writes nothing about rewards (no group, no field): the Board's TidyHQ
+  smart group lists who is owed colors.
 - **Colors need a current, fully paid membership.** A member at 18+ points
   who isn't issued still sees "You qualify", but the message depends on
   `membershipStanding`: current says a Board member will connect with them;
@@ -274,7 +248,7 @@ so the app is built against a **mock TidyHQ**.
   `sessionSecret.ts`) is missing, blank or a `.env.example` placeholder,
   naming the setting and never printing a value. **Every production start,
   demo included, also checks `SESSION_SECRET`.** The group ids
-  (`ADMIN_GROUP_ID`, `HELPER_GROUP_ID`, `COLORS_GROUP_ID`) are optional and
+  (`ADMIN_GROUP_ID`, `HELPER_GROUP_ID`) are optional and
   never block startup; live mode logs a startup warning (no value) when
   `ADMIN_GROUP_ID` is unset. **Production refuses `TIDYHQ_MODE=mock` unless
   `DEMO_MODE=on`**, and demo mode shows a "Demo data" banner on every page
@@ -297,10 +271,7 @@ so the app is built against a **mock TidyHQ**.
   so a slow TidyHQ reaches the app's own error screen, not the host's 504.
   Past the budget, a step fails like a TidyHQ outage ("temporarily
   unavailable"). **After the points write, running out of time never fails
-  the check-in**: the colors add is skipped and logged (`budget_exhausted`;
-  it heals at the next check-in), and a staff check-in holds back 8 s
-  (`NOTE_RESERVE_MS`, a note is a write) so the colors steps can't use up the note's time. If
-  the budget is spent anyway, **the staff note is skipped and logged**, so
+  the check-in**: if the budget is spent, **the staff note is skipped and logged**, so
   that check-in looks like a self check-in in TidyHQ; accepted. Never
   double-awards.
 - Mock seed edge cases (for e2e): Kai Mercer (only membership `expired` with

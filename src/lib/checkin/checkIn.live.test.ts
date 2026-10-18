@@ -15,30 +15,10 @@ import {
 } from "../tidyhq/http/fakeTidyServer";
 import { HttpTidyClient } from "../tidyhq/http/HttpTidyClient";
 import { MockTidyClient } from "../tidyhq/mock/MockTidyClient";
-import {
-  createSeed,
-  MOCK_COLORS_GROUP_ID,
-  type MockSeed,
-} from "../tidyhq/mock/seed";
-import {
-  assessCheckIn,
-  CheckInFailure,
-  checkIn as realCheckIn,
-  type CheckInInput,
-} from "./checkIn";
+import { createSeed, type MockSeed } from "../tidyhq/mock/seed";
+import { assessCheckIn, CheckInFailure, checkIn } from "./checkIn";
 
 const NOW = new Date("2026-10-12T18:00:00Z");
-
-/**
- * These tests are about the check-in itself, so they run with the colors
- * group unset (skipped, nothing written). colorsGroup.test.ts covers the add.
- */
-type WithoutColors<T> = T extends unknown ? Omit<T, "colorsGroup"> : never;
-const checkIn = (client: TidyClient, input: WithoutColors<CheckInInput>) =>
-  realCheckIn(client, {
-    ...input,
-    colorsGroup: { problem: "not_configured" },
-  } as CheckInInput);
 const STAFF = {
   contactId: "c_casey",
   name: "Casey Moreno",
@@ -151,24 +131,18 @@ describe("check-in against the live client", () => {
     expect(strip(after)).toEqual(strip(before));
   });
 
-  it("never adds a member at 18+ to the colors group when the issued field is missing (LIVE-UNKNOWN missing-issued-field)", async () => {
-    const { mock, server, http } = setup((seed) => {
+  it("writes only the event group and the points when the issued field is missing (LIVE-UNKNOWN missing-issued-field)", async () => {
+    const { server, http } = setup((seed) => {
       const marcus = seed.contacts.find((c) => c.id === "c_marcus")!;
       marcus.custom_fields[POINTS_FIELD_ID].value = "20";
       delete marcus.custom_fields[COLORS_ISSUED_FIELD_ID];
     });
-    const result = await realCheckIn(afterGoLive(http), {
-      ...input,
-      colorsGroup: { id: MOCK_COLORS_GROUP_ID },
-    });
+    const result = await checkIn(afterGoLive(http), input);
     expect(result).toMatchObject({ status: "checked_in", total: 21 });
     expect(writes(server)).toEqual([
       "PUT v1/groups/grp_social_night/contacts/c_marcus",
       "PATCH v2/contacts/c_marcus",
     ]);
-    expect(
-      (await mock.listGroupContacts(MOCK_COLORS_GROUP_ID)).map((c) => c.id),
-    ).toEqual([]);
   });
 
   it("a second tap is already checked in, and writes nothing", async () => {

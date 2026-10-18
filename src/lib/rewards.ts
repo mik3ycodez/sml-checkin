@@ -135,25 +135,6 @@ export function newlyQualified(
     .map((e) => e.reward);
 }
 
-/**
- * Where the member stands on `reward` once `awarded` more points land, from
- * the entries read before the write (`rewardEntries`, at `stored` points).
- * The same `rewardStatus` rule as `/me` and the confirmation, so the colors
- * group can't disagree with them. Null when we can't tell (issued unreadable).
- */
-export function rewardStatusAfter(
-  entries: readonly RewardEntry[],
-  reward: Reward,
-  stored: number,
-  awarded: number,
-): RewardStatus | null {
-  const entry = entries.find((e) => e.reward.id === reward.id);
-  // No entry means the issued field was unreadable; otherwise the entry's
-  // kind says whether it was issued.
-  const issued = entry ? entry.status.kind === "issued" : null;
-  return rewardStatus(reward, stored + awarded, issued);
-}
-
 /** A reward a check-in just reached, and how the member stood when it did. */
 export interface QualifiedReward {
   rewardId: Reward["id"];

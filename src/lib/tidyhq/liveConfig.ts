@@ -79,9 +79,9 @@ export function sessionSecretIssue(env: Env): string | null {
 /**
  * The live settings, checked. Throws one error naming every setting that is
  * missing, blank, a placeholder or malformed. The group ids
- * (`ADMIN_GROUP_ID`, `HELPER_GROUP_ID`, `COLORS_GROUP_ID`) are optional on
- * purpose and never checked here: unset, the feature they guard refuses or
- * skips itself, and member check-in carries on.
+ * (`ADMIN_GROUP_ID`, `HELPER_GROUP_ID`) are optional on purpose and never
+ * checked here: unset, the feature they guard refuses itself, and member
+ * check-in carries on.
  */
 export function liveConfig(env: Env): LiveConfig {
   const problems: string[] = [];

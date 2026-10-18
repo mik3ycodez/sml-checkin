@@ -31,15 +31,6 @@ export const REQUEST_TIMEOUT_MS = 8000;
  */
 export const CRITICAL_WRITES_MS = 2 * REQUEST_TIMEOUT_MS;
 
-/**
- * Time held back for a staff check-in's note, which is a write and so needs a
- * full request's time or isn't started. The note is the record of who checked
- * a member in and nothing brings it back later, while the colors add heals
- * itself at the member's next check-in; so the colors steps get what is left
- * after this, and the note gets the rest.
- */
-export const NOTE_RESERVE_MS = REQUEST_TIMEOUT_MS;
-
 type Budget = { deadline: number };
 
 // Kept on globalThis, like the cached client: Next.js bundles routes and pages
@@ -59,19 +50,6 @@ export function withBudget<T>(ms: number, run: () => Promise<T>): Promise<T> {
   const parent = storage.getStore();
   const deadline = parent ? Math.min(parent.deadline, own) : own;
   return storage.run({ deadline }, run);
-}
-
-/**
- * Runs `run` ending `reserveMs` before the current deadline, so what comes
- * after it still has that long. Without a budget, just runs it.
- */
-export function withReserve<T>(
-  reserveMs: number,
-  run: () => Promise<T>,
-): Promise<T> {
-  const parent = storage.getStore();
-  if (!parent) return run();
-  return storage.run({ deadline: parent.deadline - reserveMs }, run);
 }
 
 /** Milliseconds left in the current budget (never below 0), or null if none. */

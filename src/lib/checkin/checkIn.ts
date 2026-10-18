@@ -5,13 +5,10 @@ import {
   type MembershipNotice,
 } from "../membership";
 import { POINTS_PER_CHECKIN, type CheckInMethod } from "../points";
-import type { GroupSetting } from "../auth/groupAccess";
 import {
-  findReward,
   newlyQualified,
   rewardEntries,
   rewardStanding,
-  rewardStatusAfter,
   type QualifiedReward,
   type RewardEntry,
   type RewardStanding,
@@ -30,10 +27,8 @@ import {
   budgetSpent,
   CHECKIN_BUDGET_MS,
   CRITICAL_WRITES_MS,
-  NOTE_RESERVE_MS,
   remainingMs,
   withBudget,
-  withReserve,
 } from "../tidyhq/budget";
 import { isTidyError, TidyError } from "../tidyhq/errors";
 import { findEventGroup } from "../tidyhq/eventGroups";
@@ -49,12 +44,6 @@ export type CheckInInput = {
   eventId: string;
   contactId: string;
   now: Date;
-  /**
-   * The "App Color Eligible" group (`colorsGroup`). Required, so a caller
-   * can't forget it; an unset `COLORS_GROUP_ID` arrives as a `problem` and the
-   * add is skipped and logged.
-   */
-  colorsGroup: GroupSetting;
 } & (
   | { method?: Extract<CheckInMethod, "self"> }
   | { method: Extract<CheckInMethod, "staff">; staff: StaffActor }
@@ -349,11 +338,9 @@ export async function assessCheckInFor(
  * a TidyHQ failure (504) like an outage would. Writes are never cut short: the
  * group add and the points write each get their full timeout, so before the
  * group add there must be room for both (`CRITICAL_WRITES_MS`), or nothing is
- * written and the failure is a `group_add` one, safe to retry. Once the point is written,
- * running out of time never fails the check-in: the colors add is skipped
- * and logged (it heals at the next check-in), and the staff note keeps
- * `NOTE_RESERVE_MS` of its own so the colors steps can't use it up; if the
- * budget is spent anyway, the note is skipped and logged, never the check-in.
+ * written and the failure is a `group_add` one, safe to retry. Once the point
+ * is written, running out of time never fails the check-in: if the budget is
+ * spent, the staff note is skipped and logged.
  * A caller that already started a budget (the actions do, to count the access
  * checks too) shortens this one, never extends it.
  */
@@ -368,7 +355,7 @@ async function runCheckIn(
   client: TidyClient,
   input: CheckInInput,
 ): Promise<CheckInResult> {
-  const { eventId, contactId, now, colorsGroup } = input;
+  const { eventId, contactId, now } = input;
   const assessment = await step("lookup", () =>
     assessCheckIn(client, { eventId, contactId, now }),
   );
@@ -406,20 +393,9 @@ async function runCheckIn(
   } catch (error) {
     // In the group without the point: the note is still how a staff check-in
     // is told from a self one, and who did it. It never touches points.
-    const eligibility = colorsEligibility(rewards, stored, pointsAwarded);
-    if (eligibility === "eligible" && !("problem" in colorsGroup))
-      logColorsSkip(contactId, "points_not_written");
     await writeStaffNote(client, noteInput);
     throw error;
   }
-  // A staff check-in's note comes after this, so its share is held back.
-  await withReserve(input.method === "staff" ? NOTE_RESERVE_MS : 0, () =>
-    addToColorsGroup(client, {
-      contactId,
-      eligibility: colorsEligibility(rewards, stored, pointsAwarded),
-      group: colorsGroup,
-    }),
-  );
   // Last, so a failed note can't affect the group or the points.
   await writeStaffNote(client, noteInput);
   return {
@@ -438,19 +414,6 @@ async function runCheckIn(
   };
 }
 
-/** Why a colors group step didn't happen, or failed. Never a token or note text. */
-function logColorsSkip(
-  contactId: string,
-  reason: string,
-  error?: unknown,
-): void {
-  console.error("colors group not updated", {
-    contactId,
-    reason,
-    ...(error === undefined ? {} : { error: describeError(error) }),
-  });
-}
-
 /** A TidyError's status and message, or any other error's name. */
 function describeError(error: unknown): string {
   return isTidyError(error)
@@ -458,71 +421,6 @@ function describeError(error: unknown): string {
     : error instanceof Error
       ? error.name
       : "unknown";
-}
-
-/**
- * Whether this check-in's point puts the member where the Board owes them
- * club colors, decided by `rewardStatus` like `/me` and the confirmation.
- * `unreadable` is the issued field not being readable at or above the
- * threshold; under it there is nothing to add, so nothing to say.
- */
-function colorsEligibility(
-  rewards: readonly RewardEntry[],
-  stored: number,
-  awarded: number,
-): "eligible" | "not_eligible" | "unreadable" {
-  const colors = findReward("club_colors")!;
-  const status = rewardStatusAfter(rewards, colors, stored, awarded);
-  if (status?.kind === "qualified") return "eligible";
-  if (status === null && stored + awarded >= colors.pointsRequired)
-    return "unreadable";
-  return "not_eligible";
-}
-
-/**
- * Records that the member has reached the colors threshold, for the Board's
- * to-do list: adds them to the "App Color Eligible" group. Runs after a
- * successful points write on a new check-in. Not gated by membership
- * standing (the Board checks that in TidyHQ before handing colors out).
- *
- * Self-healing: it runs for every qualifying check-in, so a member missed once
- * is added at their next one. Every skip and failure is logged (contact id,
- * reason and, for a failure, the TidyHQ status or error name) and swallowed:
- * the member is checked in with their point, and this never touches points.
- * A failed add is not retried.
- */
-async function addToColorsGroup(
-  client: TidyClient,
-  {
-    contactId,
-    eligibility,
-    group,
-  }: {
-    contactId: string;
-    eligibility: ReturnType<typeof colorsEligibility>;
-    group: GroupSetting;
-  },
-): Promise<void> {
-  if (eligibility === "not_eligible") return;
-  if (eligibility === "unreadable")
-    return logColorsSkip(contactId, "issued_unreadable");
-  if ("problem" in group)
-    return logColorsSkip(contactId, `group_${group.problem}`);
-  if (budgetSpent()) return logColorsSkip(contactId, "budget_exhausted");
-  try {
-    if (await isInGroup(client, group.id, contactId)) return;
-  } catch (error) {
-    return logColorsSkip(contactId, "read_failed", error);
-  }
-  // The read may have used up the time the add needs (a write is never cut short).
-  if (budgetSpent({ write: true })) {
-    return logColorsSkip(contactId, "budget_exhausted");
-  }
-  try {
-    await client.addContactToGroup(group.id, contactId);
-  } catch (error) {
-    logColorsSkip(contactId, "add_failed", error);
-  }
 }
 
 /**
