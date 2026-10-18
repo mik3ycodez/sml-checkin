@@ -94,10 +94,17 @@ afterEach(() => vi.restoreAllMocks());
 describe("check-in against the live client", () => {
   it("refuses every event, writing nothing, until the group link is verified", async () => {
     const { server, http } = setup();
-    expect(await checkIn(http, input)).toMatchObject({
+    expect(await checkIn(http, input)).toEqual({
       status: "event_unavailable",
+      name: "Marcus Bell",
+      eventName: "Social Night",
+      total: 1,
     });
     expect(writes(server)).toEqual([]);
+    // Only the event and the member: no group, window or memberships read.
+    expect(
+      server.requests.map((r) => `${r.method} ${r.version}${r.path}`),
+    ).toEqual(["GET v2/events/ev_tonight", "GET v2/contacts/c_marcus"]);
   });
 
   it("adds to the group, then writes the points, once each, in that order", async () => {

@@ -176,6 +176,15 @@ export async function readAttendance(
   return { contact, checkedIn: await isInGroup(client, groupId, contactId) };
 }
 
+/** `readAttendance` for an event with no group: the member is never checked in. */
+async function readMember(
+  client: TidyClient,
+  contactId: string,
+): Promise<{ contact: Contact; checkedIn: boolean } | null> {
+  const contact = await findContact(client, contactId);
+  return contact && { contact, checkedIn: false };
+}
+
 /**
  * Where a member stands at an event, before anything is written. The pages
  * show this directly: `already_checked_in` means "in the event's group",
@@ -207,13 +216,14 @@ export type CheckInAssessment =
  * not, why. `checkIn` acts on it, and the pages show it before the tap, so the
  * two can never disagree. Unexpected TidyHQ failures throw.
  *
- * Order: event (an event with no attendance group is refused as
- * unavailable here, before the rest) → existing check-in → archived → check-in window → membership
- * → points. An existing check-in comes first so a member who reloads the page
- * after the window closes, after their membership lapses, or after the event
- * is archived, still sees it. An archived event refuses new check-ins even
- * with an open window, so a QR code printed earlier stops working. An event
- * that fails `acceptsCheckIn` is refused the same way (`checkinBlocker` agrees).
+ * Order: event → existing check-in → unavailable (archived, then
+ * `acceptsCheckIn`, then no attendance group, as in `checkinBlocker`) →
+ * check-in window → membership → points. An existing check-in comes first so
+ * a member who reloads the page after the window closes, after their
+ * membership lapses, or after the event is archived, still sees it. An
+ * unavailable event refuses new check-ins even with an open window, so a QR
+ * code printed earlier stops working. With no group there is no attendance
+ * to read, so only the member is.
  */
 export async function assessCheckIn(
   client: TidyClient,
@@ -226,25 +236,14 @@ export async function assessCheckIn(
   const event = await findEvent(client, eventId);
   if (!event) return { status: "unknown_event" };
   const groupId = findEventGroup(event);
-  if (!groupId) {
-    // Nowhere to record anyone, so there is no attendance to read: refuse it
-    // like an archived event, with the member's name for the screen.
-    const contact = await findContact(client, contactId);
-    if (!contact) return { status: "unknown_contact" };
-    return {
-      status: "event_unavailable",
-      name: contactName(contact),
-      eventName: event.name,
-      total: readPoints(contact),
-    };
-  }
   return assessCheckInFor(client, {
     contactId,
     now,
     event,
     groupId,
     // Still read alongside the attendance, as before: not awaited here.
-    window: getCheckinWindow(client, event),
+    // Without a group the refusal needs no window.
+    window: groupId ? getCheckinWindow(client, event) : null,
   });
 }
 
@@ -265,16 +264,19 @@ export async function assessCheckInFor(
     contactId: string;
     now: Date;
     event: Event;
-    groupId: string;
-    /** Or a read in flight, so it can overlap the attendance read. */
-    window: CheckinWindow | Promise<CheckinWindow>;
+    /** Null for an event with no attendance group: refused, nothing read. */
+    groupId: string | null;
+    /** Or a read in flight, so it can overlap the attendance read. Unused without a group. */
+    window: CheckinWindow | Promise<CheckinWindow> | null;
   },
 ): Promise<CheckInAssessment> {
   const eventName = event.name;
   // The window is only needed if not already checked in, but fetching it
   // alongside saves a round trip on the common path.
   const [attendance, window] = await Promise.all([
-    readAttendance(client, groupId, contactId),
+    groupId
+      ? readAttendance(client, groupId, contactId)
+      : readMember(client, contactId),
     windowRead,
   ]);
   if (!attendance) return { status: "unknown_contact" };
@@ -290,7 +292,7 @@ export async function assessCheckInFor(
   }
 
   const total = readPoints(contact);
-  if (event.archived || !acceptsCheckIn(event)) {
+  if (event.archived || !acceptsCheckIn(event) || !groupId || !window) {
     return { status: "event_unavailable", name, eventName, total };
   }
 
