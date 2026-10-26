@@ -50,9 +50,13 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
       - if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps
+        timeout-minutes: 5
+        run: npx playwright install --with-deps chromium webkit
+      # Only the browsers the config uses: bare install-deps hung for over 10
+      # minutes on #46.
       - if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps
+        timeout-minutes: 5
+        run: npx playwright install-deps chromium webkit
       # playwright.config.ts builds and starts the app itself, against the mock.
       - run: npm run test:e2e
       - if: failure()
