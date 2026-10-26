@@ -22,7 +22,7 @@ test("the walkthrough's first scenario goes from /demo to the Check in button", 
   await page.goto("/");
   // Linked from the banner on every page, and from the home page itself.
   await expect(
-    page.getByRole("status").getByRole("link", { name: "Demo walkthrough" }),
+    page.locator("body > div").getByRole("link", { name: "Demo walkthrough" }),
   ).toBeVisible();
   await page
     .getByRole("main")

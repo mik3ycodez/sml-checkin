@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { safeReturnTo } from "@/lib/auth/returnTo";
 import { findReward, rewardMessage } from "@/lib/rewards";
 import { contactName } from "@/lib/tidyhq/contactName";
+import { searchMembers } from "@/lib/tidyhq/contacts";
 import { MockTidyClient } from "@/lib/tidyhq/mock/MockTidyClient";
 import {
   createSeed,
@@ -13,6 +14,7 @@ import {
 import { ADMIN_PATH, adminEventPath } from "../admin/paths";
 import { checkinPath, ME_PATH, staffCheckinPath } from "../memberPaths";
 import { SCENARIOS, targetPath, type Target } from "./scenarios";
+import { screenText } from "./screenText";
 
 const seed = createSeed();
 const allParts = SCENARIOS.flatMap((s) => s.parts);
@@ -93,12 +95,40 @@ describe("the demo scenarios", () => {
     const searches = allParts.flatMap((p) => p.searches ?? []);
     expect(searches.length).toBeGreaterThan(0);
     for (const { term, memberId } of searches) {
-      const found = await client.searchContacts(term);
+      const found = await searchMembers(client, term);
+      expect(found.status, term).toBe("ok");
+      if (found.status !== "ok") continue;
       expect(
-        found.map((c) => c.id),
+        found.contacts.map((c) => c.id),
         term,
       ).toEqual([memberId]);
     }
+  });
+
+  it("name a fallback member for scenario 7's live update that nothing else checks in", () => {
+    const fallback = seed.contacts.find((c) => c.id === "c_marcus")!;
+    const alreadyRun = SCENARIOS.find((s) => s.number === 7)!.alreadyRun;
+    expect(alreadyRun).toContain(contactName(fallback));
+    expect(seed.groupMembers.grp_social_night).not.toContain(fallback.id);
+    const checkedInAtSocialNight = allParts.filter(
+      (p) =>
+        p.memberId === fallback.id &&
+        "eventId" in p.target &&
+        p.target.eventId === "ev_tonight",
+    );
+    expect(checkedInAtSocialNight).toEqual([]);
+  });
+
+  it("say what the staff screen shows when Jordan is already checked in", () => {
+    const alreadyRun = SCENARIOS.find((s) => s.number === 8)!.alreadyRun;
+    expect(alreadyRun).toContain(`"Search again"`);
+    expect(alreadyRun).toMatch(/2 points/);
+  });
+
+  it("don't claim Pop-up Meetup's check-in window is open (it closes a few hours after a Restart)", () => {
+    const popUp = SCENARIOS.find((s) => s.number === 5)!.parts[0];
+    expect(popUp.target).toEqual({ kind: "checkin", eventId: "ev_no_group" });
+    expect(popUp.steps.join(" ")).not.toMatch(/window is open/i);
   });
 
   it("cover the volunteer privacy comparison: Pat and Casey search the same member", () => {
@@ -115,7 +145,7 @@ describe("the demo scenarios", () => {
 });
 
 // Every screen text the page quotes (in "straight double quotes") must still
-// be in the app's source, so rewording a screen fails here instead of leaving
+// be in the app's source, outside comments (`screenText`), so rewording a screen fails here instead of leaving
 // the walkthrough wrong. Text built from a reward's name is checked against
 // the function that builds it.
 describe("the screen text the scenarios quote", () => {
@@ -140,7 +170,7 @@ describe("the screen text the scenarios quote", () => {
   const source = normalize(
     sourceFiles(SRC)
       .filter((f) => !f.includes(join("app", "demo")))
-      .map((f) => readFileSync(f, "utf8"))
+      .map((f) => screenText(readFileSync(f, "utf8")))
       .join("\n"),
   );
 

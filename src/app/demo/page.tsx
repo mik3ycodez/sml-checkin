@@ -53,10 +53,14 @@ export default function DemoPage() {
         <p>
           To start over, ask the person running the demo to press{" "}
           <strong>Restart</strong> on the web app in the Azure portal. That
-          resets every check-in and point. After a Restart, Social Night is open
-          for check-in for 24 hours; after that it says &quot;Check-in has
-          closed&quot; and every scenario that uses Social Night needs another
-          Restart.
+          resets every check-in and point. So does a new deploy, and so does the
+          demo waking up after an idle sleep on the free tier, which can happen
+          without anyone pressing anything. The demo&apos;s data is built at the
+          first request after a Restart, deploy or sleep, and Social Night is
+          open for check-in for 24 hours from then; after that it says
+          &quot;Check-in has closed&quot; and every scenario that uses Social
+          Night needs another Restart. If your scenario was undone, one of these
+          probably happened.
         </p>
       </section>
 

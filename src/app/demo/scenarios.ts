@@ -181,7 +181,7 @@ export const SCENARIOS: Scenario[] = [
         heading: "Pop-up Meetup (no attendance group)",
         target: { kind: "checkin", eventId: "ev_no_group" },
         steps: [
-          `Open Pop-up Meetup. Its check-in window is open, but the event has no group to record attendance in.`,
+          `Open Pop-up Meetup. The event has no group to record attendance in, so check-in is refused whatever time it is.`,
         ],
         see: [
           `"This event isn't open for check-in" and "Check-in isn't available for this event."`,
@@ -263,7 +263,7 @@ export const SCENARIOS: Scenario[] = [
         ],
       },
     ],
-    alreadyRun: `The list already has everyone who has checked in so far, and the count includes them.`,
+    alreadyRun: `The list already has everyone who has checked in so far, and the count includes them. If Dante is already listed, the live update has nothing new to show: in the second browser sign in as Marcus Bell, open Social Night and tap "Check in" (no other scenario checks him in there), and Marcus appears within 30 seconds.`,
   },
   {
     number: 8,
@@ -289,7 +289,7 @@ export const SCENARIOS: Scenario[] = [
         ],
       },
     ],
-    alreadyRun: `Jordan shows "Already checked in." and no button. Lee's line is the same. Jordan will also appear in scenario 7's list.`,
+    alreadyRun: `Jordan shows "Already checked in." with 2 points and no check-in button, and the link under the result says "Search again", not "Next member" (it only says "Next member" after a check-in you just made). Search again for Lee as in step 3; Lee's line is the same. Jordan will also appear in scenario 7's list.`,
   },
   {
     number: 9,

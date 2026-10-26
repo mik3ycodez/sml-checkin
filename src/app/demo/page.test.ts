@@ -65,6 +65,14 @@ describe("/demo", () => {
       expect(page).not.toMatch(/E2E|mock-tidyhq\/reset/);
     });
 
+    it("says the 24 hours start at the first request, and that a deploy or idle sleep also resets", () => {
+      const page = html();
+      expect(page).toContain("first request");
+      expect(page).toMatch(/deploy/i);
+      expect(page).toMatch(/idle/i);
+      expect(page).toMatch(/sleep/i);
+    });
+
     it("needs no script", () => {
       expect(html()).not.toContain("<script");
     });

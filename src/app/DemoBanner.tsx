@@ -7,11 +7,10 @@ import { DEMO_PATH } from "@/lib/demoMode";
  */
 export function DemoBanner() {
   return (
-    <div
-      role="status"
-      className="bg-foreground text-background px-4 py-1.5 text-center text-sm"
-    >
-      <span className="font-semibold">Demo data</span>
+    <div className="bg-foreground text-background px-4 py-1.5 text-center text-sm">
+      <span role="status" className="font-semibold">
+        Demo data
+      </span>
       {" · "}
       <a href={DEMO_PATH} className="underline">
         Demo walkthrough

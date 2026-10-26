@@ -2,9 +2,11 @@
 
 **Status:** Done, PR 1 ✅ Merged (#46), PR 2 ✅ Merged (#47), released as
 0.6.0. A docs-only follow-up (#48) came after the first deploy, with no
-version bump. The 0.6.1 patch (PR 4, the `/demo` walkthrough) follows. The 0.5.3 patch (Next.js security fix) came first and is
-separate from this milestone: ✅ Merged (#45).
-Milestone 6 is two PRs plus the follow-up, and ends at 0.6.0.
+version bump. The 0.6.1 patch (PR 4, the `/demo` walkthrough) follows. The
+0.5.3 patch (Next.js security fix) came first and is separate from this
+milestone: ✅ Merged (#45).
+Milestone 6 is two PRs plus the follow-up and ends at 0.6.0; the 0.6.1 patch
+comes after it.
 
 ## Context
 

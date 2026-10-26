@@ -15,6 +15,11 @@ describe("DemoBanner", () => {
     expect(html).not.toContain("<script");
   });
 
+  it("puts the live region on the Demo data text, not around the link", () => {
+    expect(html).toMatch(/<span[^>]*role="status"[^>]*>Demo data<\/span>/);
+    expect(html).not.toMatch(/<div[^>]*role=/);
+  });
+
   it("links to the demo walkthrough", () => {
     expect(html).toMatch(
       new RegExp(`<a[^>]*href="${DEMO_PATH}"[^>]*>Demo walkthrough</a>`),

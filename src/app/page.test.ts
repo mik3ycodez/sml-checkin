@@ -5,9 +5,11 @@ import { DEMO_PATH } from "@/lib/demoMode";
 import Home from "./page";
 
 describe("the home page", () => {
-  const html = renderToStaticMarkup(createElement(Home));
+  afterEach(() => vi.unstubAllEnvs());
 
   it("has one clear action: My points and status, linking to /me", () => {
+    vi.stubEnv("DEMO_MODE", "");
+    const html = renderToStaticMarkup(createElement(Home));
     expect(html).toMatch(/<a[^>]*href="\/me"[^>]*>My points and status<\/a>/);
     expect(html.match(/<a /g)).toHaveLength(1);
   });
