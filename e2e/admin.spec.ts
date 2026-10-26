@@ -76,7 +76,7 @@ test("an admin opens an event from the list and sees its QR code and check-in li
   await expect(page.getByText("Check-in is open.")).toBeVisible();
   // The link the code points to, as text, on this site's own origin.
   await expect(
-    page.getByText("http://localhost:3100/checkin/ev_tonight"),
+    page.getByText("http://127.0.0.1:3100/checkin/ev_tonight"),
   ).toBeVisible();
   // Drawn on the server, so it's there with JavaScript off too.
   const qr = page.getByRole("img", { name: /QR code for checking in/ });
@@ -107,7 +107,7 @@ test("the event page prints as the QR code and its details, without the controls
     page.getByRole("heading", { name: "Social Night" }),
   ).toBeVisible();
   await expect(
-    page.getByText("http://localhost:3100/checkin/ev_tonight"),
+    page.getByText("http://127.0.0.1:3100/checkin/ev_tonight"),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeHidden();
   await expect(page.getByRole("link", { name: "All events" })).toBeHidden();

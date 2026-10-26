@@ -196,9 +196,9 @@ production.
      two).
    - Confirm locally that the standalone server under a bad config behaves
      like `next start` does. Done: it does (see Startup checks).
-   - For PR 2: `next start` now prints a warning with standalone output on
-     (`"next start" does not work with "output: standalone"`). The `start`
-     script is left as is in PR 1; PR 2 points it at `server.js` or removes it.
+   - `next start` prints a warning with standalone output on
+     (`"next start" does not work with "output: standalone"`), so the `start`
+     script runs `node .next/standalone/server.js`.
 2. **Deploy workflow and runbook (0.6.0).**
    - `deploy.yml` with the check after deploy.
    - An Azure runbook doc (portal steps, settings, logs).

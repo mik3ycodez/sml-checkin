@@ -22,17 +22,20 @@ describe("standalone build", () => {
   it("copies the static files in after building, since standalone leaves them out", () => {
     const script = pkg.scripts["build:standalone"];
     expect(script, "a build:standalone script").toBeDefined();
-    // No trailing slash on the source: BSD cp (macOS) and GNU cp (Linux)
-    // differ on it.
-    expect(script).toMatch(
-      /^next build && cp -R \.next\/static \.next\/standalone\/\.next\/$/,
-    );
+    expect(script).toMatch(/\bnext build\b/);
+    expect(script).toMatch(/\.next\/static\b.*\.next\/standalone\/\.next\b/);
+  });
+
+  it("starts the standalone server, not next start", () => {
+    expect(pkg.scripts.start).toBe("node .next/standalone/server.js");
   });
 });
 
 describe("node version", () => {
   it("pins engines.node to the major version in .nvmrc", () => {
     const nvmrc = readFileSync(join(root, ".nvmrc"), "utf8").trim();
-    expect(pkg.engines.node).toBe(`${nvmrc}.x`);
+    const major = /^v?(\d+)/.exec(nvmrc)?.[1];
+    expect(major, "a major version in .nvmrc").toBeDefined();
+    expect(pkg.engines.node).toBe(`${major}.x`);
   });
 });

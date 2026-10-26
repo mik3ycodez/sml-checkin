@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:standalone": "next build && cp -R .next/static .next/standalone/.next/",
-    "start": "next start",
+    "start": "node .next/standalone/server.js",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
