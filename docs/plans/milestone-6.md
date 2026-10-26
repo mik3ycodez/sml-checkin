@@ -1,7 +1,8 @@
 # Milestone 6: Demo on Azure App Service
 
-**Status:** Planned. The 0.5.3 patch (Next.js security fix) comes first and is
-separate from this milestone: 🔍 In review (#45). Milestone 6 is two PRs and
+**Status:** In progress, PR 1 🔍 In review. The 0.5.3 patch (Next.js security
+fix) came first and is separate from this milestone: ✅ Merged (#45).
+Milestone 6 is two PRs and
 ends at 0.6.0.
 
 ## Context
@@ -71,14 +72,22 @@ only matter if we needed an exact patch version.
 
 ### Startup checks
 
-**Provisional until milestone 6 PR 1 tests the standalone `server.js`.** A bad
-config does **not** crash the server, as measured with `next start`, which
-starts differently from the standalone server the plan ships. Tested locally with
-`DEMO_MODE=bogus`: `next start` logs `Failed to prepare server …`, keeps the
-port open, and returns **500 on every request**, repeating the reason (the
-setting's name, never its value) in the log. So expect no restart loop on App
-Service: the container looks "up" while serving errors, and a deploy still
-reports success.
+A bad config does **not** crash the server. Measured locally with the
+standalone `server.js` (Next 16.4.3, macOS), the same as `next start`:
+
+- `DEMO_MODE=bogus`: the log prints `✓ Ready`, then
+  `Failed to prepare server … DEMO_MODE must be "on", "off" or unset.` The
+  process does not exit and the port stays open. `/` and `/me` return **500**,
+  and the reason repeats in the log on every request.
+- `SESSION_SECRET` unset (with `DEMO_MODE=on`): the same, with
+  `Cannot start in production: SESSION_SECRET is missing.` repeated on every
+  request.
+- The log names the setting and never its value (`bogus` never appears).
+
+So expect no restart loop on App Service: the container looks "up" while
+serving errors, and a deploy still reports success. **`✓ Ready` prints before
+the failure**, so the log's "Ready" line can't be trusted either: only a
+request tells.
 
 The fix is a check at the end of the deploy workflow: fetch `DEMO_URL/` until
 it returns 200 (allowing a cold start of up to about 5 minutes), and fetch one
@@ -87,9 +96,7 @@ wrong folder (no `server.js` at its root) never reaches 200, so the same
 wait catches it. A failure turns the
 run red.
 
-App Service Health check is not used (also provisional: that decision rests
-on the finding above, so revisit it if PR 1 shows the standalone server
-behaves differently): on F1 and on a single instance it only
+App Service Health check is not used: on F1 and on a single instance it only
 gives metrics, and never replaces or removes the instance. No `/api/health` is
 needed for the demo; revisit for production on B1 or higher.
 
@@ -178,8 +185,8 @@ production.
 
 ## PRs
 
-0. **0.5.3 patch (first, outside this milestone):** Next.js security fix. 🔍 In review (#45).
-1. **Standalone build.**
+0. **0.5.3 patch (first, outside this milestone):** Next.js security fix. ✅ Merged (#45).
+1. **Standalone build.** 🔍 In review.
    - `output: "standalone"`.
    - `engines` set to `24.x`, with a test that it matches `.nvmrc` (written
      first).
@@ -188,7 +195,10 @@ production.
    - Fix the stale "three group ids" comment in `.env.example` (there are
      two).
    - Confirm locally that the standalone server under a bad config behaves
-     like `next start` does.
+     like `next start` does. Done: it does (see Startup checks).
+   - For PR 2: `next start` now prints a warning with standalone output on
+     (`"next start" does not work with "output: standalone"`). The `start`
+     script is left as is in PR 1; PR 2 points it at `server.js` or removes it.
 2. **Deploy workflow and runbook (0.6.0).**
    - `deploy.yml` with the check after deploy.
    - An Azure runbook doc (portal steps, settings, logs).
