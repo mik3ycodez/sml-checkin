@@ -341,6 +341,14 @@ so the app is built against a **mock TidyHQ**.
     "Ready"), so the deploy ends with `scripts/check-deploy.mjs`: `/` must
     return 200 on this build, and one `/_next/static` CSS file must load.
     `scripts/` is linted with undefined names and unused variables as errors.
+  - **`/demo` is the testers' walkthrough** (0.6.1): nine scenarios, each with
+    who to sign in as, a Start button, steps and what you should see. Demo
+    mode only (404 otherwise); linked from the home page and the banner. Start
+    posts to `/auth/signout` with a `returnTo` built by the path helpers, so
+    it needs no auth change. `src/app/demo/scenarios.ts` is tested against the
+    seed and against the source (every quoted screen text), so changing a
+    screen's wording or the seed means updating it. Never mention `E2E` or the
+    reset route there; a Restart is how the demo resets.
 - Tests: Vitest
 - Mobile-first: the member side is used on phones at event doors
 - Styling: Tailwind CSS v4 (PostCSS plugin, no `tailwind.config.js`). Shared
