@@ -42,6 +42,11 @@ only matter if we needed an exact patch version.
 - Standalone does not copy static files. After the build:
   `cp -r .next/static .next/standalone/.next/` (there is no `public/` folder).
   Without it, pages load without CSS.
+- The deploy zip is built from **inside** `.next/standalone` (after the static
+  copy), so `server.js` is at the zip root. Zipped from the repo root,
+  `HOSTNAME=0.0.0.0 node server.js` in `/home/site/wwwroot` fails with
+  "Cannot find module server.js". The check after deploy (see Startup
+  checks) must catch this too.
 - App Service sets `PORT`; `server.js` reads it. It also reads `HOSTNAME`,
   which some platforms set to the container's name, so the startup command is
   **`HOSTNAME=0.0.0.0 node server.js`**. Confirm on the first deploy.
@@ -66,7 +71,9 @@ only matter if we needed an exact patch version.
 
 ### Startup checks
 
-A bad config does **not** crash the server. Tested locally with
+**Provisional until milestone 6 PR 1 tests the standalone `server.js`.** A bad
+config does **not** crash the server, as measured with `next start`, which
+starts differently from the standalone server the plan ships. Tested locally with
 `DEMO_MODE=bogus`: `next start` logs `Failed to prepare server …`, keeps the
 port open, and returns **500 on every request**, repeating the reason (the
 setting's name, never its value) in the log. So expect no restart loop on App
@@ -75,10 +82,14 @@ reports success.
 
 The fix is a check at the end of the deploy workflow: fetch `DEMO_URL/` until
 it returns 200 (allowing a cold start of up to about 5 minutes), and fetch one
-`/_next/static` CSS file to catch a missing static copy. A failure turns the
+`/_next/static` CSS file to catch a missing static copy. A zip built from the
+wrong folder (no `server.js` at its root) never reaches 200, so the same
+wait catches it. A failure turns the
 run red.
 
-App Service Health check is not used: on F1 and on a single instance it only
+App Service Health check is not used (also provisional: that decision rests
+on the finding above, so revisit it if PR 1 shows the standalone server
+behaves differently): on F1 and on a single instance it only
 gives metrics, and never replaces or removes the instance. No `/api/health` is
 needed for the demo; revisit for production on B1 or higher.
 
@@ -88,23 +99,31 @@ needed for the demo; revisit for production on B1 or higher.
   B1, set Scale out to Manual, 1.
 - Never start PM2 in cluster mode (`-i`): each process would hold separate
   mock data.
-- Checked in the code: the only in-memory state is the mock store
-  (`src/lib/tidyhq/index.ts`, cached on `globalThis`). Sessions are signed
-  cookies, OAuth state is a cookie, and the time budget is per request. Live
-  mode is safe with several instances later.
+- Checked in the code: the module-level state is the mock store
+  (`src/lib/tidyhq/index.ts`, cached on `globalThis`), the bounded QR SVG
+  cache (`src/lib/admin/qr.ts`, a `Map`) and the time budget's
+  `AsyncLocalStorage` (`src/lib/tidyhq/budget.ts`, on `globalThis`). The
+  cache is only a per-instance speedup and the budget is per-request state,
+  so both are safe with several instances; only the mock store must not be
+  split. Sessions are signed cookies and OAuth state is a cookie. Live mode
+  is safe with several instances later.
 - Every restart, deploy or F1 sleep resets the mock data. Members stay signed
   in (seed contact ids don't change). The portal's Restart button is a "reset
   demo" button.
-- Never set `E2E` on the demo: it turns on the reset route.
+- Never set `E2E` on the demo. It does two things: it turns on the public
+  reset route (`/mock-tidyhq/reset`, no auth, so anyone could reset the
+  demo), and it drops the admin attendee refresh from 30 s to 2 s
+  (`src/lib/admin/attendees.ts`), so an open admin page renders 30 times a
+  minute instead of 2 and burns F1's CPU quota.
 
 ### Tier and cost
 
-|               | F1                                                                                           | B1                                             |
-| ------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| CPU           | 60 min/day and 3 min per 5 min; over quota means 403 until midnight UTC (about 5 pm Seattle) | Unlimited                                      |
-| Always On     | No: the app sleeps when idle, then cold-starts and loses demo state                          | Yes                                            |
-| Custom domain | None (azurewebsites.net only)                                                                | Yes, with SNI TLS                              |
-| Cost          | Free                                                                                         | About $13/month (check the pricing calculator) |
+|               | F1                                                                                            | B1                                             |
+| ------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| CPU           | 60 min/day and 3 min per 5 min; over quota means 403 until midnight UTC (4 pm PST / 5 pm PDT) | Unlimited                                      |
+| Always On     | No: the app sleeps when idle, then cold-starts and loses demo state                           | Yes                                            |
+| Custom domain | None (azurewebsites.net only)                                                                 | Yes, with SNI TLS                              |
+| Cost          | Free                                                                                          | About $13/month (check the pricing calculator) |
 
 Server-rendered pages cost milliseconds of CPU, and the admin page's
 30-second refresh is about 2 renders a minute, only near check-in time, so a
