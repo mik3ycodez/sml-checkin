@@ -1,7 +1,8 @@
 # Milestone 6: Demo on Azure App Service
 
 **Status:** Planned. The 0.5.3 patch (Next.js security fix) comes first and is
-separate from this milestone. Milestone 6 is two PRs and ends at 0.6.0.
+separate from this milestone: 🔍 In review (#45). Milestone 6 is two PRs and
+ends at 0.6.0.
 
 ## Context
 
@@ -158,7 +159,7 @@ production.
 
 ## PRs
 
-0. **0.5.3 patch (first, outside this milestone):** Next.js security fix.
+0. **0.5.3 patch (first, outside this milestone):** Next.js security fix. 🔍 In review (#45).
 1. **Standalone build.**
    - `output: "standalone"`.
    - `engines` set to `24.x`, with a test that it matches `.nvmrc` (written
