@@ -1,6 +1,6 @@
 # Milestone 6: Demo on Azure App Service
 
-**Status:** In progress, PR 1 🔍 In review (#46). The 0.5.3 patch (Next.js security
+**Status:** In progress, PR 1 ✅ Merged (#46), PR 2 🔍 In review. The 0.5.3 patch (Next.js security
 fix) came first and is separate from this milestone: ✅ Merged (#45).
 Milestone 6 is two PRs and
 ends at 0.6.0.
@@ -156,37 +156,14 @@ certificate is free. Add a Cost Management budget alert (for example $5).
   end times out at 230 seconds, so the app's own 24-second budget is what
   limits a check-in. No change.
 
-## App settings (demo)
+## App settings and logs
 
-Placeholders only; real values are set in the portal.
-
-| Setting                          | Value                                                  | Secret? |
-| -------------------------------- | ------------------------------------------------------ | ------- |
-| `TIDYHQ_MODE`                    | `mock`                                                 | no      |
-| `DEMO_MODE`                      | `on`                                                   | no      |
-| `APP_ORIGIN`                     | `https://<default domain from the web app's Overview>` | no      |
-| `SESSION_SECRET`                 | `<output of: openssl rand -base64 32>`                 | **yes** |
-| `SCM_DO_BUILD_DURING_DEPLOYMENT` | `false`                                                | no      |
-
-Leave unset: `ADMIN_GROUP_ID` and `HELPER_GROUP_ID` (mock falls back to the
-seed groups), all `TIDYHQ_*` credentials (live only), `E2E`, and `TZ`. App
-settings are encrypted at rest. Key Vault references can wait until
-production.
-
-## Logs
-
-- Turn on App Service logs, Application logging: **File System**.
-- Portal: **Log stream** shows console output, including startup-config
-  errors.
-- Terminal: `az webapp log tail --name <app> --resource-group <rg>`.
-- Platform and container messages: Diagnose and solve problems, Application
-  logs, or Kudu at `https://<scm-host>/api/logs/docker`.
-- Ignore `GET /robots933456.txt`: App Service checking the container is up.
+See the runbook, [azure-demo.md](../azure-demo.md), which is the only copy.
 
 ## PRs
 
 0. **0.5.3 patch (first, outside this milestone):** Next.js security fix. ✅ Merged (#45).
-1. **Standalone build.** 🔍 In review (#46).
+1. **Standalone build.** ✅ Merged (#46).
    - `output: "standalone"`.
    - `engines` set to `24.x`, with a test that it matches `.nvmrc` (written
      first).
@@ -199,46 +176,28 @@ production.
    - `next start` prints a warning with standalone output on
      (`"next start" does not work with "output: standalone"`), so the `start`
      script runs `node .next/standalone/server.js`.
-2. **Deploy workflow and runbook (0.6.0).**
-   - `deploy.yml` with the check after deploy.
-   - An Azure runbook doc (portal steps, settings, logs).
+2. **Deploy workflow and runbook (0.6.0).** 🔍 In review.
+   - `deploy.yml` with the check after deploy: `scripts/check-deploy.mjs`
+     (tested in `src/checkDeploy.test.ts`) waits up to 5 minutes for `/` to
+     return 200 **on this build** (the `.next/BUILD_ID` value appears in the
+     served HTML, confirmed against the standalone server), then fetches one
+     `/_next/static` CSS file. The build id stops the previous version's 200
+     from passing during the swap.
+   - A guard in the workflow that `server.js` is at the zip root.
+   - `ci.yml`: `install-deps chromium webkit` with a 5 minute timeout.
+   - `scripts/` is linted strictly (undefined names and unused variables are
+     errors).
+   - The Azure runbook, [azure-demo.md](../azure-demo.md).
    - Update CLAUDE.md for the host.
+   - Version 0.6.0. The first real deploy happens when this PR merges
+     (`workflow_run` only fires from `main`). `ci.yml`'s actions stay on v4;
+     a later patch bumps them.
 
-## Portal steps (Mike, between PR 1 and PR 2's first deploy)
+## Portal steps and app settings
 
-Azure:
-
-1. Create a resource group, e.g. `sml-checkin-demo`, in **West US 2**.
-2. Create an App Service plan: **Linux, F1**.
-3. Create the web app: Code, **Node 24 LTS**, the F1 plan. Leave continuous
-   deployment off (the wizard would commit its own workflow). Leave basic-auth
-   publishing off.
-4. In Configuration, set the startup command
-   `HOSTNAME=0.0.0.0 node server.js`. Turn HTTPS Only on, set minimum TLS 1.2,
-   disable FTP, and optionally turn session affinity off.
-5. Add the app settings above.
-6. Turn on App Service logs (File System).
-7. OIDC: create a **user-assigned managed identity**. Add a federated
-   credential: "GitHub Actions deploying Azure resources", organization
-   `mik3ycodez`, repository `sml-checkin`, entity **Environment**, name
-   **`demo`** (subject `repo:mik3ycodez/sml-checkin:environment:demo`). In the
-   web app's Access control (IAM), give the identity the **Website
-   Contributor** role, scoped to the web app only.
-8. Add a Cost Management budget alert.
-
-GitHub:
-
-1. Settings, Environments: create **`demo`** and limit its deployment branches
-   to `main`.
-2. Add environment **variables** (none is a secret): `AZURE_CLIENT_ID` (the
-   identity's client ID), `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`,
-   `AZURE_WEBAPP_NAME`, `DEMO_URL`.
-
-Rehearse once: delete `SESSION_SECRET`, restart, see the 500s and the named
-setting in Log stream, then put the setting back.
-
-When SML moves production to its own account, repeat the Azure and GitHub
-steps with a new identity and a `production` environment.
+Moved to the runbook, [azure-demo.md](../azure-demo.md): the Azure and GitHub
+setup (Mike, between PR 1 and PR 2's first deploy), the app settings, logs,
+and the one-time rehearsal.
 
 ## Sources
 

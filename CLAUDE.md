@@ -326,6 +326,21 @@ so the app is built against a **mock TidyHQ**.
   `webkit-no-js` project (JavaScript off) runs every spec to catch the rest.
   Revisit at the next major Next.js version, where Cache Components becomes
   the default.
+- **Host: Azure App Service (Linux, Node 24).** The demo (`TIDYHQ_MODE=mock`,
+  `DEMO_MODE=on`) runs the standalone build (`output: "standalone"`, started
+  with `node server.js` from the zip root, `HOSTNAME=0.0.0.0`). It is built
+  and deployed from GitHub Actions with OIDC (`.github/workflows/deploy.yml`,
+  after CI passes on a push to `main`); App Service never builds. Portal
+  steps, settings, logs and troubleshooting: `docs/azure-demo.md`.
+  - **Exactly one instance**: the mock keeps its state in memory, so no scale
+    out and no PM2 cluster mode. Every restart, deploy or sleep resets the
+    demo; the portal's Restart is the "reset demo" button.
+  - **Never set `E2E` on the demo.** It opens the unauthenticated
+    `/mock-tidyhq/reset` route and speeds the admin refresh up to 2 s.
+  - A bad config doesn't crash the server (it serves 500s and still prints
+    "Ready"), so the deploy ends with `scripts/check-deploy.mjs`: `/` must
+    return 200 on this build, and one `/_next/static` CSS file must load.
+    `scripts/` is linted with undefined names and unused variables as errors.
 - Tests: Vitest
 - Mobile-first: the member side is used on phones at event doors
 - Styling: Tailwind CSS v4 (PostCSS plugin, no `tailwind.config.js`). Shared
