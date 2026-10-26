@@ -2,7 +2,8 @@
 
 **Status:** Done, PR 1 ✅ Merged (#46), PR 2 ✅ Merged (#47), released as
 0.6.0. A docs-only follow-up (#48) came after the first deploy, with no
-version bump. The 0.6.1 patch (PR 4, the `/demo` walkthrough) follows. The
+version bump. The 0.6.1 patch (PR 4, the `/demo` walkthrough) ✅ Merged
+(#49). PR 5 (CI only, no version bump) runs e2e in the Playwright image. The
 0.5.3 patch (Next.js security fix) came first and is separate from this
 milestone: ✅ Merged (#45).
 Milestone 6 is two PRs plus the follow-up and ends at 0.6.0; the 0.6.1 patch
@@ -195,12 +196,12 @@ See the runbook, [azure-demo.md](../azure-demo.md), which is the only copy.
    - Update CLAUDE.md for the host.
    - Version 0.6.0. The first real deploy happens when this PR merges
      (`workflow_run` only fires from `main`). `ci.yml`'s actions stay on v4;
-     a later patch bumps them.
+     PR 5 bumps them.
 3. **Runbook follow-up (docs only, no version bump).** (#48)
    - Azure runbook corrections after the first deploy: the F1 quota
      workaround, the OIDC subject claim and how to look up its IDs, and the
      rehearsal notes.
-4. **0.6.1 patch: demo walkthrough.** ✅ Done in this PR.
+4. **0.6.1 patch: demo walkthrough.** ✅ Merged (#49).
    - `/demo`, only when `DEMO_MODE=on` (a real 404 otherwise), so testers can
      reach every feature without help. Nine numbered scenarios: member
      check-in and repeat, reaching club colors, grace period and balance due,
@@ -222,6 +223,29 @@ See the runbook, [azure-demo.md](../azure-demo.md), which is the only copy.
      says you're already checked in). Scenario 1 uses a second tab opened
      before the first tap instead.
    - Version 0.6.1.
+5. **CI: e2e in the Playwright image, actions off v4 (CI only, no version
+   bump).** ✅ Done in this PR.
+   - The e2e job runs in `mcr.microsoft.com/playwright:v<version>-noble`,
+     which has the browsers and their system libraries, so the browser cache
+     and the install steps are gone. apt's Azure mirror had timed out
+     `install-deps` four times in one day.
+   - `src/ciWorkflow.test.ts` fails unless the image tag equals
+     `@playwright/test` in `package-lock.json`, so a Playwright bump needs the
+     image bumped in the same PR. It also fails if a `playwright install`
+     step comes back.
+   - In the container: it runs as the runner's user (`--user 1001`, as
+     Playwright's CI guide does), with `--ipc=host` for Chromium's shared
+     memory. GitHub sets `HOME=/github/home`, which holds npm's cache; the
+     browsers are found through the image's `PLAYWRIGHT_BROWSERS_PATH`.
+     setup-node still installs Node from `.nvmrc` (the image's own Node 24 is
+     unused). Chromium already runs without its sandbox under Playwright, so
+     no flags were needed. If Firefox is ever added: it fails when `HOME`
+     belongs to another user, which happens when the container runs as root.
+   - `ci.yml` (both jobs): checkout and setup-node v4 → v7, upload-artifact
+     v4 → v7. `actions/cache` is no longer used. The release notes' breaking
+     changes don't apply here (no `packageManager` field, no npm publishing,
+     no authenticated git, `pull_request` rather than `pull_request_target`).
+     `deploy.yml` was already on v7.
 
 ## Portal steps and app settings
 
