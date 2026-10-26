@@ -104,7 +104,13 @@ if (
     process.exit(2);
   }
   try {
-    await checkDeploy({ url, buildId: buildId || undefined });
+    // Shortens the wait when rehearsing a failure locally; the workflow leaves it unset.
+    const seconds = Number(process.env.CHECK_DEPLOY_TIMEOUT_SECONDS);
+    await checkDeploy({
+      url,
+      buildId: buildId || undefined,
+      ...(seconds > 0 && { timeoutMs: seconds * 1000, intervalMs: 1000 }),
+    });
     console.log("Deploy check passed.");
   } catch (error) {
     console.error(
