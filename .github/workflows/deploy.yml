@@ -9,12 +9,6 @@ on:
     types: [completed]
   workflow_dispatch:
 
-# Two deploys never overlap, and one that is running is never cancelled.
-# GitHub keeps only the newest waiting run, which is the one we want.
-concurrency:
-  group: deploy-demo
-  cancel-in-progress: false
-
 permissions:
   contents: read
   id-token: write
@@ -32,8 +26,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: demo
+    # Two deploys never overlap, and one that is running is never cancelled.
+    # GitHub keeps only the newest waiting run, which is the one we want.
+    # On the job, not the workflow: a skipped job takes no slot, so a pull
+    # request's CI run can't cancel a waiting deploy of main.
+    concurrency:
+      group: deploy-demo
+      cancel-in-progress: false
     steps:
-      # The exact commit that passed CI, not whatever main is by now.
+      # After a CI run: the exact commit that passed it, not whatever main is by
+      # now. A manual run has no CI run: it deploys the head of the branch picked
+      # and does not check that CI passed on it.
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
@@ -51,8 +54,12 @@ jobs:
           test -f .next/standalone/server.js
           test -d .next/standalone/.next/static
           (cd .next/standalone && zip -qr "$GITHUB_WORKSPACE/deploy.zip" .)
-          unzip -l deploy.zip | grep -E '[[:space:]]server\.js$'
-          unzip -l deploy.zip | grep -qE '[[:space:]]\.next/static/'
+          # Read the whole listing into a file first: grep -q exits at its first
+          # match, and unzip then dies of SIGPIPE, which pipefail turns into a
+          # failed step.
+          unzip -l deploy.zip > zip-list.txt
+          grep -E '[[:space:]]server\.js$' zip-list.txt
+          grep -qE '[[:space:]]\.next/static/' zip-list.txt
 
       - uses: azure/login@v3
         with:
@@ -69,4 +76,6 @@ jobs:
       - name: Check the deployed site
         env:
           DEMO_URL: ${{ vars.DEMO_URL }}
-        run: node scripts/check-deploy.mjs "$DEMO_URL" "$(cat .next/BUILD_ID)"
+        run: |
+          test -s .next/BUILD_ID
+          node scripts/check-deploy.mjs "$DEMO_URL" "$(cat .next/BUILD_ID)"

@@ -74,12 +74,36 @@ describe("checkDeploy", () => {
   });
 
   it("fails when nothing is listening, as with a zip that has no server.js", async () => {
-    const url = await serve(() => ({ status: 200 }));
-    await new Promise((resolve) => server!.close(resolve));
+    // Nothing is ever assigned port 2, so nothing can have taken it (a freed
+    // port could be). Not port 1: fetch refuses it as a "bad port".
     await expect(
-      checkDeploy({ url, buildId: BUILD_ID, ...fast }),
+      checkDeploy({ url: "http://127.0.0.1:2", buildId: BUILD_ID, ...fast }),
     ).rejects.toThrow(/never returned 200/i);
   });
+
+  it("says why there was no response, by error code only", async () => {
+    const lines: string[] = [];
+    await expect(
+      checkDeploy({
+        url: "http://127.0.0.1:2/secret-path",
+        buildId: BUILD_ID,
+        ...fast,
+        log: (line: string) => lines.push(line),
+      }),
+    ).rejects.toThrow(/ECONNREFUSED/);
+    expect(lines.join("\n")).toContain("ECONNREFUSED");
+    expect(lines.join("\n")).not.toContain("secret-path");
+  });
+
+  it.each(["", "  "])(
+    "fails closed on an empty build id (%j), so the old build can't pass",
+    async (buildId) => {
+      const url = await serve(() => ({ status: 200, body: page("oldbuild") }));
+      await expect(checkDeploy({ url, buildId, ...fast })).rejects.toThrow(
+        /build id/i,
+      );
+    },
+  );
 
   it("fails when the page is fine but the CSS is missing", async () => {
     const url = await serve((req) =>

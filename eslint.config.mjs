@@ -2,6 +2,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import prettier from "eslint-config-prettier/flat";
+import globals from "globals";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -11,14 +12,7 @@ const eslintConfig = defineConfig([
   {
     files: ["scripts/**/*.mjs"],
     languageOptions: {
-      globals: {
-        AbortSignal: "readonly",
-        URL: "readonly",
-        console: "readonly",
-        fetch: "readonly",
-        process: "readonly",
-        setTimeout: "readonly",
-      },
+      globals: globals.node,
     },
     rules: {
       "no-undef": "error",

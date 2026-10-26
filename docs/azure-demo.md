@@ -14,8 +14,10 @@ GitHub.
 
 1. A push to `main` runs CI. When CI finishes green, `Deploy demo` starts. (A
    pull request run of CI never deploys.) You can also start it by hand from
-   the Actions tab (**Run workflow**), which deploys the branch you pick; the
-   `demo` environment only allows `main`.
+   the Actions tab (**Run workflow**), which deploys the head of the branch you
+   pick; the `demo` environment only allows `main`. **A manual run skips the CI
+   gate:** it deploys that commit even if CI failed or is still running on it,
+   so check the commit's CI status first.
 2. It checks out the exact commit that passed CI, runs
    `npm run build:standalone`, and zips from **inside** `.next/standalone` so
    `server.js` is at the zip root.
@@ -139,14 +141,15 @@ why the deploy ends with a check.
 
 The failing line is in the last step of the `Deploy demo` run.
 
-| Message                                                              | Likely cause                                                                                                 | Look at                                                                           |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| `never returned 200 … (last: HTTP 500)`                              | Bad config: a missing or invalid setting (`SESSION_SECRET`, `DEMO_MODE`, `APP_ORIGIN`). The server is up.    | Log stream: the log names the setting. Fix it in the portal, then **Restart**.    |
-| `never returned 200 … (last: HTTP 503)` or `no response`             | The app never started: a zip with no `server.js` at its root, a wrong startup command, or the wrong runtime. | Log stream and Kudu docker logs; the Startup command; the runtime is Node 24 LTS. |
-| `never returned 200 … (last: HTTP 200, but the page is not build …)` | The previous version is still answering. The new one didn't start, or the swap is slow.                      | Log stream, then re-run the job.                                                  |
-| `The CSS file … returned 404`                                        | The static files are missing from the zip.                                                                   | The zip step in `deploy.yml` and `npm run build:standalone`.                      |
-| `The page has no CSS link`                                           | The page rendered but not as expected (an error page).                                                       | Open `DEMO_URL` and Log stream.                                                   |
-| F1 over quota: 403 until midnight UTC                                | The daily CPU quota (60 min) is used up.                                                                     | Metrics; consider B1.                                                             |
+| Message                                                              | Likely cause                                                                                                                                                                                                                                                                                    | Look at                                                                           |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `never returned 200 … (last: HTTP 500)`                              | Bad config: a missing or invalid setting (`SESSION_SECRET`, `DEMO_MODE`, `APP_ORIGIN`). The server is up.                                                                                                                                                                                       | Log stream: the log names the setting. Fix it in the portal, then **Restart**.    |
+| `never returned 200 … (last: HTTP 503)` or `no response (CODE)`      | The app never started: a zip with no `server.js` at its root, a wrong startup command, or the wrong runtime. `CODE` says which kind of failure: `ECONNREFUSED` nothing listening, `ENOTFOUND` a wrong `DEMO_URL`, a `CERT_…` or similar code a TLS problem.                                     | Log stream and Kudu docker logs; the Startup command; the runtime is Node 24 LTS. |
+| `never returned 200 … (last: HTTP 200, but the page is not build …)` | The previous version is still answering (the new one didn't start, or the swap is slow). If it happens on every deploy of a healthy build, Next.js may have stopped writing the build id into the page (it does so only when no deployment id is set); the check then needs a different marker. | Log stream, then re-run the job.                                                  |
+| `The build id is empty` or the step `test -s .next/BUILD_ID` fails   | The build wrote no `.next/BUILD_ID`. The check refuses to run without it, so the old build can't pass.                                                                                                                                                                                          | The build step's log.                                                             |
+| `The CSS file … returned 404`                                        | The static files are missing from the zip.                                                                                                                                                                                                                                                      | The zip step in `deploy.yml` and `npm run build:standalone`.                      |
+| `The page has no CSS link`                                           | The page rendered but not as expected (an error page).                                                                                                                                                                                                                                          | Open `DEMO_URL` and Log stream.                                                   |
+| F1 over quota: 403 until midnight UTC                                | The daily CPU quota (60 min) is used up.                                                                                                                                                                                                                                                        | Metrics; consider B1.                                                             |
 
 To rehearse the check yourself (the wait is shortened with an environment
 variable):

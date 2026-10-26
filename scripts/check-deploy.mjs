@@ -14,6 +14,20 @@ import { pathToFileURL } from "node:url";
 
 const CSS_LINK = /href="([^"]*\/_next\/static\/[^"]*\.css[^"]*)"/;
 
+/**
+ * Why a request failed, safe to log. Node's fetch throws "TypeError: fetch
+ * failed" and puts the reason in error.cause.code (ECONNREFUSED, ENOTFOUND,
+ * a certificate code). Only that code or the error's name is returned, never a
+ * message, which can carry the host, a URL with credentials, or a body.
+ */
+function describeError(error) {
+  const code = error?.cause?.code;
+  if (typeof code === "string" && /^[A-Za-z0-9_]{1,64}$/.test(code)) {
+    return code;
+  }
+  return error instanceof Error ? error.name : "error";
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -34,6 +48,13 @@ export async function checkDeploy({
   requestTimeoutMs = 15 * 1000,
   log = console.log,
 }) {
+  // Fail closed: "" would read as "accept any 200", so the previous build
+  // answering during the swap would pass. Leave it out (undefined) to skip.
+  if (buildId !== undefined && !buildId.trim()) {
+    throw new Error(
+      "The build id is empty (is .next/BUILD_ID missing?). Not checking without it.",
+    );
+  }
   const root = new URL("/", url);
   const deadline = Date.now() + timeoutMs;
   let last = "no response";
@@ -55,8 +76,7 @@ export async function checkDeploy({
         break;
       }
     } catch (error) {
-      // Only the error's name: a message can carry the host or other detail.
-      last = `no response (${error instanceof Error ? error.name : "error"})`;
+      last = `no response (${describeError(error)})`;
     }
     log(`try ${attempt}: ${last}`);
     if (Date.now() + intervalMs >= deadline) {
@@ -82,7 +102,7 @@ export async function checkDeploy({
     status = res.status;
   } catch (error) {
     throw new Error(
-      `The CSS file ${cssUrl.pathname} did not load (${error instanceof Error ? error.name : "error"}).`,
+      `The CSS file ${cssUrl.pathname} did not load (${describeError(error)}).`,
     );
   }
   if (status !== 200) {
@@ -108,7 +128,7 @@ if (
     const seconds = Number(process.env.CHECK_DEPLOY_TIMEOUT_SECONDS);
     await checkDeploy({
       url,
-      buildId: buildId || undefined,
+      buildId,
       ...(seconds > 0 && { timeoutMs: seconds * 1000, intervalMs: 1000 }),
     });
     console.log("Deploy check passed.");
