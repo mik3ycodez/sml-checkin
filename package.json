@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:standalone": "next build && cp -R .next/static .next/standalone/.next/",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -37,6 +38,6 @@
     "vitest": "^5.0.4"
   },
   "engines": {
-    "node": ">=24"
+    "node": "24.x"
   }
 }
