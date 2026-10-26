@@ -2,9 +2,11 @@
 
 **Status:** Done, PR 1 ✅ Merged (#46), PR 2 ✅ Merged (#47), released as
 0.6.0. A docs-only follow-up (#48) came after the first deploy, with no
-version bump. The 0.5.3 patch (Next.js security fix) came first and is
-separate from this milestone: ✅ Merged (#45).
-Milestone 6 is two PRs plus the follow-up, and ends at 0.6.0.
+version bump. The 0.6.1 patch (PR 4, the `/demo` walkthrough) follows. The
+0.5.3 patch (Next.js security fix) came first and is separate from this
+milestone: ✅ Merged (#45).
+Milestone 6 is two PRs plus the follow-up and ends at 0.6.0; the 0.6.1 patch
+comes after it.
 
 ## Context
 
@@ -198,6 +200,28 @@ See the runbook, [azure-demo.md](../azure-demo.md), which is the only copy.
    - Azure runbook corrections after the first deploy: the F1 quota
      workaround, the OIDC subject claim and how to look up its IDs, and the
      rehearsal notes.
+4. **0.6.1 patch: demo walkthrough.** ✅ Done in this PR.
+   - `/demo`, only when `DEMO_MODE=on` (a real 404 otherwise), so testers can
+     reach every feature without help. Nine numbered scenarios: member
+     check-in and repeat, reaching club colors, grace period and balance due,
+     the two refusals, the two refused events, the `/me` messages, the admin
+     pages, volunteer check-in, and the admin and volunteer views compared.
+     Each says who to sign in as, has a Start button, lists the steps and
+     what you should see, and says what you will see if someone already ran
+     it on the shared demo.
+   - Linked from the home page and the "Demo data" banner, in demo mode only.
+   - Start is a small form that posts to the existing `/auth/signout` with a
+     `returnTo` built by the path helpers; the target page then sends a
+     signed-out visitor to the mock sign-in and back. No auth or
+     `safeReturnTo` change.
+   - Scenario data (`src/app/demo/scenarios.ts`) is tested against the seed:
+     members, events, search terms, and every quoted screen text must still
+     be in the source, so rewording a screen or changing the seed fails a test.
+   - **Checked, and different from the first plan:** the browser's Back button
+     does not bring the Check in button back (the page is fetched again and
+     says you're already checked in). Scenario 1 uses a second tab opened
+     before the first tap instead.
+   - Version 0.6.1.
 
 ## Portal steps and app settings
 

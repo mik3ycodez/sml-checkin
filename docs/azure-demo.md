@@ -6,6 +6,10 @@ The demo runs on **Azure App Service (Linux)** with `TIDYHQ_MODE=mock` and
 no secret in the repo. The reasons behind these choices are in
 [milestone 6](plans/milestone-6.md).
 
+**For testers:** open `/demo` on the site (also linked from the home page and
+the "Demo data" banner). It walks through every feature, one scenario at a
+time, with who to sign in as and what you should see.
+
 This is the only copy of the portal steps, app settings and log instructions.
 Everything below is a placeholder; real values live in the portal and in
 GitHub.
@@ -122,7 +126,9 @@ production.
 
 The mock keeps its data in memory, so **every restart, deploy or F1 sleep
 resets it**. To reset on purpose, press **Restart** on the web app's Overview
-page. Members stay signed in (the seed contact ids don't change).
+page. Members stay signed in (the seed contact ids don't change). Testers on
+`/demo` are told to ask whoever runs the demo for this: it undoes the
+scenarios they ran, and starts Social Night's 24 hours of open check-in again.
 
 ## One instance only
 

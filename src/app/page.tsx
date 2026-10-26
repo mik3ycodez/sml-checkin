@@ -1,8 +1,11 @@
+import { DEMO_PATH, isDemoMode } from "@/lib/demoMode";
 import { ME_PATH } from "./memberPaths";
-import { PRIMARY } from "./memberUi";
+import { PRIMARY, SECONDARY } from "./memberUi";
 
 // The splash page. Its one action is the member's status page: a signed-out
 // visitor is sent through TidyHQ sign-in by /me itself and lands back there.
+// A demo site adds a link to its walkthrough (the layout reads the request, so
+// this is decided per request, not at build time).
 
 export default function Home() {
   return (
@@ -16,6 +19,11 @@ export default function Home() {
       <a href={ME_PATH} className={PRIMARY}>
         My points and status
       </a>
+      {isDemoMode() && (
+        <a href={DEMO_PATH} className={SECONDARY}>
+          Demo walkthrough
+        </a>
+      )}
     </div>
   );
 }
