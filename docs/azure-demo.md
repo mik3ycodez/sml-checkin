@@ -37,7 +37,9 @@ is never cancelled.
 
 ### Azure portal
 
-1. Create a resource group, e.g. `sml-checkin-demo`, in **West US 2**.
+1. Create a resource group, e.g. `sml-checkin-demo`, in **West US 3**. (West US 2 refused F1 with "Current Limit (F1 VMs): 0".
+   If your region does the same, try another region, or request F1 quota
+   under Quotas, App Service.)
 2. Create an App Service plan: **Linux, F1** (free). Move to B1 only if F1
    gets in the way: the daily CPU quota, sleeping, or a custom domain.
 3. Create the web app: Code, **Node 24 LTS**, the F1 plan. Leave continuous
@@ -47,13 +49,24 @@ is never cancelled.
    `HOSTNAME=0.0.0.0 node server.js`. Turn **HTTPS Only** on, set minimum
    TLS to 1.2, disable FTP, and optionally turn session affinity off.
 5. Add the [app settings](#app-settings).
-6. Turn on App Service logs: Application logging, **File System**.
+6. Turn on App Service logs: Application logging, **File System**. Leave
+   Application Insights **off** (it is not free).
 7. OIDC: create a **user-assigned managed identity**. Add a federated
    credential: "GitHub Actions deploying Azure resources", organization
    `mik3ycodez`, repository `sml-checkin`, entity **Environment**, name
-   **`demo`** (subject `repo:mik3ycodez/sml-checkin:environment:demo`). In the
+   **`demo`**. GitHub uses immutable subject claims for repositories created
+   after 2026-07-15, so the subject is
+   `repo:mik3ycodez@27905079/sml-checkin@1416534711:environment:demo`, and the
+   Azure form asks for the owner ID and the repository ID. Look them up with:
+
+   ```
+   gh api repos/mik3ycodez/sml-checkin --jq '.id, .owner.id'
+   ```
+
+   (the first number is the repository ID, the second the owner ID). In the
    web app's Access control (IAM), give the identity the **Website
    Contributor** role, scoped to the web app only.
+
 8. Add a Cost Management budget alert (for example $5).
 
 ### GitHub
@@ -62,26 +75,28 @@ is never cancelled.
    branches to `main`.
 2. Add environment **variables** (none is a secret):
 
-   | Variable                | Value                                                  |
-   | ----------------------- | ------------------------------------------------------ |
-   | `AZURE_CLIENT_ID`       | The managed identity's client ID                       |
-   | `AZURE_TENANT_ID`       | The Azure tenant ID                                    |
-   | `AZURE_SUBSCRIPTION_ID` | The subscription ID                                    |
-   | `AZURE_WEBAPP_NAME`     | The web app's name                                     |
-   | `DEMO_URL`              | `https://<default domain from the web app's Overview>` |
+   | Variable                | Value                                                     |
+   | ----------------------- | --------------------------------------------------------- |
+   | `AZURE_CLIENT_ID`       | The identity's Application (client) ID, not its Object ID |
+   | `AZURE_TENANT_ID`       | The Azure tenant ID                                       |
+   | `AZURE_SUBSCRIPTION_ID` | The subscription ID                                       |
+   | `AZURE_WEBAPP_NAME`     | The web app's name                                        |
+   | `DEMO_URL`              | `https://<default domain from the web app's Overview>`    |
 
-### On the first deploy, confirm
+### First deploy: confirmed
 
-- The site comes up with `HOSTNAME=0.0.0.0 node server.js`. (App Service sets
-  `PORT`; `HOSTNAME` is set to the container's name on some platforms, so we
-  override it. If the site works without the override, say so in the plan.)
-- Log stream shows the app starting, and the deploy check passes.
+`HOSTNAME=0.0.0.0 node server.js` works, and the first deploy (2026-10-26)
+passed its check. Log stream shows the app starting.
 
 ### Rehearse once
 
 Delete `SESSION_SECRET`, restart, and watch: `/` returns 500 and Log stream
 names the missing setting (never a value). The next deploy would go red. Then
 put the setting back and restart.
+
+- After **Apply**, the restart takes a few seconds, so the first reload may
+  still reach the old server. Reload again.
+- Changing the secret signs members out cleanly (they sign in again).
 
 ## App settings
 

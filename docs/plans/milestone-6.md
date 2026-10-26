@@ -1,6 +1,7 @@
 # Milestone 6: Demo on Azure App Service
 
-**Status:** In progress, PR 1 ✅ Merged (#46), PR 2 🔍 In review. The 0.5.3 patch (Next.js security
+**Status:** Done, PR 1 ✅ Merged (#46), PR 2 ✅ Merged (#47), released as
+0.6.0. The 0.5.3 patch (Next.js security
 fix) came first and is separate from this milestone: ✅ Merged (#45).
 Milestone 6 is two PRs and
 ends at 0.6.0.
@@ -50,7 +51,8 @@ only matter if we needed an exact patch version.
   checks) must catch this too.
 - App Service sets `PORT`; `server.js` reads it. It also reads `HOSTNAME`,
   which some platforms set to the container's name, so the startup command is
-  **`HOSTNAME=0.0.0.0 node server.js`**. Confirm on the first deploy.
+  **`HOSTNAME=0.0.0.0 node server.js`**. Confirmed: it works, and the first
+  deploy (2026-10-26) passed its check.
 - Build in GitHub Actions, not on App Service: building there installs
   devDependencies and uses F1's 60 CPU minutes a day. Set
   `SCM_DO_BUILD_DURING_DEPLOYMENT=false`.
@@ -176,7 +178,7 @@ See the runbook, [azure-demo.md](../azure-demo.md), which is the only copy.
    - `next start` prints a warning with standalone output on
      (`"next start" does not work with "output: standalone"`), so the `start`
      script runs `node .next/standalone/server.js`.
-2. **Deploy workflow and runbook (0.6.0).** 🔍 In review.
+2. **Deploy workflow and runbook (0.6.0).** ✅ Merged (#47).
    - `deploy.yml` with the check after deploy: `scripts/check-deploy.mjs`
      (tested in `src/checkDeploy.test.ts`) waits up to 5 minutes for `/` to
      return 200 **on this build** (the `.next/BUILD_ID` value appears in the
