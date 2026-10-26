@@ -1,0 +1,72 @@
+name: Deploy demo
+
+# Deploys the demo to Azure App Service after CI passes on a push to main.
+# Setup and troubleshooting: docs/azure-demo.md
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+
+# Two deploys never overlap, and one that is running is never cancelled.
+# GitHub keeps only the newest waiting run, which is the one we want.
+concurrency:
+  group: deploy-demo
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    # A pull request run of CI never deploys: its event is pull_request, not push.
+    # head_repository stops a fork's branch that happens to be named main.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: demo
+    steps:
+      # The exact commit that passed CI, not whatever main is by now.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build:standalone
+
+      # Zip from inside .next/standalone so server.js is at the zip root.
+      - name: Zip the standalone build
+        run: |
+          test -f .next/standalone/server.js
+          test -d .next/standalone/.next/static
+          (cd .next/standalone && zip -qr "$GITHUB_WORKSPACE/deploy.zip" .)
+          unzip -l deploy.zip | grep -E '[[:space:]]server\.js$'
+          unzip -l deploy.zip | grep -qE '[[:space:]]\.next/static/'
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          package: deploy.zip
+
+      # A bad config or a broken zip still reports a successful deploy; only a
+      # request shows it. Waits up to 5 minutes for a cold start.
+      - name: Check the deployed site
+        env:
+          DEMO_URL: ${{ vars.DEMO_URL }}
+        run: node scripts/check-deploy.mjs "$DEMO_URL" "$(cat .next/BUILD_ID)"
