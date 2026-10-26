@@ -6,6 +6,25 @@ import prettier from "eslint-config-prettier/flat";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // Plain Node scripts (run by the deploy workflow). TypeScript isn't there to
+  // catch a misspelled name, so make undefined names and unused variables errors.
+  {
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        AbortSignal: "readonly",
+        URL: "readonly",
+        console: "readonly",
+        fetch: "readonly",
+        process: "readonly",
+        setTimeout: "readonly",
+      },
+    },
+    rules: {
+      "no-undef": "error",
+      "@typescript-eslint/no-unused-vars": "error",
+    },
+  },
   // Must come last so it turns off any rule that conflicts with Prettier.
   prettier,
   // Override default ignores of eslint-config-next.
