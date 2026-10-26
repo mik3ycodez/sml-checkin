@@ -1,10 +1,10 @@
 # Milestone 6: Demo on Azure App Service
 
 **Status:** Done, PR 1 ✅ Merged (#46), PR 2 ✅ Merged (#47), released as
-0.6.0. The 0.5.3 patch (Next.js security
-fix) came first and is separate from this milestone: ✅ Merged (#45).
-Milestone 6 is two PRs and
-ends at 0.6.0.
+0.6.0. A docs-only follow-up (#48) came after the first deploy, with no
+version bump. The 0.5.3 patch (Next.js security fix) came first and is
+separate from this milestone: ✅ Merged (#45).
+Milestone 6 is two PRs plus the follow-up, and ends at 0.6.0.
 
 ## Context
 
@@ -194,6 +194,10 @@ See the runbook, [azure-demo.md](../azure-demo.md), which is the only copy.
    - Version 0.6.0. The first real deploy happens when this PR merges
      (`workflow_run` only fires from `main`). `ci.yml`'s actions stay on v4;
      a later patch bumps them.
+3. **Runbook follow-up (docs only, no version bump).** (#48)
+   - Azure runbook corrections after the first deploy: the F1 quota
+     workaround, the OIDC subject claim and how to look up its IDs, and the
+     rehearsal notes.
 
 ## Portal steps and app settings
 
