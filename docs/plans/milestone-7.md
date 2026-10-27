@@ -3,7 +3,9 @@
 **Status:** Done, released as 0.7.0 once PR 4 merges. PR 1 (0.6.2, branch
 `m7-pr1-brand-header`, #52) ✅ Merged, PR 2 (#53) ✅ Merged, PR 3 (branch
 `m7-pr3-profile-menu`, #54) ✅ Merged, PR 4 (branch `m7-pr4-theme-toggle`,
-#55) 🔍 In review. Approved 2026-10-26 with changes (folded in below).
+#55) 🔍 In review. Approved 2026-10-26 with changes (folded in below). The
+0.7.1 patch (branch `patch/0.7.1-menu-icon`, #56) 🔍 In review comes after the
+milestone and is separate from it.
 
 ## Context
 
@@ -543,6 +545,20 @@ ignored, cross-site post refused, 303 to `returnTo`), layout sets
   theme's surface color.
 - Cookie, route, menu row, signed-out menu, `package.json` 0.7.0, CLAUDE.md
   and `app-pages.md` updates, this plan marked done.
+
+### Patch 0.7.1: size the signed-out menu's person icon (#56)
+
+Branch `patch/0.7.1-menu-icon`. 🔍 In review. A bug fix after 0.7.0: the
+signed-out menu's "Sign in" icon had no size, so it grew to fill the panel and
+pushed the "Sign in" text out of view.
+
+- `PersonIcon` now builds on the shared `ICON` defaults (20px) and takes any svg
+  prop, so the signed-out row is `<PersonIcon />` and the avatar overrides the
+  size and color.
+- Test first: a unit test that every svg in the menu has a size (classes count
+  only as whole `size-N` or `w-N` plus `h-N` tokens), and a check folded into
+  the existing signed-out e2e test that the icon's own box is 24px or less.
+- No behavior or rules change, so no CLAUDE.md or rules update.
 
 ## E2E specs that change
 
