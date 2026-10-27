@@ -74,7 +74,8 @@ so the app is built against a **mock TidyHQ**.
   demo included, also checks `SESSION_SECRET`.** The group ids
   (`ADMIN_GROUP_ID`, `HELPER_GROUP_ID`) are optional and
   never block startup; live mode logs a startup warning (no value) when
-  `ADMIN_GROUP_ID` is unset. The e2e suite runs as a demo for that reason.
+  `ADMIN_GROUP_ID` is unset. The e2e suite runs as a demo because production refuses mock without
+  `DEMO_MODE=on` (CLAUDE.md, Invariants).
 - **One time budget per check-in** (`src/lib/tidyhq/budget.ts`, 24 s inside
   the 30 s route limit; `maxDuration = 30` is on the two pages that hold the
   check-in forms, and a test keeps them equal). Both actions start it, so the
