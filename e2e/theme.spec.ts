@@ -51,6 +51,14 @@ test("picking Dark on /me stays there and darkens the page, the logo and the men
     "aria-pressed",
     "false",
   );
+
+  // Paper stays white: print forces the light colors even in a dark theme.
+  await page.emulateMedia({ media: "print" });
+  await expect(page.locator("body")).toHaveCSS("color", "rgb(23, 23, 23)");
+  await expect(page.locator("body")).toHaveCSS(
+    "background-color",
+    LIGHT_BACKGROUND,
+  );
 });
 
 test("System goes back to following the device", async ({ page }) => {
@@ -101,6 +109,30 @@ test("Light on a dark device returns to the same check-in page, with a light bro
   await expect(
     page.getByLabel("Account menu, signed in as Dante Ruiz"),
   ).toBeVisible();
+});
+
+// With JavaScript on, the Check in button is a server action that redirects
+// without re-rendering the layout, so the header still thinks it is on the
+// page before. The theme post must go back to where the browser really is.
+test("picking Dark on the check-in result screen stays on it", async ({
+  page,
+  javaScriptEnabled,
+}) => {
+  test.skip(!javaScriptEnabled, "the stale header needs a soft navigation");
+  await signInAs(page, "Dante Ruiz", "/checkin/ev_tonight");
+  await page.getByRole("button", { name: "Check in" }).click();
+  await expect(
+    page.getByRole("heading", { name: "You're checked in, Dante Ruiz!" }),
+  ).toBeVisible();
+  const resultUrl = page.url();
+
+  await pick(page, "Dark");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page).toHaveURL(resultUrl);
+  await expect(
+    page.getByRole("heading", { name: "You're checked in, Dante Ruiz!" }),
+  ).toBeVisible();
+  await expect(page.getByText("+1 point")).toBeVisible();
 });
 
 test("signed out, the theme is reachable from / and sticks through sign-in", async ({

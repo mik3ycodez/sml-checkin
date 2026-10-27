@@ -22,7 +22,8 @@
 }
 
 /* Dark follows the device unless the page is forced light, or is forced dark
-   whatever the device says. Nothing sets data-theme until the theme toggle. */
+   whatever the device says. The root layout sets data-theme from the
+   `sml_theme` cookie (none for System). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --background: var(--c-gray-950);

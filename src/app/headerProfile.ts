@@ -33,12 +33,12 @@ function signOutReturn(path: string): string {
 
 /**
  * What the layout's header needs: the member's display fields from the session
- * cookie (null when signed out), and the page Sign out should return to
+ * cookie (null when signed out), the page Sign out should return to
  * (`x-sml-path`, set by `src/proxy.ts`), and the exact current page for the
- * theme switch, which changes no one and so never needs Sign out's rule. Fails soft: if the cookie can't be
- * read (a bad or missing `SESSION_SECRET` on a misconfigured dev server) the
- * header shows signed out rather than breaking every page. Nothing is logged:
- * the error could carry anything.
+ * theme switch, which changes no one and so never needs Sign out's rule.
+ * Fails soft: if the cookie can't be read (a bad or missing `SESSION_SECRET`
+ * on a misconfigured dev server) the header shows signed out rather than
+ * breaking every page. Nothing is logged: the error could carry anything.
  */
 export async function loadHeaderProfile(): Promise<{
   profile: Profile | null;

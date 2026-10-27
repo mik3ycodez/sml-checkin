@@ -6,8 +6,30 @@ import {
   THEME_COOKIE,
   THEME_MAX_AGE_SECONDS,
   THEMES,
+  isTheme,
   parseTheme,
 } from "./theme";
+
+describe("isTheme", () => {
+  it("is true for exactly the three choices", () => {
+    for (const theme of THEMES) expect(isTheme(theme)).toBe(true);
+  });
+
+  it("is false for anything else", () => {
+    for (const value of [
+      undefined,
+      null,
+      42,
+      "",
+      "Dark",
+      "auto",
+      "__proto__",
+      "constructor",
+    ]) {
+      expect(isTheme(value), String(value)).toBe(false);
+    }
+  });
+});
 
 describe("parseTheme", () => {
   it("accepts the three choices", () => {
