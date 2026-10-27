@@ -111,6 +111,18 @@ test("the event page prints as the QR code and its details, without the controls
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeHidden();
   await expect(page.getByRole("link", { name: "All events" })).toBeHidden();
+  // The site header doesn't print; the sheet has its own black logo instead.
+  await expect(page.getByRole("banner")).toBeHidden();
+  const logo = page.getByRole("img", { name: "Seattle Men in Leather" });
+  await expect(logo).toHaveCount(1);
+  await expect(logo).toBeVisible();
+  await expect(logo).toHaveAttribute("src", "/brand/sml-logo-black.png");
+  // On screen, only the header's logo shows.
+  await page.emulateMedia({ media: "screen" });
+  await expect(page.getByRole("banner")).toBeVisible();
+  await expect(
+    page.locator('main img[src="/brand/sml-logo-black.png"]'),
+  ).toBeHidden();
 });
 
 test("printing from a dark-mode phone gives dark text on white, not faint gray", async ({

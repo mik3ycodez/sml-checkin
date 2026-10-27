@@ -1,31 +1,99 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Each shade is defined once, here. The theme blocks below only map token
+     names to these, so a shade changes in one place. */
+  --c-white: #ffffff;
+  --c-gray-50: #ededed;
+  --c-gray-100: #e5e5e5;
+  --c-gray-300: #a3a3a3;
+  --c-gray-500: #636363;
+  --c-gray-700: #2e2e2e;
+  --c-gray-900: #171717;
+  --c-gray-950: #0a0a0a;
+
+  --background: var(--c-white);
+  --foreground: var(--c-gray-900);
+  --accent: var(--c-gray-500);
+  --on-accent: var(--c-white);
+  --surface: var(--c-white);
+  --border: var(--c-gray-100);
   color-scheme: light;
 }
 
+/* Dark follows the device unless the page is forced light, or is forced dark
+   whatever the device says. Nothing sets data-theme until the theme toggle. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    --background: var(--c-gray-950);
+    --foreground: var(--c-gray-50);
+    --accent: var(--c-gray-300);
+    --on-accent: var(--c-gray-950);
+    --surface: var(--c-gray-900);
+    --border: var(--c-gray-700);
     color-scheme: dark;
   }
 }
 
+:root[data-theme="dark"] {
+  --background: var(--c-gray-950);
+  --foreground: var(--c-gray-50);
+  --accent: var(--c-gray-300);
+  --on-accent: var(--c-gray-950);
+  --surface: var(--c-gray-900);
+  --border: var(--c-gray-700);
+  color-scheme: dark;
+}
+
+/* The header shows one of two logos. Same selectors as the colors, not a
+   <picture>, which only knows the device setting and would ignore a manual
+   choice. A display:none image is out of the accessibility tree. */
+.logo-for-dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .logo-for-light {
+    display: none;
+  }
+  :root:not([data-theme="light"]) .logo-for-dark {
+    display: inline;
+  }
+}
+
+:root[data-theme="dark"] .logo-for-light {
+  display: none;
+}
+
+:root[data-theme="dark"] .logo-for-dark {
+  display: inline;
+}
+
 /* Paper is white, and browsers drop backgrounds when printing: force the light
-   colors so dark mode's pale text can't print faint. After the dark block. */
+   colors so dark mode's pale text can't print faint. After the dark blocks.
+   `:root:root` is as specific as both dark selectors above
+   (`:root:not([data-theme="light"])` and `:root[data-theme="dark"]`), and comes
+   later, so it wins with or without a data-theme attribute. A bare `:root`
+   would lose to the first. */
 @media print {
-  :root {
-    --background: #ffffff;
-    --foreground: #171717;
+  :root:root {
+    --background: var(--c-white);
+    --foreground: var(--c-gray-900);
+    --accent: var(--c-gray-500);
+    --on-accent: var(--c-white);
+    --surface: var(--c-white);
+    --border: var(--c-gray-100);
     color-scheme: light;
   }
 }
 
-/* Expose the color variables as Tailwind colors: bg-background, text-foreground. */
+/* Expose the color variables as Tailwind colors: bg-background, text-foreground,
+   bg-accent, text-on-accent, bg-surface, border-border. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
 }

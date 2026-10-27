@@ -8,7 +8,8 @@ import { ADMIN_PATH, adminEventPath } from "./paths";
 
 // Plain server-rendered markup, like the member pages: no client JavaScript.
 
-const CARD = "border-foreground/20 flex flex-col gap-1 rounded-lg border p-4";
+const CARD =
+  "bg-surface border-border flex flex-col gap-1 rounded-lg border p-4";
 
 function EventCard({ event }: { event: AdminEvent }) {
   const details = (

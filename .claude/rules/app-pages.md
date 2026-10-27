@@ -28,3 +28,10 @@ paths:
   `webkit-no-js` project (JavaScript off) runs every spec to catch the rest.
   Revisit at the next major Next.js version, where Cache Components becomes
   the default.
+- **Layout height:** `body` is a `min-h-dvh` flex column and `<main>` is
+  `flex-1`, so the demo banner, `SiteHeader` and page fill one screen. Screens
+  that center content use `flex-1 justify-center` and center below the header.
+  Don't put `min-h-dvh` back on `<main>`.
+- **Colors come from tokens** (`bg-accent text-on-accent`, `bg-surface`,
+  `border-border`, plus background and foreground), never fixed colors, so
+  light, dark and print follow `globals.css`.

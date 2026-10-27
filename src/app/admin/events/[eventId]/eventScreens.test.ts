@@ -110,6 +110,17 @@ describe("AdminEventScreen", () => {
     expect(html).toMatch(/aria-label="[^"]*Social Night/);
   });
 
+  // Paper is white whatever the theme, so the sheet carries its own black logo
+  // and never depends on which theme logo the header is showing.
+  it("starts the printed sheet with the black logo, shown only when printing", () => {
+    const html = renderToStaticMarkup(render(EVENT));
+    const logo = html.match(/<img[^>]*sml-logo-black\.png[^>]*>/)?.[0] ?? "";
+    expect(logo).toMatch(/class="[^"]*\bhidden\b[^"]*\bprint:block\b/);
+    expect(logo).toContain('alt="Seattle Men in Leather"');
+    // The tag, not the preload hint React puts first.
+    expect(html.indexOf(logo)).toBeLessThan(html.indexOf("Social Night"));
+  });
+
   it("prints cleanly: dark-mode colors can't reach the QR, and the chrome is hidden", () => {
     const html = renderToStaticMarkup(render(EVENT));
     // A white panel behind the code, in any theme, so the quiet zone stays light.

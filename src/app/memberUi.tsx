@@ -7,9 +7,9 @@ import { checkinPath, ME_PATH, staffCheckinPath } from "./memberPaths";
 // forms, so they work on older phones without JavaScript.
 
 export const PRIMARY =
-  "rounded-lg bg-foreground px-4 py-3 text-center text-lg font-semibold text-background";
+  "rounded-lg bg-accent px-4 py-3 text-center text-lg font-semibold text-on-accent";
 export const SECONDARY =
-  "rounded-lg border border-foreground/20 px-4 py-3 text-center text-lg";
+  "rounded-lg border border-accent px-4 py-3 text-center text-lg text-accent";
 
 /**
  * Who's signed in, with a way to switch members on a shared phone. A plain
@@ -30,7 +30,7 @@ export function SignedInAs({
       {name !== null && <>Signed in as {name}. </>}
       <span className="whitespace-nowrap">
         {name !== null && <>Not you? </>}
-        <button type="submit" className="underline">
+        <button type="submit" className="text-accent underline">
           Sign out
         </button>
       </span>
@@ -38,7 +38,7 @@ export function SignedInAs({
   );
 }
 
-const QUIET_LINK = "text-foreground/70 underline";
+const QUIET_LINK = "text-accent underline";
 
 /**
  * A quiet link to the member's status page, in the same style as
@@ -101,7 +101,7 @@ export function TidyHqNotice({
   linkLabel: string;
 }) {
   return (
-    <div className="border-foreground/20 flex flex-col gap-3 rounded-lg border p-4">
+    <div className="bg-surface border-border flex flex-col gap-3 rounded-lg border p-4">
       <p className="text-lg">{children}</p>
       <a href={tidyhqSiteUrl()} className={SECONDARY}>
         {linkLabel}

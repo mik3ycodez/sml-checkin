@@ -15,7 +15,7 @@ import { staffCheckInAction } from "./actions";
 // search).
 
 const INPUT =
-  "border-foreground/30 bg-background w-full rounded-lg border px-4 py-3 text-lg";
+  "border-border bg-surface w-full rounded-lg border px-4 py-3 text-lg";
 
 function Frame({
   eventId,
@@ -39,11 +39,11 @@ function Frame({
       {children}
       <div className="flex flex-col gap-3">
         {staff.role === "admin" ? (
-          <a href={adminEventPath(eventId)} className="underline">
+          <a href={adminEventPath(eventId)} className="text-accent underline">
             Back to event page
           </a>
         ) : (
-          <a href={checkinPath(eventId)} className="underline">
+          <a href={checkinPath(eventId)} className="text-accent underline">
             Stop volunteering
           </a>
         )}
@@ -95,7 +95,10 @@ export function StaffSearchScreen({
       {search.status === "unavailable" && (
         <p role="status" className="text-lg">
           We couldn&apos;t reach TidyHQ just now.{" "}
-          <a href={staffSearchPath(frame.eventId, query)} className="underline">
+          <a
+            href={staffSearchPath(frame.eventId, query)}
+            className="text-accent underline"
+          >
             Try again
           </a>
         </p>
@@ -157,7 +160,7 @@ export function StaffVerdictScreen({
   const back = staffSearchPath(frame.eventId, query);
   return (
     <Frame {...frame}>
-      <div className="border-foreground/20 flex flex-col gap-2 rounded-lg border p-4">
+      <div className="bg-surface border-border flex flex-col gap-2 rounded-lg border p-4">
         <p className="text-2xl font-semibold">{verdict.name}</p>
         {verdict.total !== null && (
           <p className="text-lg">

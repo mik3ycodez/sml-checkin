@@ -21,7 +21,8 @@ describe("the web manifest", () => {
   });
 
   // The app follows the device's light/dark setting, so one fixed color would
-  // be wrong in one of them. Light and dark theme colors come with the header.
+  // be wrong in one of them. A manifest holds one color; the light and dark
+  // pair is `viewport.themeColor` in layout.tsx.
   it("sets no theme color of its own", () => {
     expect(m).not.toHaveProperty("theme_color");
   });

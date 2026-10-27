@@ -7,7 +7,7 @@ vi.mock("./globals.css", () => ({}));
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import RootLayout, { metadata } from "./layout";
+import RootLayout, { metadata, viewport } from "./layout";
 
 describe("the root layout's icons", () => {
   const icons = metadata.icons as {
@@ -58,5 +58,45 @@ describe("the root layout's demo banner", () => {
     const html = await render();
     expect(html).toContain("Demo data");
     expect(html).toContain("Page body");
+  });
+});
+
+describe("the root layout's viewport", () => {
+  // Matches --surface, the header's color, in each scheme (dark surface is
+  // #171717, not the darker dark background).
+  it("sets the browser bar color for light and dark", () => {
+    expect(viewport.themeColor).toEqual([
+      { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+      { media: "(prefers-color-scheme: dark)", color: "#171717" },
+    ]);
+  });
+});
+
+describe("the root layout's header and height", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  const render = async () =>
+    renderToStaticMarkup(
+      await RootLayout({ children: createElement("p", null, "Page body") }),
+    );
+
+  it("renders the header on every page, signed out too, with the page after it", async () => {
+    const html = await render();
+    expect(html).toContain("<header");
+    expect(html.indexOf("<header")).toBeLessThan(html.indexOf("<main"));
+  });
+
+  it("puts the demo banner before the header", async () => {
+    vi.stubEnv("DEMO_MODE", "on");
+    const html = await render();
+    expect(html.indexOf("Demo data")).toBeLessThan(html.indexOf("<header"));
+  });
+
+  // Header + main fill exactly one screen: the body is the column, main grows.
+  it("makes the body a full-height column and main the part that grows", async () => {
+    const html = await render();
+    expect(html).toMatch(/<body[^>]*class="[^"]*min-h-dvh[^"]*flex-col/);
+    expect(html).toMatch(/<main[^>]*class="[^"]*flex-1/);
+    expect(html).not.toMatch(/<main[^>]*min-h-dvh/);
   });
 });
