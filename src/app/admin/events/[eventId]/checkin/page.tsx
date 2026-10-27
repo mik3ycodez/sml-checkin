@@ -24,8 +24,9 @@ import {
 } from "./screens";
 
 // Staff check-in: search by name, see a verdict, confirm. Rendered fully on
-// the server with no Suspense boundary or loading file (see CLAUDE.md), and
-// with no auto-refresh. Every step is a GET (`?q=`, `?member=`) or the
+// the server with no Suspense boundary or loading file (see
+// .claude/rules/app-pages.md), and with no auto-refresh. Every step is a GET
+// (`?q=`, `?member=`) or the
 // confirm's POST. requireVolunteer comes first and stops the request for
 // anyone but a volunteer or an admin. Volunteers lose the page once check-in
 // has ended; being on this URL is volunteer mode (there's no cookie).

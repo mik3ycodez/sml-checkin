@@ -6,7 +6,8 @@ const nextConfig: NextConfig = {
   // files in. See docs/plans/milestone-6.md.
   output: "standalone",
   // No Cache Components: every page is dynamic, and it would force <Suspense>
-  // around them, which shows "Loading…" forever if scripts fail. See CLAUDE.md.
+  // around them, which shows "Loading…" forever if scripts fail. See
+  // .claude/rules/app-pages.md.
 };
 
 export default nextConfig;

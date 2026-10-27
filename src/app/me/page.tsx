@@ -7,9 +7,10 @@ import { ME_PATH, signInPath } from "../memberPaths";
 import { MeScreen } from "./screens";
 
 // The member status page. Read-only. Rendered fully on the server with no
-// Suspense boundary or loading file (see CLAUDE.md): with JavaScript off, streamed
-// content would never appear. The summary and the recent events are read
-// together, and a failed events read only affects its own section.
+// Suspense boundary or loading file (see .claude/rules/app-pages.md): with
+// JavaScript off, streamed content would never appear. The summary and the
+// recent events are read together, and a failed events read only affects its
+// own section.
 
 const SIGN_IN = signInPath(ME_PATH);
 

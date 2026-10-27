@@ -2,10 +2,11 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// Enforces CLAUDE.md's "no <Suspense> on member pages" rule. Streamed
-// Suspense content is revealed by a script, so with JavaScript off or failing
-// the member would see the fallback forever. `loading.*` files wrap a route in
-// an implicit Suspense boundary, so they count too.
+// Enforces the "no <Suspense> on member pages" rule in
+// .claude/rules/app-pages.md. Streamed Suspense content is revealed by a
+// script, so with JavaScript off or failing the member would see the fallback
+// forever. `loading.*` files wrap a route in an implicit Suspense boundary, so
+// they count too.
 
 const APP_DIR = __dirname;
 

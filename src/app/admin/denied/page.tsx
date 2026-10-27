@@ -12,8 +12,9 @@ import {
 import { AdminDeniedScreen } from "../screens";
 
 // Where `requireAdmin` sends anyone it turns away. Rendered fully on the
-// server with no Suspense boundary or loading file (see CLAUDE.md). The
-// `reason` query only picks the wording; it grants nothing.
+// server with no Suspense boundary or loading file (see
+// .claude/rules/app-pages.md). The `reason` query only picks the wording; it
+// grants nothing.
 
 export default async function AdminDeniedPage({
   searchParams,

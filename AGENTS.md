@@ -1,8 +1,9 @@
 # Agent instructions
 
-Project rules live in [CLAUDE.md](CLAUDE.md), which takes precedence over
-anything below. The block below is generic Next.js guidance managed by
-`next dev`; do not edit between its markers (changes are overwritten).
+Project rules live in [CLAUDE.md](CLAUDE.md) and the path-scoped files in
+`.claude/rules/`, which take precedence over anything below. The block below is
+generic Next.js guidance managed by `next dev`; do not edit between its markers
+(changes are overwritten).
 
 <!-- BEGIN:nextjs-agent-rules -->
 
