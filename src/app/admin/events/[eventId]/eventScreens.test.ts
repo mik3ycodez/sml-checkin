@@ -52,7 +52,6 @@ const render = (
   } = {},
 ) =>
   createElement(AdminEventScreen, {
-    name: "Casey",
     event,
     qr,
     attendees: extra.attendees === undefined ? NOBODY : extra.attendees,
@@ -133,10 +132,10 @@ describe("AdminEventScreen", () => {
     expect(renderToStaticMarkup(render(EVENT))).toContain('href="/admin"');
   });
 
-  it("offers a way to sign out and returns to this event's page", () => {
+  it("prints no sign-in line or sign-out form: the header has them", () => {
     const html = renderToStaticMarkup(render(EVENT));
-    expect(html).toContain("Signed in as Casey");
-    expect(html).toContain('value="/admin/events/ev_one"');
+    expect(html).not.toContain("Signed in as");
+    expect(html).not.toContain("/auth/signout");
   });
 
   it("calls an unnamed event untitled, and omits a missing location", () => {
@@ -265,11 +264,11 @@ describe("AdminEventScreen", () => {
       expect(html).not.toContain("<script");
     });
 
-    it("links back to the events and offers sign-out", () => {
+    it("links back to the events, with no sign-in line (the header has it)", () => {
       const html = renderToStaticMarkup(unavailable());
       expect(html).toContain('href="/admin"');
-      expect(html).toContain("Signed in as Casey");
-      expect(html).toContain('value="/admin/events/ev_one"');
+      expect(html).not.toContain("Signed in as");
+      expect(html).not.toContain("/auth/signout");
     });
 
     it("shows no event details, QR code, or attendee names", () => {

@@ -23,3 +23,14 @@ export async function signInAs(page: Page, name: string, returnTo = "/") {
   await page.getByRole("button", { name }).click();
   await page.waitForURL((url) => url.pathname === returnTo);
 }
+
+/** Opens the header's account menu (a native disclosure, so no script needed). */
+export async function openMenu(page: Page) {
+  await page.locator("summary").click();
+}
+
+/** Signs out through the header's account menu. */
+export async function signOut(page: Page) {
+  await openMenu(page);
+  await page.getByRole("button", { name: "Sign out" }).click();
+}

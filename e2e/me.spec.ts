@@ -1,4 +1,4 @@
-import { expect, signInAs, test } from "./fixtures";
+import { expect, openMenu, signInAs, signOut, test } from "./fixtures";
 
 // Every spec runs in all three projects, including "webkit-no-js" (JavaScript
 // off): /me is plain server-rendered HTML.
@@ -119,7 +119,7 @@ test("Morgan has been issued club colors", async ({ page }) => {
 
 test("signing out from /me leads back to sign-in", async ({ page }) => {
   await signInAs(page, "Dante Ruiz", "/me");
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await signOut(page);
   await expect(page).toHaveURL(/\/mock-tidyhq\/oauth\/authorize/);
 });
 
@@ -130,5 +130,17 @@ test("the splash page leads, through sign-in, to the member's status", async ({
   await page.getByRole("link", { name: "My points and status" }).click();
   await page.getByRole("button", { name: "Dante Ruiz" }).click();
   await expect(page).toHaveURL(/\/me$/);
-  await expect(page.getByText("Dante Ruiz").first()).toBeVisible();
+  await expect(
+    page.getByLabel("Account menu, signed in as Dante Ruiz"),
+  ).toBeVisible();
+});
+
+test("My points and status in the header menu opens /me", async ({ page }) => {
+  await signInAs(page, "Dante Ruiz", "/checkin/ev_tonight");
+  await openMenu(page);
+  await page
+    .getByRole("link", { name: "My points and status" })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/me$/);
 });

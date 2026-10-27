@@ -43,7 +43,7 @@ async function renderCheckIn(eventId: string) {
           Check in
         </button>
       </form>
-      <MemberFooter eventId={eventId} name={status.name} />
+      <MemberFooter eventId={eventId} />
     </div>
   );
 }

@@ -32,7 +32,6 @@ export default async function AdminDeniedPage({
   return (
     <AdminDeniedScreen
       reason={deniedReason(reason)}
-      name={contact.status === "known" ? contact.name : null}
       retryPath={deniedRetryPath(returnTo)}
       staffEventId={staffCheckinEventId(returnTo)}
     />

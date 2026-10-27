@@ -266,9 +266,13 @@ export function createSeed(now: Date = new Date()): MockSeed {
   // testing, not just until its end time.
   checkinWindows.ev_tonight.closes_at = shiftIso(now.toISOString(), DAY_MS);
 
+  // Marcus has a photo (a generated avatar in public/mock, not SML's); everyone
+  // else has none, so e2e covers both the photo and initials paths.
+  const marcus = contact("c_marcus", "Marcus", "Bell", 1);
+  marcus.profile_image = "/mock/marcus.svg";
   return {
     contacts: [
-      contact("c_marcus", "Marcus", "Bell", 1),
+      marcus,
       contact("c_dante", "Dante", "Ruiz", 0),
       contact("c_jordan", "Jordan", "Park", 1),
       // Membership ends in two weeks: exercises the renewal reminder.

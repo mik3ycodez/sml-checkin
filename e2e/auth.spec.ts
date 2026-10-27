@@ -1,4 +1,4 @@
-import { expect, signInAs, test } from "./fixtures";
+import { expect, signInAs, signOut, test } from "./fixtures";
 
 test("two tabs signing in at once both succeed", async ({ context, page }) => {
   const other = await context.newPage();
@@ -60,7 +60,7 @@ test("sign-out from another site is refused", async ({ page }) => {
 
 test("sign-out from this site signs the member out", async ({ page }) => {
   await signInAs(page, "Dante Ruiz", "/checkin/ev_tonight");
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await signOut(page);
   await expect(
     page.getByRole("heading", { name: "Sign in as…" }),
   ).toBeVisible();

@@ -1,4 +1,4 @@
-import { expect, signInAs, test } from "./fixtures";
+import { expect, signInAs, signOut, test } from "./fixtures";
 
 // Runs in all three projects, including "webkit-no-js": every step is a plain
 // form or link.
@@ -80,7 +80,7 @@ test("signing out of the staff page returns to the member check-in page", async 
   page,
 }) => {
   await signInAs(page, "Pat Rivera", STAFF_PAGE);
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await signOut(page);
   await expect(
     page.getByRole("heading", { name: "Sign in as…" }),
   ).toBeVisible();

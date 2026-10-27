@@ -5,7 +5,9 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { SiteHeader } from "./SiteHeader";
 
-const html = renderToStaticMarkup(createElement(SiteHeader));
+const html = renderToStaticMarkup(
+  createElement(SiteHeader, { profile: null, returnTo: "/" }),
+);
 
 describe("SiteHeader", () => {
   it("is a header landmark that is hidden when printing", () => {
@@ -13,9 +15,27 @@ describe("SiteHeader", () => {
   });
 
   it("links the logo and name to the home page as one link", () => {
-    expect(html.match(/<a /g)).toHaveLength(1);
-    expect(html).toMatch(/<a[^>]*href="\/"/);
-    expect(html).toContain("Seattle Men in Leather");
+    // The signed-out menu adds its own "Sign in" link, so look at the first.
+    const home = html.slice(html.indexOf("<a "), html.indexOf("</a>"));
+    expect(home).toMatch(/^<a[^>]*href="\/"/);
+    expect(home).toContain("Seattle Men in Leather");
+    expect(home.match(/<img/g)).toHaveLength(2);
+  });
+
+  it("puts the profile menu on the right, after the home link", () => {
+    expect(html.indexOf("</a>")).toBeLessThan(html.indexOf("<details"));
+    expect(html).toContain("justify-between");
+  });
+
+  it("shows the signed-in chip when given a profile", () => {
+    const signedIn = renderToStaticMarkup(
+      createElement(SiteHeader, {
+        profile: { name: "Dante Ruiz", initials: "DR" },
+        returnTo: "/me",
+      }),
+    );
+    expect(signedIn).toContain("Account menu, signed in as Dante Ruiz");
+    expect(html).not.toContain("Account menu");
   });
 
   it("renders both logos with the classes the theme CSS swaps", () => {
@@ -48,14 +68,16 @@ describe("SiteHeader", () => {
     expect(html.match(/Seattle Men in Leather/g)).toHaveLength(1);
   });
 
-  it("keeps the name text visible, hiding it only on narrow phones", () => {
-    expect(html).toMatch(/max-\[400px\]:sr-only/);
+  it("keeps the name text visible down to 360px, hiding it only below that", () => {
+    expect(html).toMatch(/max-\[359px\]:sr-only/);
+    expect(html).not.toMatch(/max-\[400px\]:sr-only/);
   });
 
   it("uses the surface and border tokens, with no shadow", () => {
     expect(html).toContain("bg-surface");
     expect(html).toContain("border-b");
     expect(html).toContain("border-border");
-    expect(html).not.toContain("shadow");
+    // The bar itself has none (the open menu's panel does).
+    expect(html.match(/<header[^>]*>/)![0]).not.toContain("shadow");
   });
 });

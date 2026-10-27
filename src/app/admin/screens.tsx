@@ -1,10 +1,10 @@
 import { refreshIntervalSeconds } from "@/lib/admin/attendees";
 import type { AdminDeniedReason } from "@/lib/auth/admin";
-import { SECONDARY, SignedInAs } from "../memberUi";
+import { SECONDARY } from "../memberUi";
 import type { AdminEvent, AdminEvents } from "@/lib/admin/events";
 import { seattleTimeLabel } from "@/lib/dates";
 import { checkinPath } from "../memberPaths";
-import { ADMIN_PATH, adminEventPath } from "./paths";
+import { adminEventPath } from "./paths";
 
 // Plain server-rendered markup, like the member pages: no client JavaScript.
 
@@ -59,13 +59,7 @@ function EventList({ events }: { events: AdminEvent[] }) {
 }
 
 /** `events` is null if TidyHQ couldn't list them. */
-export function AdminHomeScreen({
-  name,
-  events,
-}: {
-  name: string;
-  events: AdminEvents | null;
-}) {
+export function AdminHomeScreen({ events }: { events: AdminEvents | null }) {
   return (
     <div className="flex flex-1 flex-col gap-6">
       <h1 className="text-2xl font-bold tracking-tight">Admin</h1>
@@ -92,7 +86,6 @@ export function AdminHomeScreen({
           )}
         </>
       )}
-      <SignedInAs name={name} returnTo={ADMIN_PATH} />
     </div>
   );
 }
@@ -105,13 +98,10 @@ export function AdminHomeScreen({
  */
 export function AdminDeniedScreen({
   reason,
-  name,
   retryPath,
   staffEventId,
 }: {
   reason: AdminDeniedReason;
-  /** Null if TidyHQ couldn't say who this is. */
-  name: string | null;
   /**
    * A page to go back to after 30 seconds (only when access couldn't be
    * checked), so a door screen recovers from a one-off TidyHQ failure by
@@ -163,10 +153,6 @@ export function AdminDeniedScreen({
           Back to check-in
         </a>
       )}
-      <SignedInAs
-        name={name}
-        returnTo={staff ? checkinPath(staffEventId) : ADMIN_PATH}
-      />
     </div>
   );
 }

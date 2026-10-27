@@ -24,7 +24,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { newOAuthState, type OAuthState } from "@/lib/auth/oauthState";
-import { SESSION_COOKIE } from "@/lib/auth/session";
+import { SESSION_COOKIE, verifySession } from "@/lib/auth/session";
 import { getTidyServices } from "@/lib/tidyhq";
 import { GET } from "./route";
 
@@ -92,6 +92,36 @@ describe("GET /auth/callback", () => {
       name: saved.cookieName,
       path: "/auth",
     });
+  });
+
+  it("saves the member's name, initials and photo in the session for the header", async () => {
+    const saved = startSignIn();
+    await callback({ code: issueCode("c_marcus"), state: saved.state });
+    const token = cookieStore.set.mock.calls[0][1] as string;
+    const session = verifySession(
+      token,
+      "test-secret-that-is-at-least-32-characters-long",
+      new Date(),
+    );
+    expect(session).toMatchObject({
+      contactId: "c_marcus",
+      name: "Marcus Bell",
+      initials: "MB",
+      photo: expect.stringMatching(/^\/mock\//),
+    });
+  });
+
+  it("saves initials but no photo for a member without one", async () => {
+    const saved = startSignIn();
+    await callback({ code: issueCode("c_dante"), state: saved.state });
+    const token = cookieStore.set.mock.calls[0][1] as string;
+    const session = verifySession(
+      token,
+      "test-secret-that-is-at-least-32-characters-long",
+      new Date(),
+    );
+    expect(session).toMatchObject({ name: "Dante Ruiz", initials: "DR" });
+    expect(session?.photo).toBeUndefined();
   });
 
   it("lets sign-ins started in two tabs both finish", async () => {

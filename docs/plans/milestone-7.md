@@ -1,8 +1,8 @@
 # Milestone 7: Look like SML's TidyHQ site (0.7.0)
 
 **Status:** Approved 2026-10-26 with changes (folded in below). PR 1 (0.6.2,
-branch `m7-pr1-brand-header`) merged; PR 2 (branch `m7-pr2-theme-header`) in
-review; PRs 3 and 4 not started.
+branch `m7-pr1-brand-header`) and PR 2 merged; PR 3 (branch
+`m7-pr3-profile-menu`) in review; PR 4 not started.
 
 ## Context
 
@@ -289,10 +289,11 @@ the `max-w-lg` main column, matching TidyHQ's full-width bar; its contents
 line up with the main column.
 
 - **Left:** the logo (40 px tall) and "Seattle Men in Leather", both one link
-  to `/`. Below about 400 px wide, the text hides (`max-[400px]:sr-only`
-  style) and the logo carries the name; the profile chip needs the space.
-- **Right:** the profile chip (PR 3). In PR 2, nothing yet; the pages keep
-  their "Signed in as…" lines until PR 3 replaces them.
+  to `/`. The text stays visible down to 360 px wide and hides only below
+  that (`max-[359px]:sr-only`), where the logo carries the name. It can stay
+  that long because below 640 px the chip is just the avatar and a chevron
+  (see Profile chip and menu).
+- **Right:** the profile chip (PR 3).
 - **Look:** `--surface` background, a 1 px `--border` bottom edge, no shadow.
 - **Element:** a `<header>` (a landmark, and it keeps the demo banner the
   layout's only `body > div`, which `demo.spec.ts` relies on).
@@ -310,12 +311,15 @@ A native `<details>`/`<summary>` disclosure. It opens and closes with no
 JavaScript, on every browser back to well before iOS 16.4.
 
 - **Summary (the chip):** a rounded-square avatar (photo, or initials on an
-  accent background), the member's name (truncated with an ellipsis past
-  about 12 characters on phones), and a chevron (inline SVG). It's labelled
-  "Account menu, signed in as <name>".
-- **Panel:** absolutely positioned under the chip, `--surface`, rounded, a
+  accent background) and a chevron (inline SVG). From 640 px wide the
+  member's name also shows beside the avatar (cut off with an ellipsis past
+  about 12 characters); below that the chip is only the avatar and chevron.
+  It's always labelled "Account menu, signed in as <name>".
+- **Panel:** absolutely positioned under the chip, right-aligned and never
+  wider than the screen minus its margins, `--surface`, rounded, a
   soft shadow, `--border` dividers, gray outline icons (inline SVGs, no icon
-  library: three icons don't justify a dependency). Items:
+  library: three icons don't justify a dependency). Like TidyHQ's menu, which
+  shows the email at the top, it starts with the member's name. Items:
   1. **My points and status**, a link to `/me`.
   2. **Theme** (PR 4).
   3. **Sign out**, still `POST /auth/signout`, with a `returnTo`.
@@ -414,7 +418,9 @@ What that means:
 - **Mock:** the mock's `getMe` returns the seed contact. Marcus gets a photo:
   a plain generated SVG avatar under `public/mock/` (clearly not SML's, and
   outside the locked folder), so both the photo and initials paths run in
-  e2e.
+  e2e. Because that file is served from this site over http in e2e, the
+  https-only photo rule also accepts a root-relative `/mock/<file>` path
+  (nothing but the mock seed produces one). Added in PR 3.
 
 **The photo itself** is a plain `<img>`, not `next/image` (which would proxy
 TidyHQ's images through our server and need its host listed, which we don't
@@ -574,7 +580,11 @@ removed, because those lines leave the pages.
    Locked with the rest, but not used in the header, because it's the wide
    logo on a square canvas and so smaller at header height (see The brand
    files).
-8. **Narrow phones:** "Seattle Men in Leather" text hides below about 400 px.
+8. **Narrow phones:** below 640 px the chip shows only the avatar and chevron,
+   and the member's name moves to the top of the open menu (the chip's
+   accessible label still has it). That frees room, so "Seattle Men in
+   Leather" stays visible down to 360 px and hides only below that.
+   (Changed in PR 3; it was "hides below about 400 px".)
 9. **Photo in the cookie:** only an `https:` URL under 512 characters;
    anything else is no photo. Rendered with `referrerPolicy="no-referrer"`.
 10. **`proxy.ts` only passes the path along.** Auth checks stay in the pages

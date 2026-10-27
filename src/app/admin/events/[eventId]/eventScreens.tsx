@@ -5,8 +5,8 @@ import { seattleTimeLabel } from "@/lib/dates";
 import type { IgnoredWindowReason } from "@/lib/tidyhq/checkinWindow";
 import { parseTime } from "@/lib/tidyhq/timeRange";
 import { SmlLogo } from "../../../SmlLogo";
-import { SECONDARY, SignedInAs } from "../../../memberUi";
-import { ADMIN_PATH, adminEventPath, staffCheckinPath } from "../../paths";
+import { SECONDARY } from "../../../memberUi";
+import { ADMIN_PATH, staffCheckinPath } from "../../paths";
 
 // Plain server-rendered markup, like the member pages: no client JavaScript.
 // Controls carry `print:hidden`, so printing the page gives a sheet with the
@@ -161,14 +161,11 @@ function AttendeeList({
 }
 
 export function AdminEventScreen({
-  name,
   event,
   qr,
   attendees,
   refreshSeconds,
 }: {
-  /** The signed-in admin. */
-  name: string;
   event: AdminEventPage;
   /** The QR code's SVG markup and the link it opens; null when there's no code. */
   qr: { svg: string; url: string } | null;
@@ -215,9 +212,6 @@ export function AdminEventScreen({
       )}
       <QrBlock event={event} qr={qr} />
       <AttendeeList attendees={attendees} refreshSeconds={refreshSeconds} />
-      <div className="print:hidden">
-        <SignedInAs name={name} returnTo={adminEventPath(event.id)} />
-      </div>
     </div>
   );
 }
@@ -227,13 +221,7 @@ export function AdminEventScreen({
  * reloading (the same meta refresh as the live page) so a door screen
  * recovers from a one-off failure without anyone touching it.
  */
-export function AdminEventUnavailable({
-  name,
-  eventId,
-}: {
-  name: string;
-  eventId: string;
-}) {
+export function AdminEventUnavailable() {
   return (
     <div className="flex flex-1 flex-col gap-4">
       <meta httpEquiv="refresh" content={String(refreshIntervalSeconds())} />
@@ -245,12 +233,11 @@ export function AdminEventUnavailable({
         TidyHQ isn&apos;t answering right now, so this event can&apos;t be
         shown. This page will retry in {refreshIntervalSeconds()} seconds.
       </p>
-      <SignedInAs name={name} returnTo={adminEventPath(eventId)} />
     </div>
   );
 }
 
-export function UnknownAdminEvent({ name }: { name: string }) {
+export function UnknownAdminEvent() {
   return (
     <div className="flex flex-1 flex-col gap-4">
       <BackToEvents />
@@ -260,7 +247,6 @@ export function UnknownAdminEvent({ name }: { name: string }) {
       <p className="text-foreground/70 text-lg">
         TidyHQ has no event with that link. Pick one from the list.
       </p>
-      <SignedInAs name={name} returnTo={ADMIN_PATH} />
     </div>
   );
 }

@@ -3,41 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { MembershipNotice } from "@/lib/membership";
 import type { TapOutcome } from "@/lib/checkin/tapNotice";
-import { SignedInAs } from "../../memberUi";
 import { CheckinProblem, StatusScreen, type ShownStatus } from "./screens";
-
-describe("SignedInAs", () => {
-  const html = renderToStaticMarkup(
-    createElement(SignedInAs, {
-      name: "Dante Ruiz",
-      returnTo: "/checkin/ev_tonight",
-    }),
-  );
-
-  it("names the member", () => {
-    expect(html).toContain("Dante Ruiz");
-  });
-
-  it("signs out with a plain form post that returns to the check-in page", () => {
-    expect(html).toMatch(/<form[^>]*action="\/auth\/signout"[^>]*>/);
-    expect(html).toMatch(/<form[^>]*method="post"/);
-    expect(html).toContain('name="returnTo" value="/checkin/ev_tonight"');
-    expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Sign out<\/button>/);
-  });
-});
-
-describe("SignedInAs without a name", () => {
-  const html = renderToStaticMarkup(
-    createElement(SignedInAs, { name: null, returnTo: "/admin" }),
-  );
-
-  it("doesn't claim who's signed in, but still signs out", () => {
-    expect(html).not.toContain("Signed in as");
-    expect(html).toMatch(/<form[^>]*action="\/auth\/signout"[^>]*>/);
-    expect(html).toContain('name="returnTo" value="/admin"');
-    expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Sign out<\/button>/);
-  });
-});
 
 /** Visible text, with tags dropped and React's text separators collapsed. */
 function text(html: string): string {
@@ -256,8 +222,9 @@ describe("StatusScreen", () => {
       expect(html).not.toContain('href="/checkin/ev_tonight"');
     });
 
-    it("lets a shared phone switch members", () => {
-      expect(text).toContain("Signed in as Dante Ruiz");
+    it("leaves who's signed in and Sign out to the header", () => {
+      expect(text).not.toContain("Signed in as");
+      expect(text).not.toContain("Sign out");
     });
   });
 
@@ -277,8 +244,9 @@ describe("StatusScreen", () => {
       expect(shown).not.toContain("Total");
     });
 
-    it("lets a shared phone switch members", () => {
-      expect(text).toContain("Signed in as Dante Ruiz");
+    it("leaves who's signed in and Sign out to the header", () => {
+      expect(text).not.toContain("Signed in as");
+      expect(text).not.toContain("Sign out");
     });
   });
 
@@ -292,8 +260,9 @@ describe("StatusScreen", () => {
       expect(text).not.toContain("Renew");
     });
 
-    it("lets a shared phone switch members", () => {
-      expect(text).toContain("Signed in as Dante Ruiz");
+    it("leaves who's signed in and Sign out to the header", () => {
+      expect(text).not.toContain("Signed in as");
+      expect(text).not.toContain("Sign out");
     });
   });
 
@@ -317,8 +286,9 @@ describe("StatusScreen", () => {
       );
     });
 
-    it("lets a shared phone switch members", () => {
-      expect(text).toContain("Signed in as Dante Ruiz");
+    it("leaves who's signed in and Sign out to the header", () => {
+      expect(text).not.toContain("Signed in as");
+      expect(text).not.toContain("Sign out");
     });
   });
 

@@ -10,7 +10,7 @@ import { AdminHomeScreen } from "./screens";
 // an admin. A TidyHQ failure only affects the list, as on `/me`.
 
 export default async function AdminPage() {
-  const admin = await requireAdmin(ADMIN_PATH);
+  await requireAdmin(ADMIN_PATH);
   const events = await loadAdminEvents(getTidyClient(), { now: new Date() });
-  return <AdminHomeScreen name={admin.name} events={events} />;
+  return <AdminHomeScreen events={events} />;
 }

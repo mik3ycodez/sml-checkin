@@ -51,11 +51,10 @@ describe("MeScreen", () => {
       expect(html).not.toMatch(TIDYHQ_LINK);
     });
 
-    it("is view only, apart from signing out and returning to /me", () => {
-      expect(html.match(/<form/g)).toHaveLength(1);
-      expect(html).toContain('action="/auth/signout"');
-      expect(html).toContain('name="returnTo" value="/me"');
-      expect(text).toContain("Signed in as Dante Ruiz");
+    it("is view only: no forms, and no sign-out line (the header has it)", () => {
+      expect(html).not.toContain("<form");
+      expect(html).not.toContain("/auth/signout");
+      expect(text).not.toContain("Signed in as");
     });
 
     it("has no script tags", () => {

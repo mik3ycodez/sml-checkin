@@ -88,6 +88,12 @@ function parseNotes(raw: unknown): Note[] {
 export function parseContact(raw: unknown, version: "v1" | "v2"): Contact {
   const r = raw as Raw;
   const time = version === "v1" ? fromV1Time : text;
+  // LIVE-UNKNOWN(profile-image): the spec gives no format for either field, or
+  // what a contact with no photo returns. Anything blank or not a string is
+  // left out; the header then shows initials. Whether a placeholder URL comes
+  // back for "no photo" is checked at go-live.
+  const profileImage = text(r.profile_image);
+  const initials = text(r.initials);
   return {
     id: idText(r.id),
     display_name: text(r.display_name),
@@ -97,6 +103,8 @@ export function parseContact(raw: unknown, version: "v1" | "v2"): Contact {
     email_address: text(r.email_address),
     status: text(r.status),
     member_since: text(r.member_since),
+    ...(profileImage && { profile_image: profileImage }),
+    ...(initials && { initials }),
     created_at: time(r.created_at),
     updated_at: time(r.updated_at),
     custom_fields: parseCustomFields(r.custom_fields),

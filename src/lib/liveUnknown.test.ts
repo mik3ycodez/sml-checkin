@@ -17,6 +17,7 @@ const KNOWN = [
   "missing-issued-field",
   "missing-points-field",
   "oauth-token-exchange",
+  "profile-image",
 ];
 
 function sourceFiles(dir: string): string[] {

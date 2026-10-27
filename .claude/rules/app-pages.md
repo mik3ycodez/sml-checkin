@@ -5,6 +5,7 @@ paths:
   - "src/lib/checkin/**"
   - "src/lib/member/**"
   - "src/lib/tidyhq/contactName*"
+  - "src/proxy*"
   - "next.config.ts"
   - "playwright.config.ts"
   - "e2e/**"
@@ -32,6 +33,13 @@ paths:
   `flex-1`, so the demo banner, `SiteHeader` and page fill one screen. Screens
   that center content use `flex-1 justify-center` and center below the header.
   Don't put `min-h-dvh` back on `<main>`.
+- **Who's signed in, and Sign out, live in the header's `ProfileMenu`**, not on
+  pages (no "Signed in as" lines). Its name, initials and photo come from the
+  signed session cookie, written at sign-in, for display only; every decision
+  and every written name still comes from a fresh TidyHQ read. `src/proxy.ts`
+  only copies the path into `x-sml-path` (for Sign out's `returnTo`); it never
+  redirects or checks access. Photos are `https:` URLs under 512 characters
+  (else initials). The menu is a script-free `<details>`.
 - **Colors come from tokens** (`bg-accent text-on-accent`, `bg-surface`,
   `border-border`, plus background and foreground), never fixed colors, so
   light, dark and print follow `globals.css`.

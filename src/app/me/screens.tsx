@@ -4,8 +4,7 @@ import {
   type RecentEvent,
 } from "@/lib/member/recentEvents";
 import type { MemberSummary } from "@/lib/member/memberSummary";
-import { ME_PATH } from "../memberPaths";
-import { MembershipNoticeBlock, SignedInAs, TidyHqNotice } from "../memberUi";
+import { MembershipNoticeBlock, TidyHqNotice } from "../memberUi";
 
 // The member status page: plain server-rendered HTML with no client
 // JavaScript, so it reads the same on older phones and when scripts fail.
@@ -47,7 +46,6 @@ export function MeScreen({
       )}
 
       <RecentEvents events={recentEvents} />
-      <SignedInAs name={summary.name} returnTo={ME_PATH} />
     </div>
   );
 }

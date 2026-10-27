@@ -2,7 +2,7 @@ import type { StaffVerdict } from "@/lib/checkin/staffVerdict";
 import type { CheckinBlocker } from "@/lib/tidyhq/checkinWindow";
 import type { TapOutcome } from "@/lib/checkin/tapNotice";
 import { checkinPath } from "../../../../memberPaths";
-import { PRIMARY, SECONDARY, SignedInAs } from "../../../../memberUi";
+import { PRIMARY, SECONDARY } from "../../../../memberUi";
 import {
   adminEventPath,
   staffMemberPath,
@@ -47,7 +47,6 @@ function Frame({
             Stop volunteering
           </a>
         )}
-        <SignedInAs name={staff.name} returnTo={checkinPath(eventId)} />
       </div>
     </div>
   );

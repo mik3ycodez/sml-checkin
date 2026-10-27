@@ -39,6 +39,10 @@ export interface Contact {
   member_since: string;
   created_at: string;
   updated_at: string;
+  /** URL of the contact's photo. Absent when TidyHQ sends none or a blank. */
+  profile_image?: string;
+  /** TidyHQ's own initials. Absent when TidyHQ sends none or a blank. */
+  initials?: string;
   /** Answers keyed by custom field id. */
   custom_fields: Record<string, CustomField>;
   notes: Note[];

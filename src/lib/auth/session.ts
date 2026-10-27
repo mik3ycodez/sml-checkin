@@ -2,15 +2,19 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { secureCookieOptions } from "./cookieOptions";
+import { cleanProfile, type Profile } from "./profile";
 import {
   MIN_SESSION_SECRET_LENGTH,
   sessionSecretProblem,
 } from "./sessionSecret";
 
-// The member session holds only the TidyHQ contact id and an expiry, signed
-// with HMAC-SHA256. The member's OAuth token is never stored.
+// The member session holds the TidyHQ contact id and an expiry, plus the
+// member's name, initials and photo link for the header, signed with
+// HMAC-SHA256. The member's OAuth token is never stored.
 //
-// Token format: base64url(JSON {contactId, exp}) + "." + base64url(signature)
+// Token format: base64url(JSON {contactId, exp, name?, initials?, photo?})
+// + "." + base64url(signature). Signed, not encrypted: the header fields are
+// readable to whoever can read the cookie (httpOnly, on the member's own phone).
 
 export const SESSION_COOKIE = "sml_session";
 export const SESSION_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
@@ -19,7 +23,10 @@ export type Session = {
   contactId: string;
   /** Expiry, in seconds since the Unix epoch. */
   exp: number;
-};
+} & Profile;
+// `name`, `initials` and `photo` are for the header only. They can be up to 90
+// days stale and are never used to decide anything or to write a name:
+// every decision and every written name comes from a fresh TidyHQ read.
 
 function sign(body: string, secret: string): string {
   return createHmac("sha256", secret).update(body).digest("base64url");
@@ -29,10 +36,11 @@ export function signSession(
   contactId: string,
   secret: string,
   now: Date,
+  profile: Profile = {},
 ): string {
   if (!contactId) throw new Error("Cannot sign a session without a contact id");
   const exp = Math.floor(now.getTime() / 1000) + SESSION_MAX_AGE_SECONDS;
-  const session: Session = { contactId, exp };
+  const session: Session = { contactId, exp, ...cleanProfile(profile) };
   const body = Buffer.from(JSON.stringify(session)).toString("base64url");
   return `${body}.${sign(body, secret)}`;
 }
@@ -61,7 +69,11 @@ export function verifySession(
   }
   if (!isSession(payload)) return null;
   if (now.getTime() / 1000 >= payload.exp) return null;
-  return { contactId: payload.contactId, exp: payload.exp };
+  return {
+    contactId: payload.contactId,
+    exp: payload.exp,
+    ...cleanProfile(payload),
+  };
 }
 
 function isSession(value: unknown): value is Session {
@@ -103,8 +115,11 @@ export const getSession = cache(async (): Promise<Session | null> => {
 });
 
 /** Signs the member in. Only in Server Actions or Route Handlers. */
-export async function setSession(contactId: string): Promise<void> {
-  const token = signSession(contactId, getSessionSecret(), new Date());
+export async function setSession(
+  contactId: string,
+  profile: Profile = {},
+): Promise<void> {
+  const token = signSession(contactId, getSessionSecret(), new Date(), profile);
   (await cookies()).set(SESSION_COOKIE, token, {
     ...secureCookieOptions(),
     path: "/",
