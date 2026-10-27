@@ -463,7 +463,7 @@ one file on purpose):
   different format would make every event look unreadable, and the admin
   lists would drop them); how SML uses archiving (archived events now refuse
   check-in); `listContactGroups` includes archived groups, and
-  how renewal invoices look (see CLAUDE.md, "Unverified assumptions").
+  how renewal invoices look (see .claude/rules/membership-rewards.md, "Unverified assumptions").
 
 Also at go-live (client and data checks):
 

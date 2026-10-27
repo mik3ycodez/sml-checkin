@@ -18,9 +18,9 @@ import {
 
 // One event's admin page: its check-in window (with warnings), the QR code
 // members scan, and who has checked in. Rendered fully on the server with no
-// Suspense boundary or loading file (see CLAUDE.md). requireAdmin comes
-// first, before anything is read from TidyHQ, and stops the request for
-// anyone but an admin, so only admins see who attended.
+// Suspense boundary or loading file (see .claude/rules/app-pages.md).
+// requireAdmin comes first, before anything is read from TidyHQ, and stops the
+// request for anyone but an admin, so only admins see who attended.
 //
 // While check-in is open or about to open, the page reloads itself (a meta
 // refresh, so no JavaScript; see `attendeeRefreshSeconds`), so a TidyHQ

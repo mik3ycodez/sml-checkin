@@ -598,7 +598,9 @@ live, so the gap costs nothing). PR 9 carries the 0.5.0 version bump.
   - **Prune tests.** Remove unit tests the contract suite already covers, and
     decide which e2e specs need all three browser projects.
   - **Slim CLAUDE.md** to current rules only, moving decision history into the
-    plan docs.
+    plan docs. _Partly done in #51: the detailed rules moved verbatim into
+    path-scoped `.claude/rules/` files, so CLAUDE.md loads far less per
+    request. Pruning decision history from the rules is still to do._
   - **Shrink the mock** to what local development and e2e need.
 
 ## Go-live checklist (live TidyHQ)
