@@ -52,6 +52,21 @@ test("the header and menu fit the screen, and Check in is not covered", async ({
   expect(scrollWidth).toBeLessThanOrEqual(viewport.width);
 });
 
+test("signed out, the open Menu shows Sign in inside the screen", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await openMenu(page);
+  const viewport = page.viewportSize()!;
+  const box = (await page
+    .getByRole("link", { name: "Sign in" })
+    .boundingBox())!;
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+});
+
 test("signed out, the header offers a Menu with Sign in", async ({ page }) => {
   await page.goto("/");
   await openMenu(page);

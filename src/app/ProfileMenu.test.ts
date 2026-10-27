@@ -136,6 +136,24 @@ describe("ProfileMenu, signed out", () => {
   });
 });
 
+// An svg with no size fills its container (the signed-out Sign in icon once
+// filled the whole menu panel and pushed the link off screen).
+describe("ProfileMenu's icons", () => {
+  const sized = (tag: string) =>
+    (/\swidth="\d+"/.test(tag) && /\sheight="\d+"/.test(tag)) ||
+    /class="[^"]*\b(size-\d+|w-\d+\s[^"]*h-\d+|h-\d+\s[^"]*w-\d+)\b/.test(tag);
+
+  it.each([
+    ["signed in", { name: "Dante Ruiz", initials: "DR" }],
+    ["signed in with no profile", {}],
+    ["signed out", null],
+  ])("every svg has a size when %s", (_, profile) => {
+    const tags = render({ profile, returnTo: "/" }).match(/<svg[^>]*>/g) ?? [];
+    expect(tags.length).toBeGreaterThan(0);
+    for (const tag of tags) expect(tag, tag).toSatisfy(sized);
+  });
+});
+
 it("escapes a name", () => {
   const html = render({
     profile: { name: '<script>alert("x")</script>', initials: "X" },

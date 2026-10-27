@@ -1,3 +1,4 @@
+import type { SVGProps } from "react";
 import type { Profile } from "@/lib/auth/profile";
 import type { Theme } from "@/lib/theme";
 import { ME_PATH } from "./memberPaths";
@@ -40,9 +41,13 @@ function Chevron() {
   );
 }
 
-function PersonIcon({ className }: { className?: string }) {
+// Takes any svg props, like the other icons, and is 20px unless told otherwise:
+// an svg with no size fills its container.
+function PersonIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
+      width={20}
+      height={20}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -50,7 +55,7 @@ function PersonIcon({ className }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
-      className={className}
+      {...props}
     >
       <circle cx="12" cy="8" r="4" />
       <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
@@ -69,7 +74,7 @@ function Avatar({ profile }: { profile: Profile }) {
       {profile.initials ? (
         <span aria-hidden>{profile.initials}</span>
       ) : (
-        <PersonIcon className="size-6" />
+        <PersonIcon width={24} height={24} />
       )}
       {profile.photo && (
         // A plain <img>, not next/image, which would proxy TidyHQ's images
