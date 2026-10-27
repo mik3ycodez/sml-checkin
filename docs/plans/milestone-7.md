@@ -1,8 +1,9 @@
 # Milestone 7: Look like SML's TidyHQ site (0.7.0)
 
-**Status:** Approved 2026-10-26 with changes (folded in below). PR 1 (0.6.2,
-branch `m7-pr1-brand-header`) and PR 2 merged; PR 3 (branch
-`m7-pr3-profile-menu`) in review; PR 4 not started.
+**Status:** Done, released as 0.7.0 once PR 4 merges. PR 1 (0.6.2, branch
+`m7-pr1-brand-header`, #52) ✅ Merged, PR 2 (#53) ✅ Merged, PR 3 (branch
+`m7-pr3-profile-menu`, #54) ✅ Merged, PR 4 (branch `m7-pr4-theme-toggle`,
+#55) 🔍 In review. Approved 2026-10-26 with changes (folded in below).
 
 ## Context
 
@@ -237,8 +238,8 @@ dark:
 }
 ```
 
-Until PR 4 nothing sets `data-theme`, so only the first block ever applies.
-PR 4 just adds the attribute. No CSS rework.
+Before PR 4 nothing set `data-theme`, so only the first block applied. PR 4
+just adds the attribute (from the `sml_theme` cookie). No CSS rework.
 
 **Logo swap uses the same selectors, not `<picture>`:** the header renders
 both images, and CSS shows one:
@@ -524,7 +525,12 @@ not sent to the browser), the contract suite gains `profile_image` and
   `SignedInAs` and the "Signed in as" lines, mock seed photo,
   `LIVE-UNKNOWN(profile-image)` and the go-live checklist item.
 
-### PR 4: Theme toggle and 0.7.0
+### PR 4: Theme toggle and 0.7.0 (#55)
+
+Built as planned. Two details worth knowing: `viewport` became an async
+`generateViewport` (it has to read the cookie per request), and the header
+passes the menu both `returnTo` (Sign out's rule) and `pagePath` (the exact
+page, for the theme switch).
 
 Test first: theme cookie parsing, the `/theme` route (valid values, bad value
 ignored, cross-site post refused, 303 to `returnTo`), layout sets
