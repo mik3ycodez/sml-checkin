@@ -42,4 +42,6 @@ paths:
     it needs no auth change. `src/app/demo/scenarios.ts` is tested against the
     seed and against the source (every quoted screen text), so changing a
     screen's wording or the seed means updating it. Never mention `E2E` or the
-    reset route there; a Restart is how the demo resets.
+    reset route there; a Restart is how the demo resets. Its intro also has a
+    short "Look" note (the account menu's Theme switch; Marcus Bell is the one
+    seed member with a photo, which `page.test.ts` checks), not a scenario.

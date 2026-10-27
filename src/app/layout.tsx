@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
 import { isDemoMode } from "@/lib/demoMode";
+import { THEME_BAR_COLORS } from "@/lib/theme";
+import { currentTheme } from "./currentTheme";
 import { DemoBanner } from "./DemoBanner";
 import { loadHeaderProfile } from "./headerProfile";
 import { SiteHeader } from "./SiteHeader";
@@ -26,15 +28,31 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  // The browser bar matches --surface, the header, in each scheme.
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#171717" },
-  ],
-};
+// Per request, because the browser bar follows the theme cookie. The bar
+// matches --surface, the header, in each scheme. With the device's setting
+// (system) there are two entries keyed on prefers-color-scheme; a forced theme
+// gets a single entry with no media query, or the device's scheme would still
+// pick the other color.
+export async function generateViewport(): Promise<Viewport> {
+  const theme = await currentTheme();
+  return {
+    width: "device-width",
+    initialScale: 1,
+    themeColor:
+      theme === "system"
+        ? [
+            {
+              media: "(prefers-color-scheme: light)",
+              color: THEME_BAR_COLORS.light,
+            },
+            {
+              media: "(prefers-color-scheme: dark)",
+              color: THEME_BAR_COLORS.dark,
+            },
+          ]
+        : THEME_BAR_COLORS[theme],
+  };
+}
 
 export default async function RootLayout({
   children,
@@ -43,12 +61,20 @@ export default async function RootLayout({
   // `next build` would otherwise keep (or lack) the banner whatever the
   // server is later started with.
   await connection();
-  const { profile, returnTo } = await loadHeaderProfile();
+  const { profile, returnTo, pagePath } = await loadHeaderProfile();
+  const theme = await currentTheme();
   return (
-    <html lang="en">
+    // data-theme is set on the server, so the first byte of HTML is already
+    // themed: no flash, and no script. System sets none and follows the device.
+    <html lang="en" data-theme={theme === "system" ? undefined : theme}>
       <body className="bg-background text-foreground flex min-h-dvh flex-col antialiased">
         {isDemoMode() && <DemoBanner />}
-        <SiteHeader profile={profile} returnTo={returnTo} />
+        <SiteHeader
+          profile={profile}
+          returnTo={returnTo}
+          theme={theme}
+          pagePath={pagePath}
+        />
         {/* flex-1: the banner and header sit above, and main takes the rest of
             the screen, so pages that center their content center below them. */}
         <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-6 sm:px-6">

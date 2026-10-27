@@ -7,6 +7,8 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+import { contactName } from "@/lib/tidyhq/contactName";
+import { createSeed } from "@/lib/tidyhq/mock/seed";
 import DemoPage from "./page";
 import { SCENARIOS, targetPath } from "./scenarios";
 
@@ -49,6 +51,30 @@ describe("/demo", () => {
       expect(page.match(/method="post"/g)).toHaveLength(
         SCENARIOS.flatMap((s) => s.parts).length,
       );
+    });
+
+    it("notes the account menu's Theme switch and who has a photo", () => {
+      const page = html();
+      const note = page.slice(
+        page.indexOf("Theme"),
+        page.indexOf('id="scenario-1"'),
+      );
+      expect(page).toContain("Theme");
+      expect(note).toContain("System");
+      expect(note).toContain("Light");
+      expect(note).toContain("Dark");
+      expect(note).toContain("Marcus Bell");
+      expect(page.indexOf("Theme")).toBeLessThan(
+        page.indexOf('id="scenario-1"'),
+      );
+    });
+
+    // The note says Marcus is the one photo, so it is checked against the seed.
+    it("is right that only Marcus Bell has a photo in the seed", () => {
+      const withPhoto = createSeed()
+        .contacts.filter((c) => c.profile_image)
+        .map(contactName);
+      expect(withPhoto).toEqual(["Marcus Bell"]);
     });
 
     it("puts the second-browser tip before the first scenario", () => {

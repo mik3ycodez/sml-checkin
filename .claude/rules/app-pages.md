@@ -48,6 +48,17 @@ paths:
   are accepted only when `TIDYHQ_MODE=mock`. A contact with no usable name gets
   no name or initials, so the menu shows "Signed in". The menu is a
   script-free `<details>`.
+- **Theme (System / Light / Dark) is the `sml_theme` cookie**, read only on the
+  server: the layout sets `<html data-theme="light|dark">` (none for System, so
+  it follows the device) and `generateViewport` gives the browser bar one
+  `theme-color` with no `media` for a forced theme, else the light and dark
+  pair. No script, so no flash and it works with JavaScript off. The menu's
+  Theme row is a plain `POST /theme` form, in the signed-out "Menu" too. It
+  returns to the exact current page (`pagePath`, through `safeReturnTo`), not
+  Sign out's `returnTo`: nobody is changing members, so a check-in screen stays
+  put. Anything but `system`, `light` or `dark` counts as System; print stays
+  light. `THEME_BAR_COLORS` must equal the `--surface` shades in `globals.css`
+  (`src/lib/theme.test.ts` checks).
 - **Colors come from tokens** (`bg-accent text-on-accent`, `bg-surface`,
   `border-border`, plus background and foreground), never fixed colors, so
   light, dark and print follow `globals.css`.

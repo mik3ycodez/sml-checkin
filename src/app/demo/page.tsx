@@ -43,6 +43,12 @@ export default function DemoPage() {
           browser or a private window for the members checking in. One browser
           holds one signed-in person at a time.
         </p>
+        <p>
+          <strong>Look:</strong> the account menu (the chip at the top right, or{" "}
+          <strong>Menu</strong> when signed out) has a Theme switch: System,
+          Light or Dark. Marcus Bell&apos;s account shows a profile photo; the
+          others show initials.
+        </p>
       </section>
 
       <section className={BOX}>

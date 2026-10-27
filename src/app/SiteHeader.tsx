@@ -1,4 +1,5 @@
 import type { Profile } from "@/lib/auth/profile";
+import type { Theme } from "@/lib/theme";
 import { ProfileMenu } from "./ProfileMenu";
 import { SmlLogo } from "./SmlLogo";
 
@@ -13,9 +14,13 @@ import { SmlLogo } from "./SmlLogo";
 export function SiteHeader({
   profile,
   returnTo,
+  theme,
+  pagePath,
 }: {
   profile: Profile | null;
   returnTo: string;
+  theme: Theme;
+  pagePath: string;
 }) {
   return (
     <header className="bg-surface border-border border-b print:hidden">
@@ -40,7 +45,12 @@ export function SiteHeader({
             Seattle Men in Leather
           </span>
         </a>
-        <ProfileMenu profile={profile} returnTo={returnTo} />
+        <ProfileMenu
+          profile={profile}
+          returnTo={returnTo}
+          theme={theme}
+          pagePath={pagePath}
+        />
       </div>
     </header>
   );
