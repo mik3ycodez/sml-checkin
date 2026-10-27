@@ -1,4 +1,5 @@
 import type { Profile } from "@/lib/auth/profile";
+import type { Theme } from "@/lib/theme";
 import { ME_PATH } from "./memberPaths";
 
 // The header's account menu: a native <details>, so it opens and closes with no
@@ -88,6 +89,50 @@ function Avatar({ profile }: { profile: Profile }) {
   );
 }
 
+const THEME_CHOICES: { value: Theme; label: string }[] = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
+
+/**
+ * System / Light / Dark as three submit buttons in one plain form post, so it
+ * works with JavaScript off. `pagePath` is the exact current page: the switch
+ * changes no one, so unlike Sign out it never goes to a check-in's start.
+ */
+function ThemeRow({ theme, pagePath }: { theme: Theme; pagePath: string }) {
+  return (
+    <form
+      method="post"
+      action="/theme"
+      className="border-border flex flex-col gap-2 border-t px-4 py-3"
+    >
+      <input type="hidden" name="returnTo" value={pagePath} />
+      <span className="flex items-center gap-3 text-base">
+        <svg {...ICON}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" />
+        </svg>
+        Theme
+      </span>
+      <span className="flex gap-1">
+        {THEME_CHOICES.map(({ value, label }) => (
+          <button
+            key={value}
+            type="submit"
+            name="theme"
+            value={value}
+            aria-pressed={theme === value}
+            className="border-border aria-pressed:bg-accent aria-pressed:text-on-accent aria-pressed:border-accent flex-1 cursor-pointer rounded-lg border px-2 py-2 text-sm font-medium"
+          >
+            {label}
+          </button>
+        ))}
+      </span>
+    </form>
+  );
+}
+
 const CHIP =
   "flex cursor-pointer list-none items-center gap-2 rounded-lg p-1 select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden";
 const PANEL =
@@ -95,14 +140,19 @@ const PANEL =
 
 /**
  * `profile` is null when signed out. `returnTo` is where Sign out sends the
- * member back to (already checked with `safeReturnTo`).
+ * member back to, and `pagePath` where the theme switch does (both already
+ * checked with `safeReturnTo`). `theme` marks the current choice.
  */
 export function ProfileMenu({
   profile,
   returnTo,
+  theme,
+  pagePath,
 }: {
   profile: Profile | null;
   returnTo: string;
+  theme: Theme;
+  pagePath: string;
 }) {
   if (profile === null) {
     return (
@@ -116,6 +166,7 @@ export function ProfileMenu({
             <PersonIcon {...ICON} />
             Sign in
           </a>
+          <ThemeRow theme={theme} pagePath={pagePath} />
         </div>
       </details>
     );
@@ -153,8 +204,13 @@ export function ProfileMenu({
           </svg>
           My points and status
         </a>
+        <ThemeRow theme={theme} pagePath={pagePath} />
         {/* Sign-out refuses GETs, so this is a plain form post. */}
-        <form method="post" action="/auth/signout">
+        <form
+          method="post"
+          action="/auth/signout"
+          className="border-border border-t"
+        >
           <input type="hidden" name="returnTo" value={returnTo} />
           <button type="submit" className={`${ITEM} w-full`}>
             <svg {...ICON}>

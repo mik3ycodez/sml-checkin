@@ -71,7 +71,8 @@ file, not from a pasted diff: read the matching one before changing or reviewing
 - `admin-access.md`: the admin group, check-in volunteers, the attendee list.
 - `tidyhq-client.md`: `TidyClient`, mock vs live, contract suite, live sign-in and
   startup, time budget, endpoints.
-- `app-pages.md`: no Cache Components or `<Suspense>`, `/me` links, `contactName`.
+- `app-pages.md`: no Cache Components or `<Suspense>`, `/me` links, `contactName`,
+  the header menu, the theme switch.
 - `azure-demo.md`: the Azure host, deploy check, the `/demo` page.
 
 ## Stack
@@ -85,7 +86,8 @@ file, not from a pasted diff: read the matching one before changing or reviewing
 - Styling: Tailwind CSS v4 (PostCSS plugin, no `tailwind.config.js`). Shared
   page container lives in `src/app/layout.tsx`; light/dark colors are CSS
   variables in `src/app/globals.css`, exposed as `bg-background` and
-  `text-foreground`.
+  `text-foreground`. Dark follows the device unless the member picks Light or
+  Dark in the account menu (`sml_theme` cookie, applied on the server).
 
 ## Conventions
 

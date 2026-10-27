@@ -80,6 +80,37 @@ describe("loadHeaderProfile", () => {
     }
   });
 
+  // The theme switch changes no one, so it returns to the page as it is: even
+  // a check-in screen that Sign out sends back to the start.
+  it("gives the exact current page for the theme switch", async () => {
+    for (const path of [
+      "/checkin/ev_tonight",
+      "/checkin/ev_tonight/problem?reason=x",
+      "/me",
+      "/",
+      "/admin/events/ev_tonight/checkin?q=da",
+      "/admin/denied?reason=not_admin&returnTo=%2Fadmin%2Fevents%2Fev_tonight%2Fcheckin",
+    ]) {
+      state.path = path;
+      expect((await loadHeaderProfile()).pagePath).toBe(path);
+    }
+  });
+
+  it("gives the theme switch home for a missing or unsafe path", async () => {
+    for (const path of [
+      null,
+      "",
+      "//evil.com",
+      "https://evil.com",
+      "/a/../b",
+    ]) {
+      state.path = path;
+      expect((await loadHeaderProfile()).pagePath).toBe("/");
+    }
+    state.headersThrow = true;
+    expect((await loadHeaderProfile()).pagePath).toBe("/");
+  });
+
   it("falls back to home for a missing or unsafe path", async () => {
     for (const path of [
       null,
@@ -103,6 +134,7 @@ describe("loadHeaderProfile", () => {
     expect(await loadHeaderProfile()).toEqual({
       profile: null,
       returnTo: "/checkin/ev_tonight?x=1",
+      pagePath: "/checkin/ev_tonight?x=1",
     });
   });
 

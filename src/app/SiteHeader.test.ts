@@ -6,7 +6,12 @@ import { join } from "node:path";
 import { SiteHeader } from "./SiteHeader";
 
 const html = renderToStaticMarkup(
-  createElement(SiteHeader, { profile: null, returnTo: "/" }),
+  createElement(SiteHeader, {
+    profile: null,
+    returnTo: "/",
+    theme: "system",
+    pagePath: "/",
+  }),
 );
 
 describe("SiteHeader", () => {
@@ -41,6 +46,8 @@ describe("SiteHeader", () => {
       createElement(SiteHeader, {
         profile: { name: "Dante Ruiz", initials: "DR" },
         returnTo: "/me",
+        theme: "system",
+        pagePath: "/me",
       }),
     );
     expect(signedIn).toContain("Account menu, signed in as Dante Ruiz");

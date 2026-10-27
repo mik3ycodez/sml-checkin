@@ -3,8 +3,17 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ProfileMenu } from "./ProfileMenu";
 
-const render = (props: Parameters<typeof ProfileMenu>[0]) =>
-  renderToStaticMarkup(createElement(ProfileMenu, props));
+const render = (
+  props: Omit<Parameters<typeof ProfileMenu>[0], "theme" | "pagePath"> &
+    Partial<Parameters<typeof ProfileMenu>[0]>,
+) =>
+  renderToStaticMarkup(
+    createElement(ProfileMenu, {
+      theme: "system",
+      pagePath: props.returnTo,
+      ...props,
+    }),
+  );
 
 const dante = { name: "Dante Ruiz", initials: "DR" };
 const marcus = {
@@ -133,4 +142,91 @@ it("escapes a name", () => {
     returnTo: "/",
   });
   expect(html).not.toContain("<script>");
+});
+
+describe("ProfileMenu's theme row", () => {
+  const dante = { name: "Dante Ruiz", initials: "DR" };
+  const forms = (html: string) =>
+    [...html.matchAll(/<form[^>]*action="\/theme"[^>]*>.*?<\/form>/g)].map(
+      (m) => m[0],
+    );
+
+  it.each([
+    ["signed in", dante],
+    ["signed out", null],
+  ])("is in the menu when %s", (_, profile) => {
+    const html = render({ profile, returnTo: "/" });
+    const [form, ...more] = forms(html);
+    expect(more).toEqual([]);
+    expect(form).toMatch(/method="post"/);
+    expect(form).toContain("Theme");
+    expect(html).not.toContain("<script");
+  });
+
+  it("has System, Light and Dark buttons posting to /theme", () => {
+    const [form] = forms(render({ profile: dante, returnTo: "/" }));
+    const buttons = [...form.matchAll(/<button([^>]*)>(.*?)<\/button>/g)];
+    expect(buttons.map((b) => b[2].replace(/<[^>]+>/g, ""))).toEqual([
+      "System",
+      "Light",
+      "Dark",
+    ]);
+    expect(buttons.map((b) => b[1].match(/value="(\w+)"/)?.[1])).toEqual([
+      "system",
+      "light",
+      "dark",
+    ]);
+    for (const [, attrs] of buttons) {
+      expect(attrs).toContain('name="theme"');
+      expect(attrs).toContain('type="submit"');
+    }
+  });
+
+  it.each(["system", "light", "dark"] as const)(
+    "marks only %s as pressed",
+    (theme) => {
+      for (const profile of [dante, null]) {
+        const [form] = forms(render({ profile, returnTo: "/", theme }));
+        const pressed = [...form.matchAll(/<button([^>]*)>/g)].map(
+          (b) => b[1].match(/aria-pressed="(\w+)"/)?.[1],
+        );
+        expect(pressed).toEqual(
+          ["system", "light", "dark"].map((t) => String(t === theme)),
+        );
+      }
+    },
+  );
+
+  // Sign out returns a check-in screen to its start; the theme switch must not.
+  it("returns to the exact page, not Sign out's return page", () => {
+    const html = render({
+      profile: dante,
+      returnTo: "/checkin/ev_tonight",
+      pagePath: "/checkin/ev_tonight/problem?reason=x",
+    });
+    const [form] = forms(html);
+    expect(form).toMatch(
+      /<input[^>]*name="returnTo"[^>]*value="\/checkin\/ev_tonight\/problem\?reason=x"/,
+    );
+    expect(html).toMatch(
+      /action="\/auth\/signout".*name="returnTo"[^>]*value="\/checkin\/ev_tonight"/,
+    );
+  });
+
+  it("sits between My points and status and Sign out", () => {
+    const html = render({ profile: dante, returnTo: "/" });
+    expect(html.indexOf("My points and status")).toBeLessThan(
+      html.indexOf('action="/theme"'),
+    );
+    expect(html.indexOf('action="/theme"')).toBeLessThan(
+      html.indexOf('action="/auth/signout"'),
+    );
+  });
+
+  it("is reachable signed out, next to Sign in", () => {
+    const html = render({ profile: null, returnTo: "/", pagePath: "/" });
+    expect(html.indexOf("Sign in")).toBeLessThan(
+      html.indexOf('action="/theme"'),
+    );
+  });
 });
