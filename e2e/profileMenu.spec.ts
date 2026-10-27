@@ -52,24 +52,15 @@ test("the header and menu fit the screen, and Check in is not covered", async ({
   expect(scrollWidth).toBeLessThanOrEqual(viewport.width);
 });
 
-test("signed out, the open Menu shows Sign in inside the screen", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await openMenu(page);
-  const viewport = page.viewportSize()!;
-  const box = (await page
-    .getByRole("link", { name: "Sign in" })
-    .boundingBox())!;
-  expect(box.y).toBeGreaterThanOrEqual(0);
-  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
-  expect(box.x).toBeGreaterThanOrEqual(0);
-  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
-});
-
 test("signed out, the header offers a Menu with Sign in", async ({ page }) => {
   await page.goto("/");
   await openMenu(page);
-  await page.getByRole("link", { name: "Sign in" }).click();
+  const link = page.getByRole("link", { name: "Sign in" });
+  // Measure the icon itself, not the link: the link always fills the panel, but
+  // an unsized svg grows to fill it and pushes the "Sign in" text out of view.
+  const icon = (await link.locator("svg").boundingBox())!;
+  expect(icon.width).toBeLessThanOrEqual(24);
+  expect(icon.height).toBeLessThanOrEqual(24);
+  await link.click();
   await expect(page).toHaveURL(/\/mock-tidyhq\/oauth\/authorize/);
 });

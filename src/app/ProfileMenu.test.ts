@@ -138,11 +138,30 @@ describe("ProfileMenu, signed out", () => {
 
 // An svg with no size fills its container (the signed-out Sign in icon once
 // filled the whole menu panel and pushed the link off screen).
-describe("ProfileMenu's icons", () => {
-  const sized = (tag: string) =>
-    (/\swidth="\d+"/.test(tag) && /\sheight="\d+"/.test(tag)) ||
-    /class="[^"]*\b(size-\d+|w-\d+\s[^"]*h-\d+|h-\d+\s[^"]*w-\d+)\b/.test(tag);
+// Classes count only as whole tokens: `max-w-6` and `min-h-4` give no size.
+const sized = (tag: string) => {
+  if (/\swidth="\d+"/.test(tag) && /\sheight="\d+"/.test(tag)) return true;
+  const classes = (tag.match(/\sclass="([^"]*)"/)?.[1] ?? "").split(/\s+/);
+  const has = (re: RegExp) => classes.some((c) => re.test(c));
+  return has(/^size-\d+$/) || (has(/^w-\d+$/) && has(/^h-\d+$/));
+};
 
+describe("the svg size check", () => {
+  it.each([
+    ['<svg width="20" height="20">', true],
+    ['<svg class="size-6">', true],
+    ['<svg class="text-foreground w-5 h-5">', true],
+    ['<svg class="max-w-6 max-h-6">', false],
+    ['<svg class="max-h-6 w-5">', false],
+    ['<svg class="min-w-4 min-h-4">', false],
+    ['<svg class="size-6/50">', false],
+    ["<svg>", false],
+  ])("%s -> %s", (tag, expected) => {
+    expect(sized(tag)).toBe(expected);
+  });
+});
+
+describe("ProfileMenu's icons", () => {
   it.each([
     ["signed in", { name: "Dante Ruiz", initials: "DR" }],
     ["signed in with no profile", {}],

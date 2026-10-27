@@ -41,22 +41,11 @@ function Chevron() {
   );
 }
 
-// Takes any svg props, like the other icons, and is 20px unless told otherwise:
-// an svg with no size fills its container.
+// The menu-row look from ICON, which any prop can override. An svg with no size
+// fills its container.
 function PersonIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg
-      width={20}
-      height={20}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
+    <svg {...ICON} {...props}>
       <circle cx="12" cy="8" r="4" />
       <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
     </svg>
@@ -74,7 +63,7 @@ function Avatar({ profile }: { profile: Profile }) {
       {profile.initials ? (
         <span aria-hidden>{profile.initials}</span>
       ) : (
-        <PersonIcon width={24} height={24} />
+        <PersonIcon width={24} height={24} className="" />
       )}
       {profile.photo && (
         // A plain <img>, not next/image, which would proxy TidyHQ's images
@@ -168,7 +157,7 @@ export function ProfileMenu({
         </summary>
         <div className={PANEL}>
           <a href={ME_PATH} className={ITEM}>
-            <PersonIcon {...ICON} />
+            <PersonIcon />
             Sign in
           </a>
           <ThemeRow theme={theme} pagePath={pagePath} />
