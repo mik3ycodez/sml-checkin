@@ -7,7 +7,7 @@ system of record; this app is a thin layer on top of it.
 - Check-in verifies active membership, records attendance in the event's TidyHQ
   contact group, and updates the member's points total.
 - Members get a status page; the SML Board gets event QR codes, live attendee
-  lists, manual check-in, and points adjustments.
+  lists, and manual check-in.
 
 See [CLAUDE.md](CLAUDE.md) and the path-scoped files in
 [`.claude/rules/`](.claude/rules) for the full scope and design decisions.
