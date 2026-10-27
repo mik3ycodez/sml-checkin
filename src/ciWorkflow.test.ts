@@ -78,7 +78,7 @@ describe("ci.yml e2e job", () => {
   it("checks the image against the lockfile before anything slow", () => {
     const steps = ci.slice(ci.indexOf("  e2e:"));
     expect(steps).toMatch(
-      /- run: npm ci\n\s*- run: npx vitest run src\/ciWorkflow\.test\.ts\n/,
+      /- run: npm ci\n(\s*#.*\n)*\s*- run: npx vitest run src\/ciWorkflow\.test\.ts\n/,
     );
   });
 
