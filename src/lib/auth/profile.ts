@@ -1,4 +1,4 @@
-import { contactName } from "../tidyhq/contactName";
+import { contactName, UNNAMED } from "../tidyhq/contactName";
 import type { Contact } from "../tidyhq/types";
 
 /**
@@ -23,7 +23,7 @@ export function initialsOf(name: string): string {
   const words = name
     .split(/\s+/)
     .filter((word) => /^\p{L}/u.test(word))
-    .map((word) => word[0].toLocaleUpperCase());
+    .map((word) => Array.from(word)[0].toUpperCase());
   if (words.length <= 1) return words.join("");
   return words[0] + words[words.length - 1];
 }
@@ -31,7 +31,13 @@ export function initialsOf(name: string): string {
 function cleanPhoto(value: unknown): string | undefined {
   if (typeof value !== "string" || value.length >= MAX_PHOTO_LENGTH) return;
   // The mock's own avatars (public/mock), so e2e can show a photo over http.
-  if (/^\/mock\/[A-Za-z0-9._-]+$/.test(value) && !value.includes("..")) {
+  // Mock mode only: public/mock ships in live builds, but live data and cookies
+  // must never name it.
+  if (
+    process.env.TIDYHQ_MODE?.trim() === "mock" &&
+    /^\/mock\/[A-Za-z0-9._-]+$/.test(value) &&
+    !value.includes("..")
+  ) {
     return value;
   }
   try {
@@ -42,17 +48,25 @@ function cleanPhoto(value: unknown): string | undefined {
   }
 }
 
-/** Only well-formed fields survive; anything else is left out, never fixed up. */
+/** 1 to 3 letters, else undefined. */
+export function validInitials(value: unknown): string | undefined {
+  if (typeof value === "string" && /^\p{L}{1,3}$/u.test(value)) return value;
+}
+
+/**
+ * Only well-formed fields survive; anything else is left out, never fixed up.
+ * The one exception is a name over `MAX_NAME_LENGTH` characters, which is cut
+ * (by code point, so never mid-character).
+ */
 export function cleanProfile(raw: unknown): Profile {
   if (typeof raw !== "object" || raw === null) return {};
   const { name, initials, photo } = raw as Record<string, unknown>;
   const profile: Profile = {};
   if (typeof name === "string" && name.trim() !== "") {
-    profile.name = name.slice(0, MAX_NAME_LENGTH);
+    profile.name = Array.from(name).slice(0, MAX_NAME_LENGTH).join("");
   }
-  if (typeof initials === "string" && /^\p{L}{1,3}$/u.test(initials)) {
-    profile.initials = initials;
-  }
+  const cleanedInitials = validInitials(initials);
+  if (cleanedInitials) profile.initials = cleanedInitials;
   const cleanedPhoto = cleanPhoto(photo);
   if (cleanedPhoto) profile.photo = cleanedPhoto;
   return profile;
@@ -71,10 +85,14 @@ export function profileFor(
   >,
 ): Profile {
   const name = contactName(contact);
-  const own = cleanProfile({ initials: contact.initials }).initials;
+  // No usable name: leave name and initials out, so the menu shows its
+  // "Signed in" fallback instead of "Unnamed member" and "UM".
+  if (name === UNNAMED) {
+    return cleanProfile({ photo: contact.profile_image });
+  }
   return cleanProfile({
     name,
-    initials: own ?? initialsOf(name),
+    initials: validInitials(contact.initials) ?? initialsOf(name),
     photo: contact.profile_image,
   });
 }

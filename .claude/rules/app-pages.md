@@ -38,8 +38,16 @@ paths:
   signed session cookie, written at sign-in, for display only; every decision
   and every written name still comes from a fresh TidyHQ read. `src/proxy.ts`
   only copies the path into `x-sml-path` (for Sign out's `returnTo`); it never
-  redirects or checks access. Photos are `https:` URLs under 512 characters
-  (else initials). The menu is a script-free `<details>`.
+  redirects or checks access, and skips files with an extension, so no page
+  route may contain a dot. Sign out returns to the current page, except that
+  any check-in screen (`/checkin/<id>/...`, staff check-in, and the denied page
+  for it) returns to that event's member check-in. The header logo is a plain
+  `<a>`, never `next/link`: the layout isn't re-rendered by client-side
+  navigation, so the page Sign out returns to would go stale. Photos are
+  `https:` URLs under 512 characters (else initials); `/mock/<file>` avatars
+  are accepted only when `TIDYHQ_MODE=mock`. A contact with no usable name gets
+  no name or initials, so the menu shows "Signed in". The menu is a
+  script-free `<details>`.
 - **Colors come from tokens** (`bg-accent text-on-accent`, `bg-surface`,
   `border-border`, plus background and foreground), never fixed colors, so
   light, dark and print follow `globals.css`.

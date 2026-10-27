@@ -51,11 +51,33 @@ describe("loadHeaderProfile", () => {
     );
   });
 
-  // The staff page is a mode for volunteers; the next member on a shared phone
-  // should land on the member check-in page, not a staff sign-in.
-  it("signs out from a staff check-in page to the member check-in page", async () => {
-    state.path = "/admin/events/ev_tonight/checkin?q=da";
+  // A shared phone: the next member should land on member check-in, never on
+  // a staff sign-in, a denied screen or someone else's error or result.
+  it.each([
+    "/checkin/ev_tonight/problem?reason=x",
+    "/checkin/ev_tonight/result?v=1",
+    "/checkin/ev_tonight/anything/deeper",
+    "/admin/events/ev_tonight/checkin?q=da",
+    "/admin/denied?reason=not_admin&returnTo=%2Fadmin%2Fevents%2Fev_tonight%2Fcheckin",
+    "/admin/denied?returnTo=%2Fadmin%2Fevents%2Fev_tonight%2Fcheckin&reason=unavailable",
+  ])("signs out from %s to the member check-in page", async (path) => {
+    state.path = path;
     expect((await loadHeaderProfile()).returnTo).toBe("/checkin/ev_tonight");
+  });
+
+  it("keeps the current page everywhere else", async () => {
+    for (const path of [
+      "/me",
+      "/admin",
+      "/admin/events/ev_tonight",
+      "/admin/denied?reason=not_admin",
+      "/admin/denied?reason=unavailable&returnTo=%2Fadmin%2Fevents%2Fev_tonight",
+      "/admin/denied?returnTo=%2Fme",
+      "/checkin",
+    ]) {
+      state.path = path;
+      expect((await loadHeaderProfile()).returnTo).toBe(path);
+    }
   });
 
   it("falls back to home for a missing or unsafe path", async () => {

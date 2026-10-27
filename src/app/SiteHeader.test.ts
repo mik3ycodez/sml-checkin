@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { SiteHeader } from "./SiteHeader";
 
@@ -20,6 +20,15 @@ describe("SiteHeader", () => {
     expect(home).toMatch(/^<a[^>]*href="\/"/);
     expect(home).toContain("Seattle Men in Leather");
     expect(home.match(/<img/g)).toHaveLength(2);
+  });
+
+  // The root layout isn't re-rendered by a client-side navigation, so a
+  // next/link would leave Sign out's returnTo pointing at the previous page.
+  it("uses no client-side links, so every navigation re-renders the layout", () => {
+    for (const file of ["SiteHeader.tsx", "ProfileMenu.tsx", "layout.tsx"]) {
+      const source = readFileSync(join(__dirname, file), "utf8");
+      expect(source).not.toMatch(/from "next\/link"/);
+    }
   });
 
   it("puts the profile menu on the right, after the home link", () => {

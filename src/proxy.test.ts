@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { config, proxy } from "./proxy";
 
@@ -55,5 +57,42 @@ describe("proxy", () => {
     expect(re.test("/checkin/ev_tonight")).toBe(true);
     expect(re.test("/_next/static/chunk.js")).toBe(false);
     expect(re.test("/brand/sml-logo-black.png")).toBe(false);
+  });
+
+  it("is anchored: only the real folders are skipped, not lookalikes", () => {
+    const re = new RegExp(`^${config.matcher}$`);
+    expect(re.test("/brandx")).toBe(true);
+    expect(re.test("/_nextfoo")).toBe(true);
+    expect(re.test("/brand/missing.png")).toBe(false);
+  });
+
+  it("skips files with an extension, which never render the layout", () => {
+    const re = new RegExp(`^${config.matcher}$`);
+    for (const path of [
+      "/favicon.ico",
+      "/mock/marcus.svg",
+      "/manifest.webmanifest",
+    ]) {
+      expect(re.test(path)).toBe(false);
+    }
+  });
+
+  // The matcher skips any path with a dot, so no page may have one.
+  it("matches every page route: no route segment contains a dot", () => {
+    const dirs: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        dirs.push(entry.name);
+        walk(join(dir, entry.name));
+      }
+    };
+    walk(join(__dirname, "app"));
+    expect(dirs.filter((name) => name.includes("."))).toEqual([]);
+    const re = new RegExp(`^${config.matcher}$`);
+    for (const id of ["ev_tonight", "ev_pub_night", "12345"]) {
+      expect(re.test(`/checkin/${id}`)).toBe(true);
+      expect(re.test(`/admin/events/${id}/checkin`)).toBe(true);
+    }
   });
 });
