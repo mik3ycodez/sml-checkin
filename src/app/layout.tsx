@@ -31,7 +31,7 @@ export const viewport: Viewport = {
   // The browser bar matches --surface, the header, in each scheme.
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+    { media: "(prefers-color-scheme: dark)", color: "#171717" },
   ],
 };
 

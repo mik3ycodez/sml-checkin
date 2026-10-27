@@ -4,6 +4,7 @@ import type { AdminEventPage, NoQrReason } from "@/lib/admin/eventPage";
 import { seattleTimeLabel } from "@/lib/dates";
 import type { IgnoredWindowReason } from "@/lib/tidyhq/checkinWindow";
 import { parseTime } from "@/lib/tidyhq/timeRange";
+import { SmlLogo } from "../../../SmlLogo";
 import { SECONDARY, SignedInAs } from "../../../memberUi";
 import { ADMIN_PATH, adminEventPath, staffCheckinPath } from "../../paths";
 
@@ -188,12 +189,8 @@ export function AdminEventScreen({
       )}
       {/* Paper is white whatever the theme, so the sheet always gets the black
           logo. The site header is hidden when printing. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/brand/sml-logo-black.png"
-        alt="Seattle Men in Leather"
-        width={210}
-        height={100}
+      <SmlLogo
+        variant="black"
         className="mx-auto hidden h-24 w-auto print:block"
       />
       <BackToEvents />

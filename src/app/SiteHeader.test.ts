@@ -41,10 +41,11 @@ describe("SiteHeader", () => {
     }
   });
 
-  it("names the logo once for screen readers", () => {
-    // The dark one is display:none in light, so only one is ever announced;
-    // both carry the same alt so whichever shows says the same thing.
-    expect(html.match(/alt="Seattle Men in Leather"/g)).toHaveLength(2);
+  it("names the home link once: the logos are decorative, the text names it", () => {
+    // alt="" on both images, so the link's name is the span's text alone
+    // (visible, or sr-only on narrow phones), never announced twice.
+    expect(html.match(/<img[^>]*alt=""/g)).toHaveLength(2);
+    expect(html.match(/Seattle Men in Leather/g)).toHaveLength(1);
   });
 
   it("keeps the name text visible, hiding it only on narrow phones", () => {

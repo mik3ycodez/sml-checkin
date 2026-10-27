@@ -25,6 +25,14 @@ describe("staff check-in frame", () => {
     }),
   );
 
+  it("styles the search box with the border and surface tokens, like the cards", () => {
+    const input = out.match(/<input[^>]*name="q"[^>]*>/)?.[0] ?? "";
+    expect(input).toMatch(/class="[^"]*\bborder-border\b/);
+    expect(input).toMatch(/class="[^"]*\bbg-surface\b/);
+    expect(input).not.toContain("border-foreground/30");
+    expect(input).not.toMatch(/\bbg-background\b/);
+  });
+
   it("has a Stop volunteering link back to the member check-in page", () => {
     expect(out).toMatch(
       /<a[^>]*href="\/checkin\/ev_tonight"[^>]*>Stop volunteering<\/a>/,

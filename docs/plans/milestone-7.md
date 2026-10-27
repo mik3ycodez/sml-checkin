@@ -495,7 +495,7 @@ test for the print-only black logo.
 - Layout: `body` is a `min-h-dvh` flex column and `main` is `flex-1`, so the
   banner, header and page fill exactly one screen and centered screens center
   below the header. `viewport.themeColor` has light `#ffffff` and dark
-  `#0a0a0a` entries (the manifest keeps no `theme_color`: it holds only one).
+  `#171717` entries (the dark `--surface`, matching the header; the manifest keeps no `theme_color`: it holds only one).
 - Tokens, logo swap CSS, `SiteHeader` (logo and text only), restyle of
   `PRIMARY`, `SECONDARY`, cards, lists, links, the black logo on the printed
   QR sheet.
@@ -519,6 +519,11 @@ Test first: theme cookie parsing, the `/theme` route (valid values, bad value
 ignored, cross-site post refused, 303 to `returnTo`), layout sets
 `data-theme` from the cookie, new `e2e/theme.spec.ts`.
 
+- **Theme-color follows the forced theme.** The `theme-color` metas only check
+  `prefers-color-scheme`, so a forced theme would leave the browser bar
+  showing the other one. When the cookie forces light or dark, the layout
+  must emit a single `theme-color` (no `media`) from the server, using that
+  theme's surface color.
 - Cookie, route, menu row, signed-out menu, `package.json` 0.7.0, CLAUDE.md
   and `app-pages.md` updates, this plan marked done.
 

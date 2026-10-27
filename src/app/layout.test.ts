@@ -62,11 +62,12 @@ describe("the root layout's demo banner", () => {
 });
 
 describe("the root layout's viewport", () => {
-  // Matches --surface, the header's color, in each scheme.
+  // Matches --surface, the header's color, in each scheme (dark surface is
+  // #171717, not the darker dark background).
   it("sets the browser bar color for light and dark", () => {
     expect(viewport.themeColor).toEqual([
       { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-      { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+      { media: "(prefers-color-scheme: dark)", color: "#171717" },
     ]);
   });
 });

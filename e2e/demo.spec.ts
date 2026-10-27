@@ -61,9 +61,12 @@ test("the header shows the black logo in light and the white one in dark", async
   page,
 }) => {
   await page.goto("/");
-  const logo = page.getByRole("banner").getByRole("img", {
-    name: "Seattle Men in Leather",
-  });
+  // The logos are decorative (alt=""), so find the home link by its name and
+  // take the logo that is showing.
+  const logo = page
+    .getByRole("banner")
+    .getByRole("link", { name: "Seattle Men in Leather" })
+    .locator("img:visible");
   await page.emulateMedia({ colorScheme: "light" });
   await expect(logo).toHaveCount(1);
   await expect(logo).toHaveAttribute("src", "/brand/sml-logo-black.png");

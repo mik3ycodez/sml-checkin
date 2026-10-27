@@ -1,12 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --accent: #636363;
-  --on-accent: #ffffff;
-  --surface: #ffffff;
-  --border: #e5e5e5;
+  /* Each shade is defined once, here. The theme blocks below only map token
+     names to these, so a shade changes in one place. */
+  --c-white: #ffffff;
+  --c-gray-50: #ededed;
+  --c-gray-100: #e5e5e5;
+  --c-gray-300: #a3a3a3;
+  --c-gray-500: #636363;
+  --c-gray-700: #2e2e2e;
+  --c-gray-900: #171717;
+  --c-gray-950: #0a0a0a;
+
+  --background: var(--c-white);
+  --foreground: var(--c-gray-900);
+  --accent: var(--c-gray-500);
+  --on-accent: var(--c-white);
+  --surface: var(--c-white);
+  --border: var(--c-gray-100);
   color-scheme: light;
 }
 
@@ -14,23 +25,23 @@
    whatever the device says. Nothing sets data-theme until the theme toggle. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --accent: #a3a3a3;
-    --on-accent: #0a0a0a;
-    --surface: #171717;
-    --border: #2e2e2e;
+    --background: var(--c-gray-950);
+    --foreground: var(--c-gray-50);
+    --accent: var(--c-gray-300);
+    --on-accent: var(--c-gray-950);
+    --surface: var(--c-gray-900);
+    --border: var(--c-gray-700);
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --accent: #a3a3a3;
-  --on-accent: #0a0a0a;
-  --surface: #171717;
-  --border: #2e2e2e;
+  --background: var(--c-gray-950);
+  --foreground: var(--c-gray-50);
+  --accent: var(--c-gray-300);
+  --on-accent: var(--c-gray-950);
+  --surface: var(--c-gray-900);
+  --border: var(--c-gray-700);
   color-scheme: dark;
 }
 
@@ -66,12 +77,12 @@
    would lose to the first. */
 @media print {
   :root:root {
-    --background: #ffffff;
-    --foreground: #171717;
-    --accent: #636363;
-    --on-accent: #ffffff;
-    --surface: #ffffff;
-    --border: #e5e5e5;
+    --background: var(--c-white);
+    --foreground: var(--c-gray-900);
+    --accent: var(--c-gray-500);
+    --on-accent: var(--c-white);
+    --surface: var(--c-white);
+    --border: var(--c-gray-100);
     color-scheme: light;
   }
 }

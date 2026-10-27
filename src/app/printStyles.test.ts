@@ -8,6 +8,21 @@ import { describe, expect, it } from "vitest";
 
 const css = readFileSync(join(__dirname, "globals.css"), "utf8");
 
+// Each shade is defined once as a primitive on :root (--c-*); the theme blocks
+// only map token names to them. `resolve` follows var(--c-*) to the hex, so the
+// tests still check the real colors, not just that a mapping exists.
+const primitives = Object.fromEntries(
+  [...css.matchAll(/(--c-[\w-]+):\s*(#[0-9a-f]{6})\s*;/gi)].map((m) => [
+    m[1],
+    m[2],
+  ]),
+);
+const resolve = (block: string, token: string) => {
+  const value = block.match(new RegExp(`${token}:\\s*([^;]+);`))?.[1].trim();
+  const ref = value?.match(/^var\((--c-[\w-]+)\)$/)?.[1];
+  return ref ? primitives[ref] : value;
+};
+
 describe("globals.css print styles", () => {
   const printAt = css.indexOf("@media print");
   const darkAt = css.indexOf("prefers-color-scheme: dark");
@@ -19,16 +34,16 @@ describe("globals.css print styles", () => {
   });
 
   it("forces the light colors and color scheme", () => {
-    expect(printBlock).toMatch(/--background:\s*#ffffff/);
-    expect(printBlock).toMatch(/--foreground:\s*#171717/);
+    expect(resolve(printBlock, "--background")).toBe("#ffffff");
+    expect(resolve(printBlock, "--foreground")).toBe("#171717");
     expect(printBlock).toMatch(/color-scheme:\s*light/);
   });
 
   it("forces every token, not just the first two", () => {
-    expect(printBlock).toMatch(/--accent:\s*#636363/);
-    expect(printBlock).toMatch(/--on-accent:\s*#ffffff/);
-    expect(printBlock).toMatch(/--surface:\s*#ffffff/);
-    expect(printBlock).toMatch(/--border:\s*#e5e5e5/);
+    expect(resolve(printBlock, "--accent")).toBe("#636363");
+    expect(resolve(printBlock, "--on-accent")).toBe("#ffffff");
+    expect(resolve(printBlock, "--surface")).toBe("#ffffff");
+    expect(resolve(printBlock, "--border")).toBe("#e5e5e5");
   });
 
   // Both dark selectors have specificity (0,2,0): `:root:not([data-theme=
@@ -42,10 +57,10 @@ describe("globals.css print styles", () => {
 
 describe("globals.css theme tokens", () => {
   const tokens = (block: string) => ({
-    accent: block.match(/--accent:\s*(#\w+)/)?.[1],
-    onAccent: block.match(/--on-accent:\s*(#\w+)/)?.[1],
-    surface: block.match(/--surface:\s*(#\w+)/)?.[1],
-    border: block.match(/--border:\s*(#\w+)/)?.[1],
+    accent: resolve(block, "--accent"),
+    onAccent: resolve(block, "--on-accent"),
+    surface: resolve(block, "--surface"),
+    border: resolve(block, "--border"),
   });
   const lightBlock = css.slice(css.indexOf(":root {"), css.indexOf("}"));
   const darkMedia = css.indexOf("@media (prefers-color-scheme: dark)");
@@ -77,6 +92,15 @@ describe("globals.css theme tokens", () => {
   it("can be forced dark with data-theme", () => {
     expect(forcedAt).toBeGreaterThan(-1);
     expect(tokens(forcedBlock)).toEqual(dark);
+  });
+
+  it("defines each shade once, and the theme blocks only map to primitives", () => {
+    const hexes = Object.values(primitives);
+    expect(hexes.length).toBeGreaterThan(0);
+    expect(new Set(hexes).size).toBe(hexes.length);
+    // No raw hex is left outside the primitive definitions.
+    const withoutPrimitives = css.replace(/--c-[\w-]+:\s*#[0-9a-f]{6};/gi, "");
+    expect(withoutPrimitives).not.toMatch(/#[0-9a-f]{3,6}\b/i);
   });
 
   it("exposes the tokens as Tailwind colors", () => {

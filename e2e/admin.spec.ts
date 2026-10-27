@@ -121,7 +121,7 @@ test("the event page prints as the QR code and its details, without the controls
   await page.emulateMedia({ media: "screen" });
   await expect(page.getByRole("banner")).toBeVisible();
   await expect(
-    page.locator("main").getByRole("img", { name: "Seattle Men in Leather" }),
+    page.locator('main img[src="/brand/sml-logo-black.png"]'),
   ).toBeHidden();
 });
 

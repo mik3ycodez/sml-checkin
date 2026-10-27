@@ -15,7 +15,7 @@ import { staffCheckInAction } from "./actions";
 // search).
 
 const INPUT =
-  "border-foreground/30 bg-background w-full rounded-lg border px-4 py-3 text-lg";
+  "border-border bg-surface w-full rounded-lg border px-4 py-3 text-lg";
 
 function Frame({
   eventId,
