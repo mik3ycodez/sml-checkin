@@ -339,12 +339,17 @@ the request's path and query into a request header, `x-sml-path`, that the
 layout reads with `headers()`. It's passed through the existing
 `safeReturnTo` on use, and set only with `NextResponse.next({ request })`,
 which forwards it to the server only, never to the browser. The matcher skips
-`/_next` and `/brand`. **The proxy only passes the path along.** It never
+`/_next/`, `/brand/` and any path with a file extension (so no page route may
+contain a dot). **The proxy only passes the path along.** It never
 redirects, reads the session or checks access; every auth check stays where
 it is now, in the pages and actions (a test asserts it only ever returns
 `NextResponse.next`). This keeps today's behavior that matters at the door:
 signing out on an event's check-in page goes straight back to that check-in
-page, so the next member on a shared phone signs in. (Reading the `Referer`
+page, so the next member on a shared phone signs in. The rule is general:
+any check-in screen (`/checkin/<id>/...`, the staff check-in page, and the
+denied page for it) signs out to `/checkin/<id>`; every other page returns to
+itself. The header logo is a plain `<a>`, since a client-side navigation
+doesn't re-render the layout and `returnTo` would go stale. (Reading the `Referer`
 header in the sign-out route would also work, but depends on the browser's
 referrer policy; the proxy is ours to test.)
 
@@ -419,8 +424,8 @@ What that means:
   a plain generated SVG avatar under `public/mock/` (clearly not SML's, and
   outside the locked folder), so both the photo and initials paths run in
   e2e. Because that file is served from this site over http in e2e, the
-  https-only photo rule also accepts a root-relative `/mock/<file>` path
-  (nothing but the mock seed produces one). Added in PR 3.
+  https-only photo rule also accepts a root-relative `/mock/<file>` path,
+  only when `TIDYHQ_MODE=mock`. Added in PR 3.
 
 **The photo itself** is a plain `<img>`, not `next/image` (which would proxy
 TidyHQ's images through our server and need its host listed, which we don't
