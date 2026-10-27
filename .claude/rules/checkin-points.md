@@ -15,13 +15,10 @@ paths:
 
 - Points: **1 point per event attended.** Keep point values in one config spot,
   since rules may expand later.
-- The stored TidyHQ points field is the source of truth. It includes
+- (Continues the invariant in CLAUDE.md.) It includes
   balances migrated from WildApricot and any corrections made in TidyHQ, so
   attendance is never used to recalculate or verify points.
-- **The app edits nothing in TidyHQ beyond a check-in.** It writes exactly
-  three things, all during a new check-in, in this order: the member's place
-  in the event's group, `POINTS_PER_CHECKIN` added to the stored total, and
-  the staff note (staff check-ins only, always last). It writes no reward
+- (Continues the invariant in CLAUDE.md.) It writes no reward
   group: a TidyHQ smart group tracks members reaching reward levels, and the
   Board owns it. Points corrections and every other change to member
   data happen in TidyHQ, by people SML appoints. Admin points adjustments are
@@ -31,8 +28,7 @@ paths:
   member to the group first, then add `POINTS_PER_CHECKIN` to
   the stored total. If they're already in the group, award nothing and change
   nothing. One check-in per member per event.
-- A failure between the group add and the points write may miss a point, but
-  must never double-award. The member then sees "You're checked in, but we
+- (Continues the invariant in CLAUDE.md.) The member then sees "You're checked in, but we
   couldn't confirm your point": the check-in is saved, but the write may have
   landed, so a Board member checks the total in TidyHQ before adding anything.
 - Points never reset: the stored total is never cleared, for example at the

@@ -6,7 +6,7 @@ paths:
   - "src/app/auth/**"
   - "src/app/mock-tidyhq/**"
   - "src/app/checkin/**"
-  - "src/app/admin/events/**"
+  - "src/app/admin/events/**/checkin/**"
   - "src/app/maxDuration.test.ts"
   - "src/lib/startupConfig*"
   - "src/lib/liveUnknown.test.ts"
@@ -61,10 +61,8 @@ so the app is built against a **mock TidyHQ**.
   default `sml`) and swaps the code for the member's token server-side, with
   the client secret, through `tidyTokenPost` in the request layer (never
   retried). The token only calls `GET /v2/contacts/me` and is never stored in
-  a cookie, session or log; the existing state-cookie check stays. **The
-  client secret, code and token never appear in a log or error**: messages
-  are fixed text, never anything the server sent back (it may echo them) or a
-  caught error's message. `createTidyServices("live", env)` builds both from
+  a cookie, session or log; the existing state-cookie check stays.
+  `createTidyServices("live", env)` builds both from
   `liveConfig`. `checkStartupConfig` (`instrumentation.ts`) refuses to start
   in live mode (through `createTidyServices`, which validates once) if
   `APP_ORIGIN` (https, localhost excepted; the same test as
@@ -76,10 +74,7 @@ so the app is built against a **mock TidyHQ**.
   demo included, also checks `SESSION_SECRET`.** The group ids
   (`ADMIN_GROUP_ID`, `HELPER_GROUP_ID`) are optional and
   never block startup; live mode logs a startup warning (no value) when
-  `ADMIN_GROUP_ID` is unset. **Production refuses `TIDYHQ_MODE=mock` unless
-  `DEMO_MODE=on`**, and demo mode shows a "Demo data" banner on every page
-  (server-rendered, so it shows with JavaScript off); `DEMO_MODE=on` with live
-  is refused. The e2e suite runs as a demo for that reason.
+  `ADMIN_GROUP_ID` is unset. The e2e suite runs as a demo for that reason.
 - **One time budget per check-in** (`src/lib/tidyhq/budget.ts`, 24 s inside
   the 30 s route limit; `maxDuration = 30` is on the two pages that hold the
   check-in forms, and a test keeps them equal). Both actions start it, so the

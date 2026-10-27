@@ -4,6 +4,7 @@ paths:
   - "src/lib/admin/**"
   - "src/lib/checkin/**"
   - "src/lib/member/**"
+  - "src/lib/tidyhq/contactName*"
   - "next.config.ts"
   - "playwright.config.ts"
   - "e2e/**"

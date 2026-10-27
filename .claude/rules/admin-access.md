@@ -44,3 +44,5 @@ paths:
   check-in page and its action (added in milestone 4, PR 6b), which call
   `requireVolunteer` (a volunteer or an admin); a page check alone doesn't
   protect an action.
+- (Admin and volunteer access are different: they require an active contact, so
+  a deactivated Board member or volunteer is out.)

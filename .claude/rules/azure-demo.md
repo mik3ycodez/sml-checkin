@@ -6,6 +6,9 @@ paths:
   - "src/app/demo/**"
   - "src/app/DemoBanner.tsx"
   - "src/app/demoBanner.test.ts"
+  - "src/app/page.tsx"
+  - "src/app/layout.tsx"
+  - "e2e/demo.spec.ts"
   - "src/lib/demoMode.ts"
   - "src/lib/startupConfig*"
   - "src/app/mock-tidyhq/**"
@@ -23,11 +26,8 @@ paths:
   and deployed from GitHub Actions with OIDC (`.github/workflows/deploy.yml`,
   after CI passes on a push to `main`); App Service never builds. Portal
   steps, settings, logs and troubleshooting: `docs/azure-demo.md`.
-  - **Exactly one instance**: the mock keeps its state in memory, so no scale
-    out and no PM2 cluster mode. Every restart, deploy or sleep resets the
-    demo; the portal's Restart is the "reset demo" button.
-  - **Never set `E2E` on the demo.** It opens the unauthenticated
-    `/mock-tidyhq/reset` route and speeds the admin refresh up to 2 s.
+  - (Continues the invariant in CLAUDE.md.) Every restart, deploy or sleep
+    resets the demo; the portal's Restart is the "reset demo" button.
   - A bad config doesn't crash the server (it serves 500s and still prints
     "Ready"), so the deploy ends with `scripts/check-deploy.mjs`: `/` must
     return 200 on this build, and one `/_next/static` CSS file must load.

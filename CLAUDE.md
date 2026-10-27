@@ -29,7 +29,8 @@ system of record; this app is a thin layer on top of it.
 
 ## Invariants
 
-Copied from the detailed rules below, where each bullet stays whole.
+These live only here, so they always load. A rules file that continues one
+says so.
 
 - **The app edits nothing in TidyHQ beyond a check-in.** It writes exactly
   three things, all during a new check-in, in this order: the member's place

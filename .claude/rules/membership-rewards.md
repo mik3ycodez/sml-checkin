@@ -7,9 +7,10 @@ paths:
   - "src/lib/logInconsistentMemberships.ts"
   - "src/lib/member/**"
   - "src/lib/checkin/**"
+  - "src/lib/tidyhq/customFields*"
   - "src/app/me/**"
   - "src/app/checkin/**"
-  - "src/app/admin/events/**"
+  - "src/app/admin/events/**/checkin/**"
   - "e2e/me.spec.ts"
   - "e2e/inconsistentMembership.spec.ts"
 ---
@@ -40,9 +41,7 @@ paths:
 - **Contact status is not a check-in gate.** Membership standing is the only
   one: an inactive (archived) contact with a counted membership can sign in,
   check in and earn points. That is a data issue for the Board to fix in
-  TidyHQ, not something the app decides. (Admin and volunteer access are
-  different: they require an active contact, so a deactivated Board member or
-  volunteer is out.) Group lists include inactive contacts (`show_all=true`)
+  TidyHQ, not something the app decides. Group lists include inactive contacts (`show_all=true`)
   so such a member shows as already checked in rather than earning a point on
   every tap.
 - Membership standing (check-in and `/me` use one rule, `membershipStanding`).
