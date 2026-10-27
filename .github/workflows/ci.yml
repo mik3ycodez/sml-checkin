@@ -36,8 +36,11 @@ jobs:
     # The official Playwright image already has the browsers and their system
     # libraries, so nothing goes through apt (its mirror kept timing out). The
     # tag must match @playwright/test in package-lock.json exactly;
-    # src/ciWorkflow.test.ts checks it. Runs as the runner's user (1001), as
-    # Playwright's CI guide does, so the workspace stays the runner's.
+    # src/ciWorkflow.test.ts checks it. Runs as the runner's user, as
+    # Playwright's CI guide does, so the workspace stays the runner's. 1001 is
+    # the GitHub-hosted runner's uid, not a documented contract: if checkout or
+    # npm ci starts failing with EACCES on /__w after a runner image change,
+    # check it first.
     # --ipc=host: Chromium can run out of Docker's default 64 MB /dev/shm.
     container:
       image: mcr.microsoft.com/playwright:v1.64.0-noble
@@ -50,6 +53,9 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # Fails fast, with a clear message, if the image tag and the lockfile
+      # drifted apart (checks runs the same test in parallel).
+      - run: npx vitest run src/ciWorkflow.test.ts
       # playwright.config.ts builds and starts the app itself, against the mock.
       - run: npm run test:e2e
       - if: failure()

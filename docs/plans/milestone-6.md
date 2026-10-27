@@ -7,7 +7,7 @@ version bump. The 0.6.1 patch (PR 4, the `/demo` walkthrough) ✅ Merged
 0.5.3 patch (Next.js security fix) came first and is separate from this
 milestone: ✅ Merged (#45).
 Milestone 6 is two PRs plus the follow-up and ends at 0.6.0; the 0.6.1 patch
-comes after it.
+and PR 5 come after it.
 
 ## Context
 
@@ -237,8 +237,8 @@ See the runbook, [azure-demo.md](../azure-demo.md), which is the only copy.
      Playwright's CI guide does), with `--ipc=host` for Chromium's shared
      memory. GitHub sets `HOME=/github/home`, which holds npm's cache; the
      browsers are found through the image's `PLAYWRIGHT_BROWSERS_PATH`.
-     setup-node still installs Node from `.nvmrc` (the image's own Node 24 is
-     unused). Chromium already runs without its sandbox under Playwright, so
+     setup-node still installs Node from `.nvmrc`, which stays the one
+     source of the version (the image's own Node is unused and may differ). Chromium already runs without its sandbox under Playwright, so
      no flags were needed. If Firefox is ever added: it fails when `HOME`
      belongs to another user, which happens when the container runs as root.
    - `ci.yml` (both jobs): checkout and setup-node v4 → v7, upload-artifact
