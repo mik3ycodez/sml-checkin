@@ -30,8 +30,9 @@ paths:
     resets the demo; the portal's Restart is the "reset demo" button.
   - A bad config doesn't crash the server (it serves 500s and still prints
     "Ready"), so the deploy ends with `scripts/check-deploy.mjs`: `/` must
-    return 200 on this build, one `/_next/static` CSS file must load, and so
-    must `/brand/sml-logo-black.png` (standalone ships `public/` only because
+    return 200 on this build, one `/_next/static` CSS file must load as
+    `text/css`, and `/brand/sml-logo-black.png` as `image/png` (a 200 with the
+    wrong content type fails; standalone ships `public/` only because
     `build:standalone` copies it in; the zip step checks for it too).
     `scripts/` is linted with undefined names and unused variables as errors.
   - **`/demo` is the testers' walkthrough** (0.6.1): nine scenarios, each with

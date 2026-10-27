@@ -29,8 +29,9 @@ GitHub.
    `azure/webapps-deploy`. App Service never builds.
 4. **It then checks the site** (`scripts/check-deploy.mjs`): `DEMO_URL/` must
    return 200 on this build within 5 minutes, one stylesheet from
-   `/_next/static` must load, and the logo `/brand/sml-logo-black.png` must
-   load. If not, the run is red.
+   `/_next/static` must load as `text/css`, and the logo
+   `/brand/sml-logo-black.png` must load as `image/png` (a 200 with an HTML
+   page does not count). If not, the run is red.
 
 A red run after a successful "Deploy" step means the site is up but wrong.
 See [When the deploy check fails](#when-the-deploy-check-fails).

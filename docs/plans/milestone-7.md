@@ -201,7 +201,9 @@ Locked three ways, covering all 10 files:
   in the wrong one. `browser` means "Add to Home Screen" gives SML's icon and
   name but opens in the normal browser, where sign-in already works.
 - Browsers that ask for `/favicon.ico` without reading the page (some
-  bookmark tools) get a 404. Harmless, and a redirect isn't worth the code.
+  bookmark tools) are served the 192 icon by a rewrite in `next.config.ts`,
+  which keeps it static and adds no copy outside the lock.
+- The manifest has no `theme_color` yet; PR 2 adds light and dark theme colors.
 
 Also `.gitattributes`: `public/brand/** binary`, so git never converts line
 endings or diffs them as text, whatever a contributor's settings.
