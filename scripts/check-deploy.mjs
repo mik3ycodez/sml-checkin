@@ -5,13 +5,15 @@
 // request, and "✓ Ready" prints anyway. A deploy also reports success when the
 // zip has no server.js at its root. So the only reliable check is a request.
 // Wait for the page to return 200 (a cold start can take minutes), then fetch
-// one stylesheet, which a standalone build serves only if the static copy ran.
+// one stylesheet, which a standalone build serves only if the static copy ran,
+// and one logo, which it serves only if public/ was copied in too.
 //
 // With a build id, a 200 only counts if the HTML carries that id, so the
 // previous build answering during the swap can't pass for the new one.
 
 import { pathToFileURL } from "node:url";
 
+const LOGO_PATH = "/brand/sml-logo-black.png";
 const CSS_LINK = /href="([^"]*\/_next\/static\/[^"]*\.css[^"]*)"/;
 
 /**
@@ -112,6 +114,26 @@ export async function checkDeploy({
     );
   }
   log(`CSS ${cssUrl.pathname}: HTTP 200`);
+
+  const logoUrl = new URL(LOGO_PATH, root);
+  try {
+    const res = await fetch(logoUrl, {
+      signal: AbortSignal.timeout(requestTimeoutMs),
+    });
+    await res.arrayBuffer();
+    status = res.status;
+  } catch (error) {
+    throw new Error(
+      `The logo ${LOGO_PATH} did not load (${describeError(error)}).`,
+    );
+  }
+  if (status !== 200) {
+    throw new Error(
+      `The logo ${LOGO_PATH} returned ${status}. ` +
+        "The public folder is probably missing from the zip.",
+    );
+  }
+  log(`Logo ${LOGO_PATH}: HTTP 200`);
 }
 
 if (

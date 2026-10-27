@@ -1,11 +1,11 @@
 {
   "name": "sml-checkin",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:standalone": "next build && cp -R .next/static .next/standalone/.next/",
+    "build:standalone": "next build && cp -R .next/static .next/standalone/.next/ && cp -R public .next/standalone/",
     "start": "node .next/standalone/server.js",
     "lint": "eslint",
     "test": "vitest run",
