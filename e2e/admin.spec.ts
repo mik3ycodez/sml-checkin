@@ -11,7 +11,9 @@ test("a signed-out visitor is sent to sign in, then lands on /admin", async ({
   await page.getByRole("button", { name: "Casey Moreno" }).click();
   await page.waitForURL((url) => url.pathname === "/admin");
   await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
-  await expect(page.getByText("Signed in as Casey Moreno")).toBeVisible();
+  await expect(
+    page.getByLabel("Account menu, signed in as Casey Moreno"),
+  ).toBeVisible();
 });
 
 test("a member who isn't in the App Admin group is turned away", async ({

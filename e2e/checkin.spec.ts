@@ -152,10 +152,16 @@ test("the session cookie is HttpOnly and holds no token", async ({
   const session = cookies.find((c) => c.name === "sml_session");
   expect(session?.httpOnly).toBe(true);
 
-  // The value is `base64url(JSON).signature`: just a contact id and expiry.
+  // The value is `base64url(JSON).signature`: a contact id and expiry, plus
+  // the display-only name and initials for the header (Dante has no photo).
   const [body] = session!.value.split(".");
   const payload = JSON.parse(Buffer.from(body, "base64url").toString());
-  expect(Object.keys(payload).sort()).toEqual(["contactId", "exp"]);
+  expect(Object.keys(payload).sort()).toEqual([
+    "contactId",
+    "exp",
+    "initials",
+    "name",
+  ]);
   expect(payload.contactId).toBe("c_dante");
 
   // The mock hands out `mock-code-…` codes, and tokens must never be stored.

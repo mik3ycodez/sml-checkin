@@ -39,8 +39,8 @@ describe("staff check-in frame", () => {
     );
   });
 
-  it("signs out to the member check-in page, not back to the staff page", () => {
-    expect(out).toContain('name="returnTo" value="/checkin/ev_tonight"');
+  it("has no sign-out form of its own: the header's menu signs out", () => {
+    expect(out).not.toContain("/auth/signout");
   });
 
   // Admins aren't volunteering: they reached this page from the event page,
@@ -61,7 +61,7 @@ describe("staff check-in frame", () => {
     expect(admin).not.toContain(">Event page<");
   });
 
-  it("has it on the verdict screen as well", () => {
+  it("has Stop volunteering on the verdict screen as well, with no sign-out form", () => {
     const verdict = html(
       createElement(StaffVerdictScreen, {
         ...frame,
@@ -74,7 +74,7 @@ describe("staff check-in frame", () => {
       }),
     );
     expect(verdict).toContain("Stop volunteering");
-    expect(verdict).toContain('name="returnTo" value="/checkin/ev_tonight"');
+    expect(verdict).not.toContain("/auth/signout");
   });
 });
 

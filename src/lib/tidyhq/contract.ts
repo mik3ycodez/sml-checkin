@@ -98,6 +98,26 @@ export function runTidyClientContract(
         expect(me.display_name).toBe("Marcus Bell");
       });
 
+      it("returns the profile image when the contact has one, and none otherwise", async () => {
+        const { client, memberToken } = open();
+        const marcus = await client.getMe(memberToken("c_marcus"));
+        expect(marcus.profile_image).toMatch(/^(https:\/\/|\/mock\/)/);
+        const dante = await client.getMe(memberToken("c_dante"));
+        expect(dante.profile_image).toBeUndefined();
+      });
+
+      it("returns TidyHQ's initials when it sends them, and none otherwise", async () => {
+        const { client, memberToken } = open((seed) => {
+          seed.contacts.find((c) => c.id === "c_marcus")!.initials = "MB";
+        });
+        expect((await client.getMe(memberToken("c_marcus"))).initials).toBe(
+          "MB",
+        );
+        expect(
+          (await client.getMe(memberToken("c_dante"))).initials,
+        ).toBeUndefined();
+      });
+
       it.each(["", "garbage"])("rejects token %j with 401", async (token) => {
         await expectTidyError(open().client.getMe(token), 401);
       });

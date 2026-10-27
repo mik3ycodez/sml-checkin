@@ -58,6 +58,65 @@ describe("signSession / verifySession", () => {
     expect(Object.keys(decoded).sort()).toEqual(["contactId", "exp"]);
   });
 
+  it("round-trips the display-only profile fields", () => {
+    const profile = {
+      name: "Dante Ruiz",
+      initials: "DR",
+      photo: "https://img.example.org/d.jpg",
+    };
+    const token = signSession("c_dante", SECRET, NOW, profile);
+    expect(verifySession(token, SECRET, NOW)).toEqual({
+      contactId: "c_dante",
+      exp: NOW_SECONDS + SESSION_MAX_AGE_SECONDS,
+      ...profile,
+    });
+  });
+
+  it("never signs a photo that is not https, or a long one", () => {
+    for (const photo of [
+      "http://img.example.org/d.jpg",
+      `https://img.example.org/${"a".repeat(600)}`,
+    ]) {
+      const token = signSession("c_dante", SECRET, NOW, { photo });
+      expect(verifySession(token, SECRET, NOW)?.photo).toBeUndefined();
+    }
+  });
+
+  it("keeps a signed cookie small however long the name is", () => {
+    const token = signSession("c_dante", SECRET, NOW, {
+      name: "n".repeat(5000),
+      photo: `https://img.example.org/${"a".repeat(5000)}`,
+    });
+    expect(token.length).toBeLessThan(1000);
+  });
+
+  it("still verifies an old cookie with no profile fields", () => {
+    const body = Buffer.from(
+      JSON.stringify({ contactId: "c_dante", exp: NOW_SECONDS + 1000 }),
+    ).toString("base64url");
+    const sig = createHmac("sha256", SECRET).update(body).digest("base64url");
+    expect(verifySession(`${body}.${sig}`, SECRET, NOW)).toEqual({
+      contactId: "c_dante",
+      exp: NOW_SECONDS + 1000,
+    });
+  });
+
+  it("re-checks the profile fields on the way out, even if the signature is good", () => {
+    const body = Buffer.from(
+      JSON.stringify({
+        contactId: "c_dante",
+        exp: NOW_SECONDS + 1000,
+        photo: "javascript:alert(1)",
+        name: 5,
+      }),
+    ).toString("base64url");
+    const sig = createHmac("sha256", SECRET).update(body).digest("base64url");
+    expect(verifySession(`${body}.${sig}`, SECRET, NOW)).toEqual({
+      contactId: "c_dante",
+      exp: NOW_SECONDS + 1000,
+    });
+  });
+
   it("is still valid one second before expiry", () => {
     const token = signSession("c_dante", SECRET, NOW);
     const justBefore = secondsLater(SESSION_MAX_AGE_SECONDS - 1);
@@ -158,6 +217,14 @@ describe("cookie wrappers", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllEnvs();
+  });
+
+  it("setSession signs the profile into the cookie", async () => {
+    const profile = { name: "Dante Ruiz", initials: "DR" };
+    await setSession("c_dante", profile);
+    expect(cookieStore.set.mock.calls[0][1]).toBe(
+      signSession("c_dante", SECRET, NOW, profile),
+    );
   });
 
   it("setSession writes a signed, httpOnly, lax cookie that lasts 90 days", async () => {

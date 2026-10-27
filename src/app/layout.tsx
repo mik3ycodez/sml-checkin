@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
 import { isDemoMode } from "@/lib/demoMode";
 import { DemoBanner } from "./DemoBanner";
+import { loadHeaderProfile } from "./headerProfile";
 import { SiteHeader } from "./SiteHeader";
 import "./globals.css";
 
@@ -42,11 +43,12 @@ export default async function RootLayout({
   // `next build` would otherwise keep (or lack) the banner whatever the
   // server is later started with.
   await connection();
+  const { profile, returnTo } = await loadHeaderProfile();
   return (
     <html lang="en">
       <body className="bg-background text-foreground flex min-h-dvh flex-col antialiased">
         {isDemoMode() && <DemoBanner />}
-        <SiteHeader />
+        <SiteHeader profile={profile} returnTo={returnTo} />
         {/* flex-1: the banner and header sit above, and main takes the rest of
             the screen, so pages that center their content center below them. */}
         <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-6 sm:px-6">

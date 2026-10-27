@@ -81,7 +81,6 @@ export function StatusScreen({
   const signedInAs = (
     <MemberFooter
       eventId={eventId}
-      name={status.name}
       points={status.status !== "already_checked_in"}
       volunteer={!volunteerOver}
     />

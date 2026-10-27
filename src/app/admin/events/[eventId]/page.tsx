@@ -35,7 +35,7 @@ export default async function AdminEventRoute({
   params,
 }: PageProps<"/admin/events/[eventId]">) {
   const { eventId } = await params;
-  const admin = await requireAdmin(adminEventPath(eventId));
+  await requireAdmin(adminEventPath(eventId));
   const client = getTidyClient();
   const now = new Date();
 
@@ -45,10 +45,10 @@ export default async function AdminEventRoute({
     event: await getAdminEventPage(client, eventId, { now }),
   }));
   if (!loaded) {
-    return <AdminEventUnavailable name={admin.name} eventId={eventId} />;
+    return <AdminEventUnavailable />;
   }
   const { event } = loaded;
-  if (!event) return <UnknownAdminEvent name={admin.name} />;
+  if (!event) return <UnknownAdminEvent />;
   const { groupId } = event;
   const attendees =
     groupId === null
@@ -65,7 +65,6 @@ export default async function AdminEventRoute({
   }
   return (
     <AdminEventScreen
-      name={admin.name}
       event={event}
       qr={qr}
       attendees={attendees}

@@ -128,6 +128,7 @@ Shell commands:
 - Never use heredocs or `cat >` in shell commands (they hang waiting for
   input). Write files with the Write tool, and run `gh pr create`
   non-interactively with `--title` and `--body-file`.
+- Stop any server or background process you start before you finish.
 
 Before opening any PR, check:
 

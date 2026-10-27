@@ -1,18 +1,31 @@
-import Link from "next/link";
+import type { Profile } from "@/lib/auth/profile";
+import { ProfileMenu } from "./ProfileMenu";
 import { SmlLogo } from "./SmlLogo";
 
 /**
  * The bar at the top of every page: SML's logo and name, linking home. Plain
- * server-rendered markup. Both theme logos are in the page and the CSS in
+ * server-rendered markup, with a plain `<a>` (not `next/link`): the layout only
+ * re-renders on a full navigation, and Sign out's `returnTo` is set there. Both theme logos are in the page and the CSS in
  * globals.css shows one. The logos are decorative (alt=""): the text names the
  * home link, once. The printed QR sheet has its own logo, so the header never
- * prints.
+ * prints. On the right, the account menu (`profile` is null when signed out).
  */
-export function SiteHeader() {
+export function SiteHeader({
+  profile,
+  returnTo,
+}: {
+  profile: Profile | null;
+  returnTo: string;
+}) {
   return (
     <header className="bg-surface border-border border-b print:hidden">
-      <div className="mx-auto flex max-w-lg items-center px-4 py-2 sm:px-6">
-        <Link href="/" className="flex items-center gap-3">
+      <div className="mx-auto flex max-w-lg items-center justify-between gap-2 px-3 py-2 min-[400px]:px-4 sm:px-6">
+        {/* A plain link on purpose: see the comment above. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        <a
+          href="/"
+          className="flex min-w-0 items-center gap-2 min-[400px]:gap-3"
+        >
           <SmlLogo
             variant="black"
             decorative
@@ -23,10 +36,11 @@ export function SiteHeader() {
             decorative
             className="logo-for-dark h-10 w-auto"
           />
-          <span className="text-lg font-semibold max-[400px]:sr-only">
+          <span className="text-[15px] font-semibold whitespace-nowrap max-[359px]:sr-only min-[400px]:text-lg">
             Seattle Men in Leather
           </span>
-        </Link>
+        </a>
+        <ProfileMenu profile={profile} returnTo={returnTo} />
       </div>
     </header>
   );

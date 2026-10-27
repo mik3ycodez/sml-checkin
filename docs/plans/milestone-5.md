@@ -720,7 +720,13 @@ On a Board member's own contact, at an unpublished test event in TidyHQ:
 17. Real-world latency: a full check-in from a phone at the venue finishes
     well inside the 8 s per request timeout. Adjust `REQUEST_TIMEOUT_MS` if
     not.
-18. `grep -rn LIVE-UNKNOWN src` comes back empty.
+18. **Profile image** (`shapes.ts`, `LIVE-UNKNOWN(profile-image)`). Sign in as a member
+    with a photo and one without, and look at what `GET /v2/contacts/me` returns
+    for `profile_image` and `initials`: absent, `null`, `""`, or a placeholder
+    image URL for "no photo"? Check the photo is `https:` and the header shows it
+    (the chip falls back to initials otherwise). If a placeholder URL comes back,
+    skip it in `parseContact`.
+19. `grep -rn LIVE-UNKNOWN src` comes back empty.
 
 Then remove the test event and undo the test contact's point by hand in
 TidyHQ.

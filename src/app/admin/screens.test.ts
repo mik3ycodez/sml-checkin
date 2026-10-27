@@ -14,10 +14,10 @@ function text(element: Parameters<typeof renderToStaticMarkup>[0]) {
 describe("AdminDeniedScreen", () => {
   it("tells a member who isn't an admin that this page is for the Board", () => {
     const shown = text(
-      createElement(AdminDeniedScreen, { reason: "not_admin", name: "Dante" }),
+      createElement(AdminDeniedScreen, { reason: "not_admin" }),
     );
     expect(shown).toContain("You don't have access to the admin pages");
-    expect(shown).toContain("Signed in as Dante");
+    expect(shown).not.toContain("Signed in as");
     expect(shown).not.toContain("couldn't check");
   });
 
@@ -25,7 +25,6 @@ describe("AdminDeniedScreen", () => {
     const shown = text(
       createElement(AdminDeniedScreen, {
         reason: "unavailable",
-        name: "Casey",
       }),
     );
     expect(shown).toContain("We couldn't check admin access");
@@ -38,7 +37,6 @@ describe("AdminDeniedScreen retrying", () => {
     const html = renderToStaticMarkup(
       createElement(AdminDeniedScreen, {
         reason: "unavailable",
-        name: "Casey",
         retryPath: "/admin/events/ev_one",
       }),
     );
@@ -52,7 +50,6 @@ describe("AdminDeniedScreen retrying", () => {
     const shown = text(
       createElement(AdminDeniedScreen, {
         reason: "unavailable",
-        name: "Casey",
         retryPath: "/admin/events/ev_one",
       }),
     );
@@ -63,7 +60,6 @@ describe("AdminDeniedScreen retrying", () => {
     const html = renderToStaticMarkup(
       createElement(AdminDeniedScreen, {
         reason: "not_admin",
-        name: "Dante",
         retryPath: "/admin/events/ev_one",
       }),
     );
@@ -73,18 +69,18 @@ describe("AdminDeniedScreen retrying", () => {
   it("has no refresh without a path", () => {
     expect(
       renderToStaticMarkup(
-        createElement(AdminDeniedScreen, { reason: "unavailable", name: null }),
+        createElement(AdminDeniedScreen, { reason: "unavailable" }),
       ),
     ).not.toContain("http-equiv");
   });
 });
 
 describe("AdminDeniedScreen without a name", () => {
-  it("still offers a way to sign out", () => {
+  it("prints no sign-in line or sign-out form: the header has them", () => {
     const html = renderToStaticMarkup(
-      createElement(AdminDeniedScreen, { reason: "unavailable", name: null }),
+      createElement(AdminDeniedScreen, { reason: "unavailable" }),
     );
-    expect(html).toContain('action="/auth/signout"');
+    expect(html).not.toContain("/auth/signout");
     expect(html).not.toContain("Signed in as");
   });
 });
@@ -100,21 +96,19 @@ const EVENT = {
 };
 
 describe("AdminHomeScreen", () => {
-  it("shows who's signed in", () => {
+  it("shows the Admin heading, with no sign-in line (the header has it)", () => {
     const shown = text(
       createElement(AdminHomeScreen, {
-        name: "Casey Moreno",
         events: { upcoming: [], recent: [] },
       }),
     );
     expect(shown).toContain("Admin");
-    expect(shown).toContain("Signed in as Casey Moreno");
+    expect(shown).not.toContain("Signed in as");
   });
 
   it("links each event to its admin page, with time and place in Seattle time", () => {
     const html = renderToStaticMarkup(
       createElement(AdminHomeScreen, {
-        name: "Casey",
         events: {
           upcoming: [EVENT],
           recent: [{ ...EVENT, id: "ev/two?x", name: "Pub Night" }],
@@ -126,7 +120,6 @@ describe("AdminHomeScreen", () => {
     expect(html).toContain('href="/admin/events/ev%2Ftwo%3Fx"');
     const shown = text(
       createElement(AdminHomeScreen, {
-        name: "Casey",
         events: { upcoming: [EVENT], recent: [] },
       }),
     );
@@ -139,14 +132,12 @@ describe("AdminHomeScreen", () => {
   it("has a Recent section only when there are recent events", () => {
     const none = text(
       createElement(AdminHomeScreen, {
-        name: "Casey",
         events: { upcoming: [EVENT], recent: [] },
       }),
     );
     expect(none).not.toContain("Recent");
     const some = text(
       createElement(AdminHomeScreen, {
-        name: "Casey",
         events: { upcoming: [], recent: [EVENT] },
       }),
     );
@@ -156,14 +147,12 @@ describe("AdminHomeScreen", () => {
   it("marks an event with no attendance group", () => {
     const shown = text(
       createElement(AdminHomeScreen, {
-        name: "Casey",
         events: { upcoming: [{ ...EVENT, hasGroup: false }], recent: [] },
       }),
     );
     expect(shown).toContain("No attendance group");
     const fine = text(
       createElement(AdminHomeScreen, {
-        name: "Casey",
         events: { upcoming: [EVENT], recent: [] },
       }),
     );
@@ -176,19 +165,18 @@ describe("AdminHomeScreen", () => {
       recent: [],
     };
     const html = renderToStaticMarkup(
-      createElement(AdminHomeScreen, { name: "Casey", events }),
+      createElement(AdminHomeScreen, { events }),
     );
     expect(html).not.toContain("/admin/events/");
-    expect(
-      text(createElement(AdminHomeScreen, { name: "Casey", events })),
-    ).toContain("Archived");
+    expect(text(createElement(AdminHomeScreen, { events }))).toContain(
+      "Archived",
+    );
     expect(html).toContain("Social Night");
   });
 
   it("warns about an event whose end isn't after its start", () => {
     const shown = text(
       createElement(AdminHomeScreen, {
-        name: "Casey",
         events: {
           upcoming: [{ ...EVENT, invalidTimes: true }],
           recent: [],
@@ -198,7 +186,6 @@ describe("AdminHomeScreen", () => {
     expect(shown).toContain("end time isn't after its start");
     const fine = text(
       createElement(AdminHomeScreen, {
-        name: "Casey",
         events: { upcoming: [EVENT], recent: [] },
       }),
     );
@@ -209,26 +196,22 @@ describe("AdminHomeScreen", () => {
   it("shows an unnamed event as untitled, and says when there are none", () => {
     const unnamed = text(
       createElement(AdminHomeScreen, {
-        name: "Casey",
         events: { upcoming: [{ ...EVENT, name: null }], recent: [] },
       }),
     );
     expect(unnamed).toContain("Untitled event");
     const empty = text(
       createElement(AdminHomeScreen, {
-        name: "Casey",
         events: { upcoming: [], recent: [] },
       }),
     );
     expect(empty).toContain("No upcoming events");
   });
 
-  it("says the events couldn't be loaded, still showing who's signed in", () => {
-    const shown = text(
-      createElement(AdminHomeScreen, { name: "Casey", events: null }),
-    );
+  it("says the events couldn't be loaded", () => {
+    const shown = text(createElement(AdminHomeScreen, { events: null }));
     expect(shown).toContain("couldn't load the events");
-    expect(shown).toContain("Signed in as Casey");
+    expect(shown).not.toContain("Signed in as");
   });
 });
 
@@ -237,14 +220,12 @@ describe("AdminDeniedScreen on the staff check-in page", () => {
     const html = renderToStaticMarkup(
       createElement(AdminDeniedScreen, {
         reason: "not_admin",
-        name: "Dante",
         staffEventId: "ev_one",
       }),
     );
     const shown = text(
       createElement(AdminDeniedScreen, {
         reason: "not_admin",
-        name: "Dante",
         staffEventId: "ev_one",
       }),
     );
@@ -258,7 +239,6 @@ describe("AdminDeniedScreen on the staff check-in page", () => {
   it("says check-in access couldn't be checked, and retries by itself", () => {
     const element = createElement(AdminDeniedScreen, {
       reason: "unavailable",
-      name: "Pat",
       staffEventId: "ev_one",
       retryPath: "/admin/events/ev_one/checkin",
     });
@@ -271,9 +251,7 @@ describe("AdminDeniedScreen on the staff check-in page", () => {
 
   it("keeps the admin wording elsewhere", () => {
     expect(
-      text(
-        createElement(AdminDeniedScreen, { reason: "not_admin", name: null }),
-      ),
+      text(createElement(AdminDeniedScreen, { reason: "not_admin" })),
     ).toContain("You don't have access to the admin pages");
   });
 });

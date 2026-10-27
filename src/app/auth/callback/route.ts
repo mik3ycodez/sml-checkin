@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
 import { checkCallback } from "@/lib/auth/oauthState";
 import { appOrigin } from "@/lib/auth/requestOrigin";
+import { profileFor, type Profile } from "@/lib/auth/profile";
 import { setSession } from "@/lib/auth/session";
 import { getTidyClient, getTidyOAuth, isTidyError } from "@/lib/tidyhq";
 
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
   cookieStore.delete({ name: check.cookieName, path: "/auth" });
 
   let contactId: string | null = null;
+  let profile: Profile = {};
   try {
     const redirectUri = new URL("/auth/callback", appOrigin(request.headers));
     // The member's token is used only to identify them, then dropped.
@@ -29,13 +31,16 @@ export async function GET(request: NextRequest) {
       code: check.code,
       redirectUri: redirectUri.toString(),
     });
-    contactId = (await getTidyClient().getMe(token)).id;
+    const me = await getTidyClient().getMe(token);
+    contactId = me.id;
+    // For the header only; see Session.
+    profile = profileFor(me);
   } catch (error) {
     if (!isTidyError(error)) throw error;
   }
   // redirect() works by throwing, so it stays outside the try block.
   if (contactId === null) redirect(errorPage);
 
-  await setSession(contactId);
+  await setSession(contactId, profile);
   redirect(check.returnTo);
 }
