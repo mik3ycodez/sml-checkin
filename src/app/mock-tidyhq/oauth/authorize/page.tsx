@@ -67,7 +67,7 @@ export default async function MockAuthorizePage({
             type="submit"
             name="contact_id"
             value={contact.id}
-            className="border-foreground/20 rounded-lg border px-4 py-3 text-left text-lg"
+            className="bg-surface border-border rounded-lg border px-4 py-3 text-left text-lg"
           >
             {contactName(contact)}
           </button>

@@ -16,7 +16,7 @@ export function MemberError({ children }: { children: ReactNode }) {
       <p className="text-foreground/70 text-lg">{children}</p>
       <a
         href=""
-        className="bg-foreground text-background rounded-lg px-4 py-3 text-center text-lg font-semibold"
+        className="bg-accent text-on-accent rounded-lg px-4 py-3 text-center text-lg font-semibold"
       >
         Try again
       </a>

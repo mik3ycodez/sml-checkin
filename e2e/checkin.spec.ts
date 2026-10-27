@@ -18,6 +18,21 @@ test("a member signs in, checks in, and earns a point", async ({ page }) => {
   await expect(page.getByText("Total: 1")).toBeVisible();
 });
 
+// With the header and demo banner above it, the page must still fit the screen:
+// the button is the whole point of the page.
+test("the Check in button is fully on screen without scrolling", async ({
+  page,
+}) => {
+  await signInAs(page, "Dante Ruiz", "/checkin/ev_tonight");
+  await expect(page.getByRole("button", { name: "Check in" })).toBeInViewport({
+    ratio: 1,
+  });
+  const scrolls = await page.evaluate(
+    () => document.documentElement.scrollHeight > window.innerHeight,
+  );
+  expect(scrolls).toBe(false);
+});
+
 test("reloading shows already checked in, and the total stays 1", async ({
   page,
 }) => {

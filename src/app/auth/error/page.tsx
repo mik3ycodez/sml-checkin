@@ -15,7 +15,7 @@ export default async function SignInErrorPage({
       </p>
       <a
         href={`/auth/signin?returnTo=${encodeURIComponent(target)}`}
-        className="bg-foreground text-background rounded-lg px-4 py-3 text-center text-lg font-semibold"
+        className="bg-accent text-on-accent rounded-lg px-4 py-3 text-center text-lg font-semibold"
       >
         Try again
       </a>

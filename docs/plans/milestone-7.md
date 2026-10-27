@@ -1,7 +1,8 @@
 # Milestone 7: Look like SML's TidyHQ site (0.7.0)
 
 **Status:** Approved 2026-10-26 with changes (folded in below). PR 1 (0.6.2,
-branch `m7-pr1-brand-header`) in review; PRs 2 to 4 not started.
+branch `m7-pr1-brand-header`) merged; PR 2 (branch `m7-pr2-theme-header`) in
+review; PRs 3 and 4 not started.
 
 ## Context
 
@@ -269,8 +270,11 @@ of the accessibility tree, so screen readers hear one "Seattle Men in
 Leather" logo, not two. The cost: browsers usually fetch both images (about
 67 KB the first time, then cached). Accepted: originals only.
 
-**Print** stays forced light. The print block's selectors get
-`:root, :root[data-theme]` so they beat a forced dark theme.
+**Print** stays forced light. The print block's selector is `:root:root`
+(specificity 0,2,0, like both dark selectors, and later in the file), so it
+beats the dark theme whether or not `data-theme` is set. The first draft's
+`:root, :root[data-theme]` lost to `:root:not([data-theme="light"])` when no
+attribute was set; the dark-print e2e test caught it.
 `printStyles.test.ts` grows to check the new tokens.
 
 Plain `display` and attribute selectors work on every browser we care about,
@@ -488,6 +492,10 @@ can't be read), `printStyles.test.ts` (new tokens, beats `data-theme`), a CSS
 test that each `data-theme` selector exists for the logo swap, an event page
 test for the print-only black logo.
 
+- Layout: `body` is a `min-h-dvh` flex column and `main` is `flex-1`, so the
+  banner, header and page fill exactly one screen and centered screens center
+  below the header. `viewport.themeColor` has light `#ffffff` and dark
+  `#0a0a0a` entries (the manifest keeps no `theme_color`: it holds only one).
 - Tokens, logo swap CSS, `SiteHeader` (logo and text only), restyle of
   `PRIMARY`, `SECONDARY`, cards, lists, links, the black logo on the printed
   QR sheet.

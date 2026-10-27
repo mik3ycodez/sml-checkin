@@ -3,29 +3,86 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --accent: #636363;
+  --on-accent: #ffffff;
+  --surface: #ffffff;
+  --border: #e5e5e5;
   color-scheme: light;
 }
 
+/* Dark follows the device unless the page is forced light, or is forced dark
+   whatever the device says. Nothing sets data-theme until the theme toggle. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --accent: #a3a3a3;
+    --on-accent: #0a0a0a;
+    --surface: #171717;
+    --border: #2e2e2e;
     color-scheme: dark;
   }
 }
 
+:root[data-theme="dark"] {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --accent: #a3a3a3;
+  --on-accent: #0a0a0a;
+  --surface: #171717;
+  --border: #2e2e2e;
+  color-scheme: dark;
+}
+
+/* The header shows one of two logos. Same selectors as the colors, not a
+   <picture>, which only knows the device setting and would ignore a manual
+   choice. A display:none image is out of the accessibility tree. */
+.logo-for-dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .logo-for-light {
+    display: none;
+  }
+  :root:not([data-theme="light"]) .logo-for-dark {
+    display: inline;
+  }
+}
+
+:root[data-theme="dark"] .logo-for-light {
+  display: none;
+}
+
+:root[data-theme="dark"] .logo-for-dark {
+  display: inline;
+}
+
 /* Paper is white, and browsers drop backgrounds when printing: force the light
-   colors so dark mode's pale text can't print faint. After the dark block. */
+   colors so dark mode's pale text can't print faint. After the dark blocks.
+   `:root:root` is as specific as both dark selectors above
+   (`:root:not([data-theme="light"])` and `:root[data-theme="dark"]`), and comes
+   later, so it wins with or without a data-theme attribute. A bare `:root`
+   would lose to the first. */
 @media print {
-  :root {
+  :root:root {
     --background: #ffffff;
     --foreground: #171717;
+    --accent: #636363;
+    --on-accent: #ffffff;
+    --surface: #ffffff;
+    --border: #e5e5e5;
     color-scheme: light;
   }
 }
 
-/* Expose the color variables as Tailwind colors: bg-background, text-foreground. */
+/* Expose the color variables as Tailwind colors: bg-background, text-foreground,
+   bg-accent, text-on-accent, bg-surface, border-border. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
 }

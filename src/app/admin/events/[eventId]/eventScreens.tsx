@@ -11,7 +11,7 @@ import { ADMIN_PATH, adminEventPath, staffCheckinPath } from "../../paths";
 // Controls carry `print:hidden`, so printing the page gives a sheet with the
 // event's name, time, QR code and link, ready to post at the door.
 
-const BACK_LINK = "underline print:hidden";
+const BACK_LINK = "text-accent underline print:hidden";
 
 function BackToEvents() {
   return (
@@ -96,7 +96,7 @@ function QrBlock({
 }) {
   if (event.qr.kind === "none" || !qr) {
     return (
-      <p className="border-foreground/20 rounded-lg border p-4 text-lg">
+      <p className="bg-surface border-border rounded-lg border p-4 text-lg">
         {event.qr.kind === "none" ? NO_QR[event.qr.reason] : null}
       </p>
     );
@@ -129,7 +129,7 @@ function AttendeeList({
     return (
       <p
         role="status"
-        className="border-foreground/20 rounded-lg border p-4 print:hidden"
+        className="bg-surface border-border rounded-lg border p-4 print:hidden"
       >
         We couldn&apos;t load the list of who&apos;s checked in right now.
         {refreshSeconds !== null
@@ -186,6 +186,16 @@ export function AdminEventScreen({
       {refreshSeconds !== null && (
         <meta httpEquiv="refresh" content={String(refreshSeconds)} />
       )}
+      {/* Paper is white whatever the theme, so the sheet always gets the black
+          logo. The site header is hidden when printing. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/brand/sml-logo-black.png"
+        alt="Seattle Men in Leather"
+        width={210}
+        height={100}
+        className="mx-auto hidden h-24 w-auto print:block"
+      />
       <BackToEvents />
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight">

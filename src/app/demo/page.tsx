@@ -15,7 +15,8 @@ export const metadata: Metadata = { title: "Demo walkthrough" };
 // request even if a later edit stops reading request data here.
 export const dynamic = "force-dynamic";
 
-const BOX = "border-foreground/20 flex flex-col gap-2 rounded-lg border p-4";
+const BOX =
+  "bg-surface border-border flex flex-col gap-2 rounded-lg border p-4";
 
 export default function DemoPage() {
   if (!isDemoMode()) notFound();

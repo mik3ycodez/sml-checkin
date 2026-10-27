@@ -37,7 +37,7 @@ export function MeScreen({
       <Membership summary={summary} now={now} />
 
       {summary.rewards.length > 0 && (
-        <div className="border-foreground/20 flex flex-col gap-3 rounded-lg border p-4">
+        <div className="bg-surface border-border flex flex-col gap-3 rounded-lg border p-4">
           {summary.rewards.map((r) => (
             <p key={r.reward.id} className="text-lg">
               {r.message}
