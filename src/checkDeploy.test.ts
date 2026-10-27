@@ -8,18 +8,32 @@ import { checkDeploy } from "../scripts/check-deploy.mjs";
 
 const BUILD_ID = "buildid123";
 const CSS = "/_next/static/chunks/app.css";
+const LOGO = "/brand/sml-logo-black.png";
 const page = (buildId = BUILD_ID, css: string | null = CSS) =>
   `<html><head>${css ? `<link rel="stylesheet" href="${css}">` : ""}</head>` +
   `<body><script>self.__next_f.push([1,"{\\"b\\":\\"${buildId}\\"}"])</script></body></html>`;
 
-type Handler = (req: IncomingMessage) => { status: number; body?: string };
+type Handler = (req: IncomingMessage) => {
+  status: number;
+  body?: string;
+  type?: string;
+};
+
+// What a real server sends for each kind of file, unless a test says otherwise.
+const typeOf = (url = "") =>
+  url.endsWith(".css")
+    ? "text/css"
+    : url.endsWith(".png")
+      ? "image/png"
+      : "text/html";
 
 let server: Server | undefined;
 
 async function serve(handler: Handler): Promise<string> {
   server = createServer((req, res) => {
-    const { status, body } = handler(req);
+    const { status, body, type } = handler(req);
     res.statusCode = status;
+    res.setHeader("content-type", type ?? typeOf(req.url));
     res.end(body ?? "");
   });
   await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
@@ -42,7 +56,7 @@ const fast = {
 describe("checkDeploy", () => {
   it("passes when the page is 200 with this build and its CSS loads", async () => {
     const url = await serve((req) =>
-      req.url === CSS
+      req.url === CSS || req.url === LOGO
         ? { status: 200, body: "a{}" }
         : { status: 200, body: page() },
     );
@@ -64,7 +78,9 @@ describe("checkDeploy", () => {
   it("keeps waiting through a cold start, then passes", async () => {
     let calls = 0;
     const url = await serve((req) => {
-      if (req.url === CSS) return { status: 200, body: "a{}" };
+      if (req.url === CSS || req.url === LOGO) {
+        return { status: 200, body: "a{}" };
+      }
       return ++calls < 4 ? { status: 503 } : { status: 200, body: page() };
     });
     await expect(
@@ -114,6 +130,33 @@ describe("checkDeploy", () => {
     ).rejects.toThrow(/css.*404/i);
   });
 
+  // The standalone build ships public/ only if the build script copies it.
+  it("fails when the page and CSS are fine but the logo is missing", async () => {
+    const url = await serve((req) =>
+      req.url === CSS
+        ? { status: 200 }
+        : req.url === LOGO
+          ? { status: 404 }
+          : { status: 200, body: page() },
+    );
+    await expect(
+      checkDeploy({ url, buildId: BUILD_ID, ...fast }),
+    ).rejects.toThrow(/logo.*404/i);
+  });
+
+  it("fails when the logo answers 200 with HTML, not an image", async () => {
+    const url = await serve((req) =>
+      req.url === CSS
+        ? { status: 200, body: "a{}", type: "text/css" }
+        : req.url === LOGO
+          ? { status: 200, body: "<html>Not found</html>", type: "text/html" }
+          : { status: 200, body: page() },
+    );
+    await expect(
+      checkDeploy({ url, buildId: BUILD_ID, ...fast }),
+    ).rejects.toThrow(/logo.*image\/png/i);
+  });
+
   it("fails when the page has no CSS link at all", async () => {
     const url = await serve(() => ({
       status: 200,
@@ -133,7 +176,7 @@ describe("checkDeploy", () => {
 
   it("without a build id, accepts any 200", async () => {
     const url = await serve((req) =>
-      req.url === CSS
+      req.url === CSS || req.url === LOGO
         ? { status: 200 }
         : { status: 200, body: page("whatever") },
     );
@@ -143,7 +186,7 @@ describe("checkDeploy", () => {
   it("follows a CSS link that includes the site origin", async () => {
     let origin = "";
     const url = await serve((req) =>
-      req.url === CSS
+      req.url === CSS || req.url === LOGO
         ? { status: 200 }
         : { status: 200, body: page(BUILD_ID, `${origin}${CSS}`) },
     );

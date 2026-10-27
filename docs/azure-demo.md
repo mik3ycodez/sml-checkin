@@ -28,8 +28,10 @@ GitHub.
 3. It signs in to Azure with `azure/login` and deploys the zip with
    `azure/webapps-deploy`. App Service never builds.
 4. **It then checks the site** (`scripts/check-deploy.mjs`): `DEMO_URL/` must
-   return 200 on this build within 5 minutes, and one stylesheet from
-   `/_next/static` must load. If not, the run is red.
+   return 200 on this build within 5 minutes, one stylesheet from
+   `/_next/static` must load as `text/css`, and the logo
+   `/brand/sml-logo-black.png` must load as `image/png` (a 200 with an HTML
+   page does not count). If not, the run is red.
 
 A red run after a successful "Deploy" step means the site is up but wrong.
 See [When the deploy check fails](#when-the-deploy-check-fails).
@@ -166,6 +168,7 @@ The failing line is in the last step of the `Deploy demo` run.
 | `never returned 200 … (last: HTTP 200, but the page is not build …)` | The previous version is still answering (the new one didn't start, or the swap is slow). If it happens on every deploy of a healthy build, Next.js may have stopped writing the build id into the page (it does so only when no deployment id is set); the check then needs a different marker. | Log stream, then re-run the job.                                                  |
 | `The build id is empty` or the step `test -s .next/BUILD_ID` fails   | The build wrote no `.next/BUILD_ID`. The check refuses to run without it, so the old build can't pass.                                                                                                                                                                                          | The build step's log.                                                             |
 | `The CSS file … returned 404`                                        | The static files are missing from the zip.                                                                                                                                                                                                                                                      | The zip step in `deploy.yml` and `npm run build:standalone`.                      |
+| `The logo … returned 404`                                            | The `public` folder is missing from the zip.                                                                                                                                                                                                                                                    | The zip step in `deploy.yml` and `npm run build:standalone`.                      |
 | `The page has no CSS link`                                           | The page rendered but not as expected (an error page).                                                                                                                                                                                                                                          | Open `DEMO_URL` and Log stream.                                                   |
 | F1 over quota: 403 until midnight UTC                                | The daily CPU quota (60 min) is used up.                                                                                                                                                                                                                                                        | Metrics; consider B1.                                                             |
 

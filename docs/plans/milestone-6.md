@@ -45,8 +45,10 @@ only matter if we needed an exact patch version.
   `node_modules` uploaded; standalone builds a small `server.js` with only the
   files it uses. Smaller zip, faster deploys, fits F1's 1 GB storage.
 - Standalone does not copy static files. After the build:
-  `cp -r .next/static .next/standalone/.next/` (there is no `public/` folder).
-  Without it, pages load without CSS.
+  `cp -r .next/static .next/standalone/.next/`. Without it, pages load
+  without CSS. (There was no `public/` folder then; milestone 7 added one for
+  the logos, and `build:standalone` now copies it too: `cp -R public
+.next/standalone/`.)
 - The deploy zip is built from **inside** `.next/standalone` (after the static
   copy), so `server.js` is at the zip root. Zipped from the repo root,
   `HOSTNAME=0.0.0.0 node server.js` in `/home/site/wwwroot` fails with

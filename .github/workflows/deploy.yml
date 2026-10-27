@@ -53,6 +53,7 @@ jobs:
         run: |
           test -f .next/standalone/server.js
           test -d .next/standalone/.next/static
+          test -d .next/standalone/public/brand
           (cd .next/standalone && zip -qr "$GITHUB_WORKSPACE/deploy.zip" .)
           # Read the whole listing into a file first: grep -q exits at its first
           # match, and unzip then dies of SIGPIPE, which pipefail turns into a
@@ -60,6 +61,7 @@ jobs:
           unzip -l deploy.zip > zip-list.txt
           grep -E '[[:space:]]server\.js$' zip-list.txt
           grep -qE '[[:space:]]\.next/static/' zip-list.txt
+          grep -qE '[[:space:]]public/brand/sml-logo-black\.png$' zip-list.txt
 
       - uses: azure/login@v3
         with:

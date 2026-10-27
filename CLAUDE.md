@@ -51,6 +51,13 @@ says so.
   `/mock-tidyhq/reset` route and speeds the admin refresh up to 2 s.
 - **Exactly one instance**: the mock keeps its state in memory, so no scale
   out and no PM2 cluster mode.
+- **The 10 files in `public/brand/` are locked**: SML's official logos and the
+  icons made from them without redrawing. Never edit, resize, recompress,
+  re-export, recolor or replace one, add a file to the folder, or remove one,
+  and make no resized copies anywhere. A deny rule in `.claude/settings.json`
+  blocks Claude's Edit and Write (not shell commands), and
+  `src/brand.test.ts` checks every file's SHA-256, so it fails on any change.
+  Only the Board supplying new files justifies updating the hashes.
 
 ## Detailed rules
 

@@ -7,6 +7,21 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "SML Check-in",
   description: "Event check-in and points for Seattle Men in Leather",
+  // Pointed at the locked files in public/brand, not Next's file convention
+  // (src/app/icon.png), which would need a second copy of each outside the lock.
+  icons: {
+    icon: [
+      { url: "/brand/sml-icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/brand/sml-icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      {
+        url: "/brand/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+  },
 };
 
 export const viewport: Viewport = {
