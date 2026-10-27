@@ -20,6 +20,12 @@ describe("the web manifest", () => {
     expect(m.display).toBe("browser");
   });
 
+  // The app follows the device's light/dark setting, so one fixed color would
+  // be wrong in one of them. Light and dark theme colors come with the header.
+  it("sets no theme color of its own", () => {
+    expect(m).not.toHaveProperty("theme_color");
+  });
+
   it("lists the 192 and 512 icons and a maskable 512", () => {
     const icons = m.icons ?? [];
     const by = (sizes: string, purpose: string) =>

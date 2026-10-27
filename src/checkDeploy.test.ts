@@ -13,14 +13,27 @@ const page = (buildId = BUILD_ID, css: string | null = CSS) =>
   `<html><head>${css ? `<link rel="stylesheet" href="${css}">` : ""}</head>` +
   `<body><script>self.__next_f.push([1,"{\\"b\\":\\"${buildId}\\"}"])</script></body></html>`;
 
-type Handler = (req: IncomingMessage) => { status: number; body?: string };
+type Handler = (req: IncomingMessage) => {
+  status: number;
+  body?: string;
+  type?: string;
+};
+
+// What a real server sends for each kind of file, unless a test says otherwise.
+const typeOf = (url = "") =>
+  url.endsWith(".css")
+    ? "text/css"
+    : url.endsWith(".png")
+      ? "image/png"
+      : "text/html";
 
 let server: Server | undefined;
 
 async function serve(handler: Handler): Promise<string> {
   server = createServer((req, res) => {
-    const { status, body } = handler(req);
+    const { status, body, type } = handler(req);
     res.statusCode = status;
+    res.setHeader("content-type", type ?? typeOf(req.url));
     res.end(body ?? "");
   });
   await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
@@ -129,6 +142,19 @@ describe("checkDeploy", () => {
     await expect(
       checkDeploy({ url, buildId: BUILD_ID, ...fast }),
     ).rejects.toThrow(/logo.*404/i);
+  });
+
+  it("fails when the logo answers 200 with HTML, not an image", async () => {
+    const url = await serve((req) =>
+      req.url === CSS
+        ? { status: 200, body: "a{}", type: "text/css" }
+        : req.url === LOGO
+          ? { status: 200, body: "<html>Not found</html>", type: "text/html" }
+          : { status: 200, body: page() },
+    );
+    await expect(
+      checkDeploy({ url, buildId: BUILD_ID, ...fast }),
+    ).rejects.toThrow(/logo.*image\/png/i);
   });
 
   it("fails when the page has no CSS link at all", async () => {

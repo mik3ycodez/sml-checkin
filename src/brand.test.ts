@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -34,11 +35,23 @@ const SHA256: Record<string, string> = {
     "cf184eb63811e7e7e4e30bbbae1a3ae6be8244280551e2debac99c03610463f8",
 };
 
+// Dotfiles are the OS's, not ours (macOS drops a .DS_Store in any folder Finder
+// has opened), so they don't count as a file added to the folder.
+const listFiles = (dir: string) =>
+  readdirSync(dir).filter((name) => !name.startsWith("."));
+
 const RULE = "See the brand-files invariant in CLAUDE.md.";
 
 describe("public/brand", () => {
   it("holds exactly the ten locked files", () => {
-    expect(readdirSync(DIR).sort(), RULE).toEqual(Object.keys(SHA256).sort());
+    expect(listFiles(DIR).sort(), RULE).toEqual(Object.keys(SHA256).sort());
+  });
+
+  it("ignores dotfiles such as .DS_Store when listing the folder", () => {
+    const dir = mkdtempSync(join(tmpdir(), "brand-"));
+    writeFileSync(join(dir, ".DS_Store"), "");
+    writeFileSync(join(dir, "logo.png"), "");
+    expect(listFiles(dir)).toEqual(["logo.png"]);
   });
 
   it.each(Object.entries(SHA256))(

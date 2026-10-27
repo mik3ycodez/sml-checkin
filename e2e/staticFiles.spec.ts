@@ -36,6 +36,7 @@ test("brand files and the web manifest are served", async ({
   for (const path of [
     "/brand/sml-logo-black.png",
     "/brand/sml-icon-192.png",
+    "/favicon.ico",
     "/brand/apple-touch-icon.png",
   ]) {
     const response = await request.get(path);

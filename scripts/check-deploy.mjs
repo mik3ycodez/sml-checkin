@@ -30,6 +30,28 @@ function describeError(error) {
   return error instanceof Error ? error.name : "error";
 }
 
+/**
+ * Fetch one file and require a 200 with the expected content type. A 200 alone
+ * isn't enough: a server that lacks the file can answer with an HTML page.
+ * Messages are fixed text plus the status, never anything the server sent back.
+ */
+async function expectFile({ url, type, label, hint, timeoutMs }) {
+  let res;
+  try {
+    res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    await res.arrayBuffer();
+  } catch (error) {
+    throw new Error(`${label} did not load (${describeError(error)}).`);
+  }
+  if (res.status !== 200) {
+    throw new Error(`${label} returned ${res.status}. ${hint}`);
+  }
+  const actual = res.headers.get("content-type") ?? "";
+  if (!actual.toLowerCase().startsWith(type)) {
+    throw new Error(`${label} returned 200 but not ${type}. ${hint}`);
+  }
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -95,44 +117,22 @@ export async function checkDeploy({
     throw new Error("The page has no CSS link under /_next/static.");
   }
   const cssUrl = new URL(href, root);
-  let status;
-  try {
-    const res = await fetch(cssUrl, {
-      signal: AbortSignal.timeout(requestTimeoutMs),
-    });
-    await res.arrayBuffer();
-    status = res.status;
-  } catch (error) {
-    throw new Error(
-      `The CSS file ${cssUrl.pathname} did not load (${describeError(error)}).`,
-    );
-  }
-  if (status !== 200) {
-    throw new Error(
-      `The CSS file ${cssUrl.pathname} returned ${status}. ` +
-        "The static files are probably missing from the zip.",
-    );
-  }
+  await expectFile({
+    url: cssUrl,
+    type: "text/css",
+    label: `The CSS file ${cssUrl.pathname}`,
+    hint: "The static files are probably missing from the zip.",
+    timeoutMs: requestTimeoutMs,
+  });
   log(`CSS ${cssUrl.pathname}: HTTP 200`);
 
-  const logoUrl = new URL(LOGO_PATH, root);
-  try {
-    const res = await fetch(logoUrl, {
-      signal: AbortSignal.timeout(requestTimeoutMs),
-    });
-    await res.arrayBuffer();
-    status = res.status;
-  } catch (error) {
-    throw new Error(
-      `The logo ${LOGO_PATH} did not load (${describeError(error)}).`,
-    );
-  }
-  if (status !== 200) {
-    throw new Error(
-      `The logo ${LOGO_PATH} returned ${status}. ` +
-        "The public folder is probably missing from the zip.",
-    );
-  }
+  await expectFile({
+    url: new URL(LOGO_PATH, root),
+    type: "image/png",
+    label: `The logo ${LOGO_PATH}`,
+    hint: "The public folder is probably missing from the zip.",
+    timeoutMs: requestTimeoutMs,
+  });
   log(`Logo ${LOGO_PATH}: HTTP 200`);
 }
 
