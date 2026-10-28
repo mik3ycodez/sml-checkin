@@ -1,10 +1,10 @@
 # Milestone 7: Look like SML's TidyHQ site (0.7.0)
 
-**Status:** Done, released as 0.7.0 once PR 4 merges. PR 1 (0.6.2, branch
+**Status:** ✅ Done, released as 0.7.0. PR 1 (0.6.2, branch
 `m7-pr1-brand-header`, #52) ✅ Merged, PR 2 (#53) ✅ Merged, PR 3 (branch
 `m7-pr3-profile-menu`, #54) ✅ Merged, PR 4 (branch `m7-pr4-theme-toggle`,
-#55) 🔍 In review. Approved 2026-10-26 with changes (folded in below). The
-0.7.1 patch (branch `patch/0.7.1-menu-icon`, #56) 🔍 In review comes after the
+#55) ✅ Merged. Approved 2026-10-26 with changes (folded in below). The
+0.7.1 patch (branch `patch/0.7.1-menu-icon`, #56) ✅ Merged comes after the
 milestone and is separate from it.
 
 ## Context
@@ -548,7 +548,7 @@ ignored, cross-site post refused, 303 to `returnTo`), layout sets
 
 ### Patch 0.7.1: size the signed-out menu's person icon (#56)
 
-Branch `patch/0.7.1-menu-icon`. 🔍 In review. A bug fix after 0.7.0: the
+Branch `patch/0.7.1-menu-icon`. ✅ Merged. A bug fix after 0.7.0: the
 signed-out menu's "Sign in" icon had no size, so it grew to fill the panel and
 pushed the "Sign in" text out of view.
 

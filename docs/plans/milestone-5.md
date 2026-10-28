@@ -612,12 +612,12 @@ only reads, **Part B** makes one write, and members don't use the app until
 both pass.
 
 **SML's group ids** (ids, not secrets; `.env.example` keeps them blank). Both
-groups exist in TidyHQ.
+groups exist in TidyHQ; look each id up there.
 
-| Setting           | Group                   | Id       |
-| ----------------- | ----------------------- | -------- |
-| `ADMIN_GROUP_ID`  | App Admin               | `221914` |
-| `HELPER_GROUP_ID` | App Check-In Volunteers | `221990` |
+| Setting           | Group                   |
+| ----------------- | ----------------------- |
+| `ADMIN_GROUP_ID`  | App Admin               |
+| `HELPER_GROUP_ID` | App Check-In Volunteers |
 
 ### Part A: read-only checks
 

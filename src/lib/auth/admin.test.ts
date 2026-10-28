@@ -14,11 +14,11 @@ function seededClient() {
 
 describe("adminGroup", () => {
   it("uses ADMIN_GROUP_ID, trimmed", () => {
-    expect(adminGroup({ ADMIN_GROUP_ID: " 221914 " }, "live")).toEqual({
-      id: "221914",
+    expect(adminGroup({ ADMIN_GROUP_ID: " 123456 " }, "live")).toEqual({
+      id: "123456",
     });
-    expect(adminGroup({ ADMIN_GROUP_ID: "221914" }, "mock")).toEqual({
-      id: "221914",
+    expect(adminGroup({ ADMIN_GROUP_ID: "123456" }, "mock")).toEqual({
+      id: "123456",
     });
   });
 
