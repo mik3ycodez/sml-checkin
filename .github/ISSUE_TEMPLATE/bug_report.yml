@@ -43,4 +43,4 @@ body:
       label: Device and browser
       placeholder: iPhone 13, Safari 17
     validations:
-      required: true
+      required: false
