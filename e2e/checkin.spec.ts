@@ -16,6 +16,10 @@ test("a member signs in, checks in, and earns a point", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByText("+1 point")).toBeVisible();
   await expect(page.getByText("Total: 1")).toBeVisible();
+  // The renewed session keeps the profile, so the header still has the chip.
+  await expect(
+    page.getByLabel("Account menu, signed in as Dante Ruiz").getByText("DR"),
+  ).toBeVisible();
 });
 
 // With the header and demo banner above it, the page must still fit the screen:

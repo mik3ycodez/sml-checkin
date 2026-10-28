@@ -78,8 +78,10 @@ async function runCheckInAction(eventId: unknown): Promise<never> {
   const outcome = tapOutcome(result);
   if (outcome) {
     // Sliding expiry: members who keep coming are never signed out. Done
-    // here because Server Components can't set cookies.
-    await setSession(contactId);
+    // here because Server Components can't set cookies. The profile is carried
+    // over so the header keeps the member's name, initials and photo.
+    const { name, initials, photo } = session;
+    await setSession(contactId, { name, initials, photo });
     (await cookies()).set(
       TAP_NOTICE_COOKIE,
       encodeTapNotice({ eventId, contactId, outcome }),

@@ -22,7 +22,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import { SESSION_COOKIE, signSession } from "@/lib/auth/session";
+import { SESSION_COOKIE, signSession, verifySession } from "@/lib/auth/session";
 import {
   readTapNotice,
   TAP_NOTICE_COOKIE,
@@ -77,6 +77,24 @@ describe("checkInAction", () => {
     expect(await submit("ev_tonight")).toBe("/checkin/ev_tonight/result");
     const members = await getTidyClient().listGroupContacts("grp_social_night");
     expect(members.map((c) => c.id)).toContain("c_dante");
+  });
+
+  it("keeps the member's name, initials and photo when it renews the session", async () => {
+    const profile = {
+      name: "Dante Ruiz",
+      initials: "DR",
+      photo: "https://example.com/dante.jpg",
+    };
+    jar.set(
+      SESSION_COOKIE,
+      signSession("c_dante", SECRET, new Date(), profile),
+    );
+    await submit("ev_tonight");
+    const call = cookieStore.set.mock.calls.find(
+      ([name]) => name === SESSION_COOKIE,
+    );
+    const renewed = verifySession(call![1], SECRET, new Date());
+    expect(renewed).toMatchObject({ contactId: "c_dante", ...profile });
   });
 
   it("runs the whole tap inside one time budget", async () => {

@@ -4,8 +4,9 @@
 `m7-pr1-brand-header`, #52) ✅ Merged, PR 2 (#53) ✅ Merged, PR 3 (branch
 `m7-pr3-profile-menu`, #54) ✅ Merged, PR 4 (branch `m7-pr4-theme-toggle`,
 #55) ✅ Merged. Approved 2026-10-26 with changes (folded in below). The
-0.7.1 patch (branch `patch/0.7.1-menu-icon`, #56) ✅ Merged comes after the
-milestone and is separate from it.
+0.7.1 patch (branch `patch/0.7.1-menu-icon`, #56) ✅ Merged and the 0.7.2
+patch (branch `patch/0.7.2-keep-profile`) 🔍 In review come after the
+milestone and are separate from it.
 
 ## Context
 
@@ -558,6 +559,20 @@ pushed the "Sign in" text out of view.
 - Test first: a unit test that every svg in the menu has a size (classes count
   only as whole `size-N` or `w-N` plus `h-N` tokens), and a check folded into
   the existing signed-out e2e test that the icon's own box is 24px or less.
+- No behavior or rules change, so no CLAUDE.md or rules update.
+
+### Patch 0.7.2: keep the profile when a check-in renews the session
+
+Branch `patch/0.7.2-keep-profile`. 🔍 In review. A bug fix after 0.7.1: the
+sliding-expiry refresh after a successful check-in called `setSession` without
+the profile, so the session lost the member's name, initials and photo and the
+header fell back to the person icon until they signed in again.
+
+- `checkInAction` now passes the current session's `name`, `initials` and
+  `photo` into `setSession`. Nothing else about the session or cookie changes.
+- Test first: a unit test that the renewed session keeps the profile, and a
+  check folded into the existing check-in e2e test that the header chip still
+  shows the member's initials after checking in.
 - No behavior or rules change, so no CLAUDE.md or rules update.
 
 ## E2E specs that change
