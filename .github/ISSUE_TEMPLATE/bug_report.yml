@@ -1,11 +1,12 @@
 name: Bug report
 description: Something isn't working as it should.
+labels: [bug]
 body:
   - type: markdown
     attributes:
       value: |
         Please never include real member names, emails or other personal data in
-        an issue. Report security problems privately; see
+        an issue, including in screenshots. Report security problems privately; see
         [SECURITY.md](https://github.com/mik3ycodez/sml-checkin/blob/main/SECURITY.md).
   - type: textarea
     id: what-happened
@@ -35,6 +36,7 @@ body:
       options:
         - Demo site
         - Running locally
+        - Other
     validations:
       required: true
   - type: input
