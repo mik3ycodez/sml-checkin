@@ -35,7 +35,9 @@ paths:
   Don't put `min-h-dvh` back on `<main>`.
 - **Who's signed in, and Sign out, live in the header's `ProfileMenu`**, not on
   pages (no "Signed in as" lines). Its name, initials and photo come from the
-  signed session cookie, written at sign-in, for display only; every decision
+  signed session cookie, written at sign-in and refreshed at every check-in
+  (from the contact it already reads; `point_not_saved` keeps the old one), for
+  display only; every decision
   and every written name still comes from a fresh TidyHQ read. `src/proxy.ts`
   only copies the path into `x-sml-path` (for Sign out's `returnTo`); it never
   redirects or checks access, and skips files with an extension, so no page

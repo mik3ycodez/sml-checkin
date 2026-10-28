@@ -78,10 +78,11 @@ async function runCheckInAction(eventId: unknown): Promise<never> {
   const outcome = tapOutcome(result);
   if (outcome) {
     // Sliding expiry: members who keep coming are never signed out. Done
-    // here because Server Components can't set cookies. The profile is carried
-    // over so the header keeps the member's name, initials and photo.
-    const { name, initials, photo } = session;
-    await setSession(contactId, { name, initials, photo });
+    // here because Server Components can't set cookies. The header profile
+    // comes from the contact this check-in just read, so it refreshes with
+    // every tap. Only a point_not_saved result has no fresh contact; it keeps
+    // the session's own.
+    await setSession(contactId, "profile" in result ? result.profile : session);
     (await cookies()).set(
       TAP_NOTICE_COOKIE,
       encodeTapNotice({ eventId, contactId, outcome }),

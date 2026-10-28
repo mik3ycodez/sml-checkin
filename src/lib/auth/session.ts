@@ -24,9 +24,11 @@ export type Session = {
   /** Expiry, in seconds since the Unix epoch. */
   exp: number;
 } & Profile;
-// `name`, `initials` and `photo` are for the header only. They can be up to 90
-// days stale and are never used to decide anything or to write a name:
-// every decision and every written name comes from a fresh TidyHQ read.
+// `name`, `initials` and `photo` are for the header only. They are refreshed
+// from TidyHQ at sign-in and at every check-in, so they are as old as the
+// member's last check-in (at most 90 days, the session's length, for someone who
+// never checks in again). They are never used to decide anything or to write a
+// name: every decision and every written name comes from a fresh TidyHQ read.
 
 function sign(body: string, secret: string): string {
   return createHmac("sha256", secret).update(body).digest("base64url");
@@ -117,7 +119,7 @@ export const getSession = cache(async (): Promise<Session | null> => {
 /** Signs the member in. Only in Server Actions or Route Handlers. */
 export async function setSession(
   contactId: string,
-  profile: Profile = {},
+  profile: Profile,
 ): Promise<void> {
   const token = signSession(contactId, getSessionSecret(), new Date(), profile);
   (await cookies()).set(SESSION_COOKIE, token, {

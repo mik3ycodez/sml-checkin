@@ -1,3 +1,4 @@
+import { profileFor, type Profile } from "../auth/profile";
 import { logInconsistentMemberships } from "../logInconsistentMemberships";
 import {
   membershipNotice,
@@ -77,6 +78,8 @@ export type CheckInResult =
       eventName: string | null;
       pointsAwarded: number;
       total: number;
+      /** The header profile from the contact this check-in read. */
+      profile: Profile;
       /** A balance due or grace-period message to show with the confirmation. */
       membershipNotice: MembershipNotice | null;
       /** Rewards this check-in's points just reached. */
@@ -88,6 +91,8 @@ export type CheckInResult =
       eventName: string | null;
       /** Null if the stored total is unreadable. */
       total: number | null;
+      /** The header profile from the contact this check-in read. */
+      profile: Profile;
     }
   | CheckInRefusal;
 
@@ -186,11 +191,14 @@ export type CheckInAssessment =
       name: string;
       eventName: string | null;
       total: number | null;
+      profile: Profile;
     }
   | {
       status: "ready";
       name: string;
       eventName: string | null;
+      /** For the header, from the contact just read. */
+      profile: Profile;
       groupId: string;
       /** The stored points total, readable. */
       stored: number;
@@ -277,6 +285,7 @@ export async function assessCheckInFor(
       name,
       eventName,
       total: readPoints(contact),
+      profile: profileFor(contact),
     };
   }
 
@@ -313,6 +322,7 @@ export async function assessCheckInFor(
     status: "ready",
     name,
     eventName,
+    profile: profileFor(contact),
     groupId,
     stored,
     membershipNotice: membershipNotice(standing),
@@ -360,7 +370,7 @@ async function runCheckIn(
     assessCheckIn(client, { eventId, contactId, now }),
   );
   if (assessment.status !== "ready") return assessment;
-  const { name, eventName, groupId, stored } = assessment;
+  const { name, eventName, profile, groupId, stored } = assessment;
   const { membershipNotice: notice, rewards } = assessment;
 
   // Both critical writes get their full timeout or nothing is written: the
@@ -404,6 +414,7 @@ async function runCheckIn(
     eventName,
     pointsAwarded,
     total,
+    profile,
     membershipNotice: notice,
     // Worked out from the read before the write, with the standing check-in
     // itself used, so the confirmation can't disagree with this check-in.
