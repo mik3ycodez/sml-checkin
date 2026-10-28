@@ -1,0 +1,21 @@
+name: Idea
+description: Suggest a change or something new.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please never include real member names, emails or other personal data in
+        an issue. Report security problems privately; see
+        [SECURITY.md](https://github.com/mik3ycodez/sml-checkin/blob/main/SECURITY.md).
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+    validations:
+      required: true
+  - type: textarea
+    id: who
+    attributes:
+      label: Who does it help?
+    validations:
+      required: true

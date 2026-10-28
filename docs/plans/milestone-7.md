@@ -5,7 +5,7 @@
 `m7-pr3-profile-menu`, #54) ✅ Merged, PR 4 (branch `m7-pr4-theme-toggle`,
 #55) ✅ Merged. Approved 2026-10-26 with changes (folded in below). The
 0.7.1 patch (branch `patch/0.7.1-menu-icon`, #56) ✅ Merged and the 0.7.2
-patch (branch `patch/0.7.2-keep-profile`) 🔍 In review (#58) come after the
+patch (branch `patch/0.7.2-keep-profile`, #58) ✅ Merged come after the
 milestone and are separate from it.
 
 ## Context
@@ -565,7 +565,7 @@ pushed the "Sign in" text out of view.
 
 ### Patch 0.7.2: keep the profile when a check-in renews the session (#58)
 
-Branch `patch/0.7.2-keep-profile`. 🔍 In review (#58). A bug fix after 0.7.1:
+Branch `patch/0.7.2-keep-profile`. ✅ Merged. A bug fix after 0.7.1:
 the sliding-expiry refresh after a successful check-in called `setSession`
 without the profile, so the session lost the member's name, initials and photo
 and the header fell back to the person icon until they signed in again.
