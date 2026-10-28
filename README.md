@@ -1,5 +1,7 @@
 # SML Check-in
 
+[![CI](https://github.com/mik3ycodez/sml-checkin/actions/workflows/ci.yml/badge.svg)](https://github.com/mik3ycodez/sml-checkin/actions/workflows/ci.yml)
+
 Event check-in and points tool for Seattle Men in Leather (SML). TidyHQ is the
 system of record; this app is a thin layer on top of it.
 
@@ -17,6 +19,34 @@ system of record; this app is a thin layer on top of it.
 
 The `/demo` page walks through every feature, with who to sign in as for each
 scenario. The demo data resets whenever the server restarts.
+
+## Screenshots
+
+| Check in                                                                   | Member status                                                                | Admin attendee list                                                                    |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| <img src="docs/screenshots/checkin.png" alt="Check-in screen" width="240"> | <img src="docs/screenshots/status.png" alt="Member status page" width="240"> | <img src="docs/screenshots/admin-attendees.png" alt="Admin attendee list" width="240"> |
+| One tap to check in at the door.                                           | Membership, points and recent events.                                        | Live attendee list and QR code for an event.                                           |
+
+## How it works
+
+- TidyHQ is the only data store. The app has no database of its own.
+- A check-in makes exactly three writes to TidyHQ: adding the member to the
+  event's group, adding the points, and (for staff check-ins only) a note
+  saying a staff member did it.
+- If something fails partway, a member can miss a point but is never awarded
+  one twice.
+- Admin and volunteer access fail closed: if TidyHQ can't confirm who someone
+  is, they aren't let in.
+- The server runs as exactly one instance, because the mock TidyHQ keeps its
+  data in memory.
+
+The full list of rules is in the
+[Invariants in CLAUDE.md](CLAUDE.md#invariants).
+
+## Stack
+
+Next.js 16, React 19, TypeScript, Tailwind CSS 4, Vitest, Playwright, and Azure
+App Service deployed from GitHub Actions with OIDC.
 
 ## Run it locally
 
@@ -78,6 +108,14 @@ npx playwright show-report   # open the HTML report (after a CI-mode run)
 
 Versioning is described in [CLAUDE.md](CLAUDE.md#versioning); releases are on
 GitHub Releases.
+
+## About this project
+
+SML Check-in is built with [Claude Code](https://claude.com/claude-code). I'm on the SML Board and act as the product owner: I set the requirements, made the design and security decisions, reviewed every plan and pull request, tested on real phones, and run the releases and the Azure demo. Claude Code wrote the code, tests and docs under the project rules in CLAUDE.md, which also record the reasoning behind each decision.
+
+## Contributing
+
+Bug reports and ideas are welcome as issues. Pull requests aren't being accepted for now, because the app is built and maintained for SML. To report a security problem, see [SECURITY.md](SECURITY.md).
 
 ## License
 
