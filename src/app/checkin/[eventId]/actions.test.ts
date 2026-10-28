@@ -22,7 +22,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import { SESSION_COOKIE, signSession } from "@/lib/auth/session";
+import { SESSION_COOKIE, signSession, verifySession } from "@/lib/auth/session";
 import {
   readTapNotice,
   TAP_NOTICE_COOKIE,
@@ -57,6 +57,15 @@ function sessionReissued() {
   return cookieStore.set.mock.calls.some(([name]) => name === SESSION_COOKIE);
 }
 
+/** The session the action wrote, after checking that it wrote one. */
+function reissuedSession() {
+  const call = cookieStore.set.mock.calls.find(
+    ([name]) => name === SESSION_COOKIE,
+  );
+  expect(call, "the action should have renewed the session").toBeDefined();
+  return verifySession(call![1], SECRET, new Date());
+}
+
 describe("checkInAction", () => {
   beforeEach(() => {
     vi.stubEnv("TIDYHQ_MODE", "mock");
@@ -77,6 +86,46 @@ describe("checkInAction", () => {
     expect(await submit("ev_tonight")).toBe("/checkin/ev_tonight/result");
     const members = await getTidyClient().listGroupContacts("grp_social_night");
     expect(members.map((c) => c.id)).toContain("c_dante");
+  });
+
+  it("renews the session with the name and photo TidyHQ has now, not the old ones", async () => {
+    jar.set(
+      SESSION_COOKIE,
+      signSession("c_marcus", SECRET, new Date(), {
+        name: "Old Name",
+        initials: "ON",
+        photo: "https://example.com/old.jpg",
+      }),
+    );
+    await submit("ev_tonight");
+    expect(reissuedSession()).toMatchObject({
+      contactId: "c_marcus",
+      name: "Marcus Bell",
+      initials: "MB",
+      photo: "/mock/marcus.svg",
+    });
+  });
+
+  it("gives a session from before 0.7.0 (no profile) one at its next check-in", async () => {
+    signInAs("c_marcus");
+    await submit("ev_tonight");
+    expect(reissuedSession()).toMatchObject({
+      name: "Marcus Bell",
+      initials: "MB",
+      photo: "/mock/marcus.svg",
+    });
+  });
+
+  it("refreshes the profile on a repeat tap too", async () => {
+    signInAs("c_marcus");
+    await submit("ev_tonight");
+    cookieStore.set.mockClear();
+    jar.set(
+      SESSION_COOKIE,
+      signSession("c_marcus", SECRET, new Date(), { name: "Old Name" }),
+    );
+    await submit("ev_tonight");
+    expect(reissuedSession()).toMatchObject({ name: "Marcus Bell" });
   });
 
   it("runs the whole tap inside one time budget", async () => {
@@ -267,6 +316,17 @@ describe("checkInAction", () => {
         kind: "point_not_saved",
       });
       expect(sessionReissued()).toBe(true);
+    });
+
+    it("keeps the session's own profile when the point didn't save (no fresh contact)", async () => {
+      const profile = { name: "Dante Ruiz", initials: "DR" };
+      jar.set(
+        SESSION_COOKIE,
+        signSession("c_dante", SECRET, new Date(), profile),
+      );
+      failPointsWrite();
+      await submit("ev_tonight");
+      expect(reissuedSession()).toMatchObject(profile);
     });
 
     it("keeps a grace-period member's renewal message when the point didn't save", async () => {

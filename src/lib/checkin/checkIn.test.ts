@@ -66,6 +66,7 @@ describe("checkIn", () => {
     expect(result).toEqual({
       status: "checked_in",
       name: "Dante Ruiz",
+      profile: { name: "Dante Ruiz", initials: "DR" },
       eventName: "Social Night",
       pointsAwarded: 1,
       total: 1,
@@ -133,6 +134,10 @@ describe("checkIn", () => {
     expect(result).toEqual({
       status: "already_checked_in",
       name: "Marcus Bell",
+      profile: {
+        name: "Marcus Bell",
+        initials: "MB",
+      },
       eventName: "Pub Night",
       total: 1,
     });
@@ -149,6 +154,10 @@ describe("checkIn", () => {
     expect(result).toEqual({
       status: "already_checked_in",
       name: "Marcus Bell",
+      profile: {
+        name: "Marcus Bell",
+        initials: "MB",
+      },
       eventName: "Pub Night",
       total: 1,
     });
@@ -166,6 +175,7 @@ describe("checkIn", () => {
     expect(result).toEqual({
       status: "already_checked_in",
       name: "Lee Hart",
+      profile: { name: "Lee Hart", initials: "LH" },
       eventName: "Social Night",
       total: 0,
     });
@@ -361,6 +371,7 @@ describe("checkIn", () => {
         status: "checked_in",
         qualified: [],
         name: "Robin Vale",
+        profile: { name: "Robin Vale", initials: "RV" },
         eventName: "Social Night",
         pointsAwarded: 1,
         total: 1,
@@ -796,6 +807,7 @@ describe("assessCheckIn", () => {
     expect(await assessCheckIn(client, input)).toEqual({
       status: "already_checked_in",
       name: "Dante Ruiz",
+      profile: { name: "Dante Ruiz", initials: "DR" },
       eventName: "Social Night",
       total: 1,
     });

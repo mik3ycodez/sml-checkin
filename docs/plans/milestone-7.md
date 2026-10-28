@@ -4,8 +4,9 @@
 `m7-pr1-brand-header`, #52) ✅ Merged, PR 2 (#53) ✅ Merged, PR 3 (branch
 `m7-pr3-profile-menu`, #54) ✅ Merged, PR 4 (branch `m7-pr4-theme-toggle`,
 #55) ✅ Merged. Approved 2026-10-26 with changes (folded in below). The
-0.7.1 patch (branch `patch/0.7.1-menu-icon`, #56) ✅ Merged comes after the
-milestone and is separate from it.
+0.7.1 patch (branch `patch/0.7.1-menu-icon`, #56) ✅ Merged and the 0.7.2
+patch (branch `patch/0.7.2-keep-profile`) 🔍 In review (#58) come after the
+milestone and are separate from it.
 
 ## Context
 
@@ -409,8 +410,10 @@ What that means:
   TidyHQ. Acceptable; no email, membership or points go in it. (Encrypting it
   would need a second key and more code for little gain; I'd not do it.)
 - **Can go stale:** a name or photo changed in TidyHQ shows after the next
-  sign-in, up to the 90-day session length. Fine for a header. It isn't
-  refreshed at check-in, to keep the check-in path as it is.
+  sign-in or check-in, whichever comes first (0.7.2 refreshes it at every
+  check-in, from the contact the check-in already reads, so no extra TidyHQ
+  call). A member who neither signs in nor checks in keeps the old one until
+  their session ends, up to 90 days. Fine for a header.
 - **Display only.** Every decision (membership, admin, volunteer) and every
   written name (the staff note) still comes from a fresh TidyHQ read, never
   the cookie. A comment on the type and a test say so.
@@ -559,6 +562,29 @@ pushed the "Sign in" text out of view.
   only as whole `size-N` or `w-N` plus `h-N` tokens), and a check folded into
   the existing signed-out e2e test that the icon's own box is 24px or less.
 - No behavior or rules change, so no CLAUDE.md or rules update.
+
+### Patch 0.7.2: keep the profile when a check-in renews the session (#58)
+
+Branch `patch/0.7.2-keep-profile`. 🔍 In review (#58). A bug fix after 0.7.1:
+the sliding-expiry refresh after a successful check-in called `setSession`
+without the profile, so the session lost the member's name, initials and photo
+and the header fell back to the person icon until they signed in again.
+
+- `checkIn` and `assessCheckIn` now return `profile: profileFor(contact)` for
+  the contact they already read (no extra TidyHQ call), and `checkInAction`
+  renews the session with it. So the header profile refreshes at sign-in and at
+  every check-in, and a pre-0.7.0 session with no profile gets one at its next
+  check-in. Only the `point_not_saved` path has no fresh contact; it keeps the
+  session's own profile.
+- `setSession`'s `profile` is now required (no `{}` default), so a caller that
+  forgets it fails to compile.
+- Test first: a renewal writes the fresh name and photo, a session with no
+  profile gets one, a repeat tap refreshes it, and `point_not_saved` keeps the
+  session's; plus a check folded into the existing check-in e2e test that the
+  header chip still shows the member's initials after checking in.
+- Docs: the "Can go stale" note above, the comment in `session.ts` and
+  `.claude/rules/app-pages.md` now say the profile refreshes at sign-in and at
+  every check-in.
 
 ## E2E specs that change
 

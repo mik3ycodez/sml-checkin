@@ -32,6 +32,7 @@ describe("StatusScreen", () => {
     status: "already_checked_in",
     ...DANTE,
     total: 5,
+    profile: {},
   } as const;
 
   describe("checked in by this tap", () => {
@@ -352,7 +353,10 @@ describe("CheckinProblem", () => {
 describe("the volunteer link", () => {
   const STAFF = 'href="/admin/events/ev_tonight/checkin"';
   const screens: [string, ShownStatus][] = [
-    ["checked in", { status: "already_checked_in", ...DANTE, total: 5 }],
+    [
+      "checked in",
+      { status: "already_checked_in", ...DANTE, total: 5, profile: {} },
+    ],
     ["membership inactive", { status: "membership_inactive", ...DANTE }],
     ["not open", { status: "not_open", ...DANTE, opensAt: new Date() }],
     ["points unreadable", { status: "points_unreadable", ...DANTE }],
@@ -367,7 +371,7 @@ describe("the volunteer link", () => {
 
   it("is on the check-in result screens", () => {
     const { html } = render(
-      { status: "already_checked_in", ...DANTE, total: 5 },
+      { status: "already_checked_in", ...DANTE, total: 5, profile: {} },
       { kind: "awarded", points: 1 },
     );
     expect(html).toContain(STAFF);
@@ -409,6 +413,7 @@ describe("the My points and status link", () => {
       status: "already_checked_in",
       ...DANTE,
       total: 5,
+      profile: {},
     } as const;
     for (const notice of [
       null,
@@ -432,7 +437,7 @@ describe("no member screen sends someone to a volunteer for what a volunteer can
     ["points unreadable", { status: "points_unreadable", ...DANTE }, null],
     [
       "point not saved",
-      { status: "already_checked_in", ...DANTE, total: 5 },
+      { status: "already_checked_in", ...DANTE, total: 5, profile: {} },
       { kind: "point_not_saved" },
     ],
     ["unknown event", { status: "unknown_event" }, null],

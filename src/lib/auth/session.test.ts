@@ -228,10 +228,10 @@ describe("cookie wrappers", () => {
   });
 
   it("setSession writes a signed, httpOnly, lax cookie that lasts 90 days", async () => {
-    await setSession("c_dante");
+    await setSession("c_dante", {});
     expect(cookieStore.set).toHaveBeenCalledWith(
       SESSION_COOKIE,
-      signSession("c_dante", SECRET, NOW),
+      signSession("c_dante", SECRET, NOW, {}),
       expect.objectContaining({
         httpOnly: true,
         sameSite: "lax",
@@ -244,14 +244,14 @@ describe("cookie wrappers", () => {
   it("marks the cookie secure when APP_ORIGIN is https", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("APP_ORIGIN", "https://checkin.example.org");
-    await setSession("c_dante");
+    await setSession("c_dante", {});
     expect(cookieStore.set.mock.calls[0][2]).toMatchObject({ secure: true });
   });
 
   it("does not mark the cookie secure in development", async () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("APP_ORIGIN", "");
-    await setSession("c_dante");
+    await setSession("c_dante", {});
     expect(cookieStore.set.mock.calls[0][2]).toMatchObject({ secure: false });
   });
 
