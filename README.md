@@ -11,7 +11,7 @@ system of record; this app is a thin layer on top of it.
 - Members get a status page; the SML Board gets event QR codes, live attendee
   lists, and manual check-in.
 
-**Status:** v0.7.1, running on mock TidyHQ. Live TidyHQ is planned (1.0.0).
+**Status:** running on mock TidyHQ, live TidyHQ planned (1.0.0).
 
 ## Try the demo
 
@@ -30,13 +30,13 @@ scenario. The demo data resets whenever the server restarts.
 ## How it works
 
 - TidyHQ is the only data store. The app has no database of its own.
-- A check-in makes exactly three writes to TidyHQ: adding the member to the
-  event's group, adding the points, and (for staff check-ins only) a note
-  saying a staff member did it.
+- A check-in makes at most three writes to TidyHQ, in this order: adding the
+  member to the event's group, adding the points, and then (for staff
+  check-ins only) a note saying a staff member did it.
 - If something fails partway, a member can miss a point but is never awarded
   one twice.
-- Admin and volunteer access fail closed: if TidyHQ can't confirm who someone
-  is, they aren't let in.
+- Admin and volunteer access fail closed: if the admin or volunteer group
+  can't be read, nobody is let in.
 - The server runs as exactly one instance, because the mock TidyHQ keeps its
   data in memory.
 
@@ -50,7 +50,7 @@ App Service deployed from GitHub Actions with OIDC.
 
 ## Run it locally
 
-Requires Node 24 or newer (see `.nvmrc`).
+Requires Node 24 (see `.nvmrc`).
 
 ```bash
 npm install                  # install dependencies

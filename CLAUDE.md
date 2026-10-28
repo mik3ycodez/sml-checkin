@@ -143,7 +143,8 @@ Before opening any PR, check:
 - **E2E cost:** keep new specs lean; specs that wait on real time run in one
   project only.
 - **Docs:** update `docs/plans` status and CLAUDE.md or the matching
-  `.claude/rules/` file when behavior changes.
+  `.claude/rules/` file when behavior changes. The README's "How it works"
+  summary must stay in step with the Invariants.
 
 Changing an existing test: say which test and why in both the summary and the
 PR description.
